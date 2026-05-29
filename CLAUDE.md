@@ -228,6 +228,6 @@ instrumentation code related to these:
 Schema lives in `supabase/migrations/`. Never modify the database directly.
 All schema changes go through migration files. The canonical table list:
 
-`users` · `groups` · `group_members` · `habits` · `user_habits` · `checkins` · `debts`
+`users` · `groups` · `group_members` · `habits` · `user_habits` · `checkins` · `roulette_entries` · `punishment_suggestions` · `debts` · `proposals` · `proposal_votes`
 
 Full schema definition is in `supabase/migrations/001_initial.sql`.
