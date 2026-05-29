@@ -1,0 +1,10 @@
+[
+  { "id": 1, "text": "Buy the group breakfast", "emoji": "🥐", "category": "food" },
+  { "id": 2, "text": "Karaoke solo on group call", "emoji": "🎤", "category": "performance" },
+  { "id": 3, "text": "Post embarrassing throwback photo", "emoji": "📸", "category": "social" },
+  { "id": 4, "text": "Do 50 pushups on video call", "emoji": "💪", "category": "exercise" },
+  { "id": 5, "text": "Write a poem about your failure", "emoji": "📝", "category": "creative" },
+  { "id": 6, "text": "Change your profile pic for a week", "emoji": "🤡", "category": "social" },
+  { "id": 7, "text": "Cook dinner for the group", "emoji": "🍳", "category": "food" },
+  { "id": 8, "text": "Send a voice note singing a song", "emoji": "🎵", "category": "performance" }
+]
