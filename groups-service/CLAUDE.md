@@ -30,8 +30,20 @@ MAX_GROUP_SIZE=8
 ## Database Tables Owned
 `groups` · `group_members`
 
-Other services must NOT write to these tables directly.
-Cross-service data needs go through HTTP calls to this service.
+`proposals` and `proposal_votes` are group-domain tables not yet implemented.
+Other services must NOT write to `groups` or `group_members` directly.
+
+## Internal Package Structure
+
+```
+internal/
+├── model/
+│   └── group.go         ← Group, Member, GroupWithMembers structs
+├── db/
+│   └── queries.go       ← all pgxpool queries + GenerateInviteCode
+└── handler/
+    └── group_handler.go ← GroupHandler, one method per endpoint
+```
 
 ## Key Patterns
 
@@ -52,7 +64,7 @@ if port == "" {
 http.ListenAndServe(":"+port, r)
 ```
 
-### Error handling convention
+### Error response convention
 ```go
 func writeError(w http.ResponseWriter, status int, msg string) {
     w.Header().Set("Content-Type", "application/json")
@@ -63,7 +75,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 ### Database connection pool (pgx)
 Use `pgxpool`, not single connections. Pool is initialized once at startup
-and passed via dependency injection, never as a global variable.
+in `main()` and passed to `handler.NewGroupHandler(pool)`.
 
 ### Request context — userID
 The API gateway attaches `X-User-ID` to every authenticated request.
@@ -72,7 +84,14 @@ Read it from the header — do not re-validate the JWT here.
 userID := r.Header.Get("X-User-ID")
 ```
 
+### Invite code generation
+`db.GenerateInviteCode()` returns an 8-character alphanumeric code using
+`crypto/rand`. Characters exclude O, 0, I, 1 to avoid visual ambiguity.
+
 ## Service-Specific Notes
-MAX_GROUP_SIZE=8 is enforced at the service layer before any DB write.
-This is both a product constraint and a free-tier protection measure
-(limits WebSocket connections per room in realtime-service).
+- MAX_GROUP_SIZE=8 is enforced in `JoinGroup` before any DB write.
+  This is both a product constraint and a free-tier protection (limits
+  concurrent WebSocket connections per room in realtime-service).
+- `JoinGroup` returns 404 (not 403) on wrong invite code to avoid leaking
+  group existence to non-members.
+- Members list always returns `[]` (not `null`) for empty groups.

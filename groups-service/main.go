@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 
+	"github.com/dydi/groups-service/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -36,16 +36,12 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		w.Write([]byte("ok"))
 	})
 
-	// TODO: mount group handlers
-	r.Get("/groups/{id}", func(w http.ResponseWriter, r *http.Request) {
-		writeError(w, http.StatusNotImplemented, "not implemented")
-	})
+	h := handler.NewGroupHandler(pool)
+	r.Post("/groups", h.CreateGroup)
+	r.Get("/groups/{id}", h.GetGroup)
+	r.Post("/groups/{id}/join", h.JoinGroup)
+	r.Get("/groups/{id}/members", h.ListMembers)
+	r.Delete("/groups/{id}/leave", h.LeaveGroup)
 
 	return r
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
