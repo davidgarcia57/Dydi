@@ -7,11 +7,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/dydi/realtime-service/internal/hub"
 	"github.com/dydi/realtime-service/internal/handler"
+	"github.com/dydi/realtime-service/internal/hub"
 )
 
 func main() {
+	r := setupRouter()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8084"
+	}
+	http.ListenAndServe(":"+port, r)
+}
+
+func setupRouter() *chi.Mux {
 	h := hub.New()
 	go h.Run()
 
@@ -28,13 +37,7 @@ func main() {
 	})
 
 	r.Get("/ws/{groupID}", handler.WebSocket(h))
-
-	// Internal HTTP endpoint for other services to broadcast events
 	r.Post("/internal/broadcast", handler.Broadcast(h))
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8084"
-	}
-	http.ListenAndServe(":"+port, r)
+	return r
 }

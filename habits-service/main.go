@@ -18,8 +18,15 @@ func main() {
 	}
 	defer pool.Close()
 
-	_ = pool // passed to handlers via dependency injection
+	r := setupRouter(pool)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8083"
+	}
+	http.ListenAndServe(":"+port, r)
+}
 
+func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -34,11 +41,7 @@ func main() {
 		writeError(w, http.StatusNotImplemented, "not implemented")
 	})
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8083"
-	}
-	http.ListenAndServe(":"+port, r)
+	return r
 }
 
 func writeError(w http.ResponseWriter, status int, msg string) {

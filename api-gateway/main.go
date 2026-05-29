@@ -11,6 +11,15 @@ import (
 )
 
 func main() {
+	r := setupRouter()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	http.ListenAndServe(":"+port, r)
+}
+
+func setupRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -30,9 +39,5 @@ func main() {
 
 	r.Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	http.ListenAndServe(":"+port, r)
+	return r
 }
