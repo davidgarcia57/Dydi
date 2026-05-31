@@ -24,8 +24,13 @@ func WebSocket(h *hub.Hub) http.HandlerFunc {
 		groupID := chi.URLParam(r, "groupID")
 		userID := r.Header.Get("X-User-ID")
 
+		if h.RoomConnectionCount(groupID) >= maxConnections() {
+			http.Error(w, "Group connection limit reached", http.StatusConflict)
+			return
+		}
+
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: true,
 		})
 		if err != nil {
 			return

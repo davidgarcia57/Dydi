@@ -11,12 +11,13 @@ import (
 
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var tokenStr string
 		header := r.Header.Get("Authorization")
-		if !strings.HasPrefix(header, "Bearer ") {
-			http.Error(w, `{"error":"missing token"}`, http.StatusUnauthorized)
-			return
+		if strings.HasPrefix(header, "Bearer ") {
+			tokenStr = strings.TrimPrefix(header, "Bearer ")
+		} else {
+			tokenStr = r.URL.Query().Get("token")
 		}
-		tokenStr := strings.TrimPrefix(header, "Bearer ")
 
 		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 			return []byte(os.Getenv("SUPABASE_JWT_SECRET")), nil
