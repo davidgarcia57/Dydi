@@ -109,3 +109,41 @@ func RemoveMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID strin
 	)
 	return err
 }
+
+func GetGroupsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) ([]model.GroupWithMembers, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT id, name, invite_code, created_at
+		 FROM groups
+		 WHERE id IN (
+		   SELECT group_id FROM group_members WHERE user_id = $1
+		 )
+		 ORDER BY created_at ASC`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var groups []model.GroupWithMembers
+	for rows.Next() {
+		var g model.Group
+		if err := rows.Scan(&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt); err != nil {
+			return nil, err
+		}
+		groups = append(groups, model.GroupWithMembers{Group: g, Members: []model.Member{}})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i, g := range groups {
+		members, err := GetMembers(ctx, pool, g.ID)
+		if err != nil {
+			return nil, err
+		}
+		groups[i].Members = members
+	}
+
+	return groups, nil
+}

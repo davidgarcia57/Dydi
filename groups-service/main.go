@@ -36,12 +36,21 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		w.Write([]byte("ok"))
 	})
 
+	u := handler.NewUserHandler(pool)
+	r.Post("/users/sync", u.SyncUser)
+
 	h := handler.NewGroupHandler(pool)
+	r.Get("/groups", h.ListMyGroups)
 	r.Post("/groups", h.CreateGroup)
 	r.Get("/groups/{id}", h.GetGroup)
 	r.Post("/groups/{id}/join", h.JoinGroup)
 	r.Get("/groups/{id}/members", h.ListMembers)
 	r.Delete("/groups/{id}/leave", h.LeaveGroup)
+
+	p := handler.NewProposalHandler(pool)
+	r.Post("/groups/{groupID}/proposals", p.CreateProposal)
+	r.Get("/groups/{groupID}/proposals", p.ListProposals)
+	r.Post("/proposals/{proposalID}/vote", p.Vote)
 
 	return r
 }

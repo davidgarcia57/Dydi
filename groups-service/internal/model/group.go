@@ -2,6 +2,13 @@ package model
 
 import "time"
 
+type User struct {
+	ID          string    `json:"id"`
+	DisplayName string    `json:"display_name"`
+	AvatarURL   *string   `json:"avatar_url,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Group struct {
 	ID         string    `json:"id"`
 	Name       string    `json:"name"`

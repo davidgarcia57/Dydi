@@ -92,3 +92,76 @@ func TestLeaveGroup_MissingUserID(t *testing.T) {
 		t.Fatalf("expected 400, got %d", w.Code)
 	}
 }
+
+func TestSyncUser_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"display_name":"David"}`)
+	req := httptest.NewRequest(http.MethodPost, "/users/sync", body)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestSyncUser_MissingDisplayName(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{}`)
+	req := httptest.NewRequest(http.MethodPost, "/users/sync", body)
+	req.Header.Set("X-User-ID", "user-123")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestListMyGroups_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/groups", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestCreateProposal_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"type":"add_habit","payload":{"habit_id":"abc"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/groups/some-group/proposals", body)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestVote_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"approved":true}`)
+	req := httptest.NewRequest(http.MethodPost, "/proposals/some-proposal/vote", body)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestCreateProposal_InvalidType(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"type":"ban_user","payload":{}}`)
+	req := httptest.NewRequest(http.MethodPost, "/groups/some-group/proposals", body)
+	req.Header.Set("X-User-ID", "user-123")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
