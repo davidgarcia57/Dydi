@@ -37,7 +37,7 @@ func setupRouter() *chi.Mux {
 		r.Mount("/penalties", proxy.To(os.Getenv("HABITS_SERVICE_URL")))
 	})
 
-	r.Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
+	r.With(apimiddleware.Auth).Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
 
 	return r
 }

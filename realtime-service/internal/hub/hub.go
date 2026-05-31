@@ -39,14 +39,20 @@ func (h *Hub) Run() {
 
 		case c := <-h.unregister:
 			h.mu.Lock()
+			removed := false
 			if room, ok := h.rooms[c.groupID]; ok {
-				delete(room, c)
-				if len(room) == 0 {
-					delete(h.rooms, c.groupID)
+				if _, exists := room[c]; exists {
+					delete(room, c)
+					if len(room) == 0 {
+						delete(h.rooms, c.groupID)
+					}
+					removed = true
 				}
 			}
 			h.mu.Unlock()
-			close(c.send)
+			if removed {
+				close(c.send)
+			}
 
 		case ev := <-h.broadcast:
 			h.mu.RLock()
@@ -54,8 +60,9 @@ func (h *Hub) Run() {
 				select {
 				case c.send <- ev:
 				default:
-					close(c.send)
-					delete(h.rooms[ev.GroupID], c)
+					// Unregister client asynchronously to avoid concurrent map modification
+					// under RLock. Unregister will close the channel safely.
+					go h.Unregister(c)
 				}
 			}
 			h.mu.RUnlock()
@@ -75,4 +82,13 @@ func (h *Hub) ConnectionCount() int {
 		n += len(room)
 	}
 	return n
+}
+
+func (h *Hub) RoomConnectionCount(groupID string) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if room, ok := h.rooms[groupID]; ok {
+		return len(room)
+	}
+	return 0
 }
