@@ -1,8 +1,6 @@
 # Dydi
 
-SaaS de accountability social donde grupos de amigos rastrean hábitos diarios y gamifican las consecuencias.
-
-Proyecto académico — UTD Integradora 2025.
+SaaS de accountability social donde grupos de amigos rastrean hábitos diarios y gamifican las consecuencias. Proyecto académico — UTD Integradora 2025.
 
 ---
 
@@ -16,11 +14,11 @@ habits-service/     → Go 1.22 + chi v5               (Render — Cuenta 3)
 realtime-service/   → Go 1.22 + WebSocket            (Render — Cuenta 4)
 ```
 
-Auth y base de datos via **Supabase** (free tier).
+Auth y base de datos via **Supabase** (free tier). El único punto de entrada público es `api-gateway`.
 
 ---
 
-## Requisitos para desarrollo local
+## Requisitos
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) con WSL2 habilitado
 - Git
@@ -29,7 +27,7 @@ No necesitas Go ni Node instalados localmente — Docker los provee.
 
 ---
 
-## Configuración del entorno
+## Configuración inicial (una sola vez)
 
 ### 1. Clonar el repositorio
 
@@ -38,26 +36,21 @@ git clone <url-del-repo>
 cd dydi
 ```
 
-### 2. Crear los archivos de variables de entorno
-
-Copia los `.env.example` de cada servicio y llena los valores:
+### 2. Crear el archivo de variables de entorno
 
 ```bash
-cp api-gateway/.env.example      api-gateway/.env
-cp groups-service/.env.example   groups-service/.env
-cp habits-service/.env.example   habits-service/.env
-cp realtime-service/.env.example realtime-service/.env
-cp frontend/.env.example         frontend/.env
+cp .env.example .env
 ```
 
-Los valores que necesitas del proyecto Supabase:
+Abre `.env` y llena las tres variables con los valores de tu proyecto en Supabase:
 
 | Variable | Dónde encontrarla |
 |---|---|
-| `SUPABASE_JWT_SECRET` | Supabase Dashboard → Project Settings → API → JWT Secret |
-| `DATABASE_URL` | Supabase Dashboard → Project Settings → Database → Connection string (URI) |
-| `VITE_SUPABASE_URL` | Supabase Dashboard → Project Settings → API → Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase Dashboard → Project Settings → API → anon public |
+| `SUPABASE_JWT_SECRET` | Dashboard → Settings → API → **JWT Secret** |
+| `VITE_SUPABASE_URL` | Dashboard → Settings → API → **Project URL** |
+| `VITE_SUPABASE_ANON_KEY` | Dashboard → Settings → API → **anon public** |
+
+> El resto de las variables (puertos, DB local, URLs internas) ya están configuradas en `docker-compose.yml` y no requieren ajuste.
 
 ### 3. Levantar todos los servicios
 
@@ -65,7 +58,7 @@ Los valores que necesitas del proyecto Supabase:
 docker-compose up --build
 ```
 
-La primera vez tarda varios minutos mientras descarga las imágenes base. Las siguientes ejecuciones son mucho más rápidas.
+La primera vez tarda varios minutos descargando imágenes. Las siguientes son mucho más rápidas.
 
 ---
 
@@ -80,7 +73,7 @@ La primera vez tarda varios minutos mientras descarga las imágenes base. Las si
 | realtime-service | http://localhost:8084 |
 | PostgreSQL | localhost:5432 |
 
-> **Nota:** En local se usa PostgreSQL en Docker. En producción se usa la base de datos de Supabase.
+> En local se usa PostgreSQL corriendo en Docker. En producción se usa la base de datos de Supabase.
 
 ---
 
@@ -90,50 +83,43 @@ La primera vez tarda varios minutos mientras descarga las imágenes base. Las si
 docker-compose ps
 ```
 
-Todos los servicios deben aparecer como `Up`. También puedes probar los health checks:
+Todos los servicios deben aparecer como `Up`. También puedes probar los health checks manualmente:
 
 ```bash
-curl http://localhost:8080/health   # api-gateway
-curl http://localhost:8082/health   # groups-service
-curl http://localhost:8083/health   # habits-service
-curl http://localhost:8084/health   # realtime-service
+curl http://localhost:8080/health
+curl http://localhost:8082/health
+curl http://localhost:8083/health
+curl http://localhost:8084/health
 ```
 
 ---
 
 ## Correr los tests
 
-### Servicios Go
+Los tests corren automáticamente en GitHub Actions en cada PR. Para correrlos localmente necesitas Go instalado:
 
 ```bash
-# Requiere Go instalado: sudo snap install go --classic
-cd api-gateway && go test ./...
-cd ../groups-service && go test ./...
-cd ../habits-service && go test ./...
-cd ../realtime-service && go test ./...
+# instalar Go si no lo tienes
+sudo snap install go --classic
+
+# correr tests por servicio
+cd api-gateway      && go test ./... && cd ..
+cd groups-service   && go test ./... && cd ..
+cd habits-service   && go test ./... && cd ..
+cd realtime-service && go test ./... && cd ..
 ```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run test
-```
-
-Los tests también corren automáticamente en GitHub Actions en cada PR.
 
 ---
 
 ## Flujo de trabajo en equipo
 
-1. Crea una rama desde `main`: `git checkout -b feature/nombre-feature`
-2. Haz tus cambios **solo dentro del directorio del servicio que te corresponde**
+1. Crea tu rama desde `main`: `git checkout -b feature/nombre-feature`
+2. Trabaja **únicamente dentro del directorio del servicio que te corresponde**
 3. Abre un Pull Request a `main`
-4. GitHub Actions corre los tests y el build automáticamente
-5. Solo merge cuando el CI esté en verde ✅
+4. GitHub Actions corre build y tests automáticamente
+5. Merge solo cuando el CI esté en verde ✅
 
-> Cada servicio es independiente. **No modifiques archivos fuera de tu directorio de servicio** sin avisar al equipo.
+> Cada servicio se despliega de forma independiente. **No modifiques archivos fuera de tu directorio sin avisar al equipo.**
 
 ---
 
@@ -141,20 +127,21 @@ Los tests también corren automáticamente en GitHub Actions en cada PR.
 
 ```
 dydi/
-├── api-gateway/        ← Único punto de entrada público
-├── groups-service/     ← Grupos y membresías
-├── habits-service/     ← Hábitos, check-ins, rachas y penalizaciones
+├── .env.example        ← copia esto como .env y llena los valores
+├── docker-compose.yml  ← orquestación local
+├── api-gateway/        ← único punto de entrada público
+├── groups-service/     ← grupos y membresías
+├── habits-service/     ← hábitos, check-ins, rachas y penalizaciones
 ├── realtime-service/   ← WebSocket hub para eventos en tiempo real
-├── frontend/           ← Vue 3 SPA
-├── supabase/
-│   └── migrations/     ← Schema de la base de datos
-└── docker-compose.yml  ← Orquestación local
+├── frontend/           ← Vue 3 SPA (PWA-ready)
+└── supabase/
+    └── migrations/     ← schema de la base de datos
 ```
 
 ---
 
-## Variables de entorno de producción
+## Variables de entorno por servicio (producción / standalone)
 
-Cada servicio tiene un `.env.example` con las variables necesarias. En producción, configura estas variables en el dashboard de Render (Environment → Environment Variables).
+Cada servicio tiene su propio `.env.example` con las variables necesarias para correrlo de forma independiente (sin docker-compose) o para configurar las variables en Render.
 
 **Nunca subas archivos `.env` al repositorio.**
