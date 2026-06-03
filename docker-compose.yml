@@ -26,6 +26,7 @@ services:
       HABITS_SERVICE_URL: http://habits-service:8083
       REALTIME_SERVICE_URL: http://realtime-service:8084
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-http://host.docker.internal:54321/auth/v1/.well-known/jwks.json}
       ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
       - groups-service

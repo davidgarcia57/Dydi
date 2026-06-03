@@ -17,12 +17,23 @@ func To(target string) http.Handler {
 		r.URL.Scheme = u.Scheme
 		r.URL.Host = u.Host
 		r.Host = u.Host
-		// strip the /api prefix that chi already consumed
-		if i := strings.Index(r.URL.Path, u.Path); i >= 0 {
-			r.URL.Path = r.URL.Path[i:]
-		}
+		r.URL.Path = downstreamPath(u.Path, r.URL.Path)
 	}
 	return rp
+}
+
+func downstreamPath(targetPath, requestPath string) string {
+	path := strings.TrimPrefix(requestPath, "/api")
+	if targetPath != "" && targetPath != "/" {
+		path = strings.TrimRight(targetPath, "/") + "/" + strings.TrimLeft(path, "/")
+	}
+	if path == "" {
+		return "/"
+	}
+	if !strings.HasPrefix(path, "/") {
+		return "/" + path
+	}
+	return path
 }
 
 func WebSocket(target string) http.Handler {

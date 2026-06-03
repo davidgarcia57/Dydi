@@ -55,13 +55,19 @@ Del output de `supabase status`, copia:
 | `anon key` | `VITE_SUPABASE_ANON_KEY` |
 | `JWT secret` | `SUPABASE_JWT_SECRET` |
 
+Supabase CLI reciente puede emitir access tokens con firma `ES256`. Para ese caso, `api-gateway` valida contra el JWKS local. En local deja:
+
+```env
+SUPABASE_JWKS_URL=http://host.docker.internal:54321/auth/v1/.well-known/jwks.json
+```
+
 En local normalmente `VITE_SUPABASE_URL` queda como:
 
 ```env
 VITE_SUPABASE_URL=http://127.0.0.1:54321
 ```
 
-Importante: el `anon key` y el `JWT secret` deben salir del mismo `supabase status`. Si no coinciden, el frontend podra iniciar sesion, pero `api-gateway` rechazara el token.
+Importante: el `anon key`, el `JWT secret` y el JWKS deben corresponder al mismo Supabase local. Si no coinciden, el frontend podra iniciar sesion, pero `api-gateway` rechazara el token.
 
 ### 3. Crear el archivo de variables de entorno
 
@@ -69,7 +75,7 @@ Importante: el `anon key` y el `JWT secret` deben salir del mismo `supabase stat
 cp .env.example .env
 ```
 
-Abre `.env` y llena las tres variables con los valores locales que imprimio `supabase status`.
+Abre `.env` y llena las variables de Supabase con los valores locales que imprimio `supabase status`.
 
 > El resto de las variables (puertos, DB local, URLs internas) ya estan configuradas en `docker-compose.yml` y no requieren ajuste.
 

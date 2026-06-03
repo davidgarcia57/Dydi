@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	apimiddleware "github.com/dydi/api-gateway/internal/middleware"
 	"github.com/dydi/api-gateway/internal/proxy"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 func main() {
