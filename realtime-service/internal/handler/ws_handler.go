@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -24,33 +25,41 @@ func WebSocket(h *hub.Hub) http.HandlerFunc {
 		groupID := chi.URLParam(r, "groupID")
 		userID := r.Header.Get("X-User-ID")
 
+		if userID == "" {
+			http.Error(w, `{"error":"missing X-User-ID"}`, http.StatusUnauthorized)
+			return
+		}
+
 		if h.RoomConnectionCount(groupID) >= maxConnections() {
-			http.Error(w, "Group connection limit reached", http.StatusConflict)
+			http.Error(w, `{"error":"group connection limit reached"}`, http.StatusConflict)
 			return
 		}
 
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // connections arrive via api-gateway, not directly from browsers
 		})
 		if err != nil {
 			return
 		}
 
-		ctx := r.Context()
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+
 		client := hub.NewClient(groupID, userID, conn)
 		h.Register(client)
 		defer h.Unregister(client)
 
 		h.Broadcast(hub.Event{
-			Type:    "member_online",
+			Type:    hub.EventMemberOnline,
 			GroupID: groupID,
 			UserID:  userID,
 		})
 
+		go client.ReadPump(ctx, cancel)
 		client.WritePump(ctx)
 
 		h.Broadcast(hub.Event{
-			Type:    "member_offline",
+			Type:    hub.EventMemberOffline,
 			GroupID: groupID,
 			UserID:  userID,
 		})
