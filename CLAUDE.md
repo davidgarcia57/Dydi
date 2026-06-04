@@ -74,7 +74,7 @@ is acceptable and intentional.
 | Frontend styling | Tailwind CSS (utility classes only) | v3 |
 | Frontend realtime | @vueuse/core `useWebSocket` | latest |
 | Frontend hosting | Vercel (free) | — |
-| Backend language | Go | 1.22 |
+| Backend language | Go | 1.24 |
 | HTTP router | go-chi/chi | v5 |
 | WebSocket | nhooyr.io/websocket | latest |
 | DB driver | jackc/pgx | v5 |
