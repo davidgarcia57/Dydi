@@ -1,28 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Hanken+Grotesk:wght@500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --color-bg:       #120F0D;
-  --color-surface:  #211916;
-  --color-surface2: #2B211D;
-  --color-primary:  #F05D4F;
-  --color-live:     #14B8A6;
-  --color-success:  #22C55E;
-  --color-danger:   #F43F5E;
-  --color-warning:  #F59E0B;
-  --color-text:     #FFF7ED;
-  --color-muted:    #C4A99B;
+  /* Fondo & superficie */
+  --color-cream:    #F4EEE3;
+  --color-surface:  #FCF9F3;
+  --color-paper:    #FFFFFF;
+  --color-hairline: #E7DECD;
+
+  /* Tinta */
+  --color-ink:       #2A251F;
+  --color-ink-soft:  #6F6557;
+  --color-ink-faint: #A89C89;
+
+  /* Estados semánticos */
+  --color-sage:  #A8C39A;
+  --color-amber: #E9C281;
+  --color-coral: #EDA48F;
+
+  /* Acentos */
+  --color-sage-deep:   #7CA39D;
+  --color-terracotta:  #C26F4D;
+  --color-wash:        #DFEBE8;
 }
 
 body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  font-family: 'Inter', sans-serif;
+  background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: 'Hanken Grotesk', system-ui, sans-serif;
 }
 
 @layer utilities {
   .font-display {
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Newsreader', Georgia, serif;
+  }
+
+  /* Etiqueta tipo eyebrow: MAYÚSCULAS, tracking amplio, bold */
+  .text-eyebrow {
+    font-family: 'Hanken Grotesk', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.6875rem;   /* 11px */
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
   }
 }

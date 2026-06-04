@@ -45,33 +45,55 @@ export default {
 
 ## Design System (Dydi Identity)
 
-### Colors — use these CSS variables, never hardcode hex in components
-```css
---color-bg:       #0D0D0D;   /* page background */
---color-surface:  #1A1A1A;   /* cards, modals */
---color-surface2: #242424;   /* nested surfaces */
---color-primary:  #7C5CFC;   /* violet — primary actions */
---color-live:     #22D3EE;   /* cyan — realtime/live indicators */
---color-success:  #22C55E;   /* green — streaks, completed */
---color-danger:   #FF4D4D;   /* red — debts, missed habits */
---color-warning:  #F97316;   /* orange — mid progress */
---color-text:     #F5F5F5;   /* primary text */
---color-muted:    #94A3B8;   /* secondary text */
+**Paleta cálida / clara. No dark mode. No cambiar sin consultar.**
+
+### Colores — tokens en Tailwind y CSS variables
+| Tailwind class | CSS var | Hex | Uso |
+|---|---|---|---|
+| `bg-cream` | `--color-cream` | `#F4EEE3` | Fondo principal de la app |
+| `bg-surface` | `--color-surface` | `#FCF9F3` | Cards, modales, superficies |
+| `bg-paper` | `--color-paper` | `#FFFFFF` | Input, superficies muy limpias |
+| `border-hairline` | `--color-hairline` | `#E7DECD` | Bordes y divisores |
+| `text-ink` | `--color-ink` | `#2A251F` | Texto principal |
+| `text-ink-soft` | `--color-ink-soft` | `#6F6557` | Texto secundario |
+| `text-ink-faint` | `--color-ink-faint` | `#A89C89` | Placeholders, deshabilitados |
+| `bg-sage` / `text-sage` | `--color-sage` | `#A8C39A` | Estado: cumplió |
+| `bg-amber` / `text-amber` | `--color-amber` | `#E9C281` | Estado: pendiente |
+| `bg-coral` / `text-coral` | `--color-coral` | `#EDA48F` | Estado: falló |
+| `bg-sage-deep` / `text-sage-deep` | `--color-sage-deep` | `#7CA39D` | **CTA primario** (Hacer check-in) |
+| `bg-terracotta` / `text-terracotta` | `--color-terracotta` | `#C26F4D` | **CTA secundario** (Girar ruleta), marca |
+| `bg-wash` | `--color-wash` | `#DFEBE8` | Fondos de acento suave |
+
+### Tipografía
+| Fuente | Clase Tailwind | Uso |
+|---|---|---|
+| **Newsreader** (serif) | `font-serif` o `font-display` | Títulos display, números hero (racha, countdown, score) |
+| **Hanken Grotesk** (sans) | `font-sans` (default) | Todo el UI: botones, etiquetas, cuerpo |
+
+Pesos Hanken Grotesk:
+- `font-bold` (700) — botones, nombres, labels clave
+- `font-semibold` (600) — etiquetas y hábitos
+- `font-medium` (500) — cuerpo, descripciones
+
+Eyebrow (clase utilitaria `.text-eyebrow`): `HANKEN GROTESK 700 · 11px · 0.1em tracking · UPPERCASE · color ink-soft`
+
+### Cards y superficies
+```
+Card elevada → rounded-card shadow-card bg-surface
+Card plana   → rounded-card shadow-flat bg-surface
+Pill / tag   → rounded-pill px-3 py-1 text-sm font-semibold
 ```
 
-### Typography
-- Display / big numbers (streaks, percentages, countdown): `font-bold text-4xl+`, font: DM Sans
-- UI / body: Inter
-- Key rule: **large bold numbers + small muted descriptions** = the Dydi look
+### Botones
+```
+Primario  → bg-sage-deep text-paper rounded-pill px-6 py-3 font-bold
+Secundario → bg-terracotta text-paper rounded-pill px-6 py-3 font-bold
+Ghost     → border border-ink/20 text-ink rounded-pill px-6 py-3 font-bold bg-transparent
+```
 
-### Tailwind classes for Dydi surfaces
-```
-bg-[#0D0D0D]     ← page background
-bg-[#1A1A1A]     ← card background
-bg-[#242424]     ← nested card
-rounded-xl        ← standard card radius
-border border-white/5  ← subtle card border
-```
+### Regla de oro del diseño Dydi
+**Número grande en Newsreader + descripción pequeña en Hanken Grotesk tenue = el look Dydi.**
+Ejemplo: racha `13` en `font-serif text-5xl text-terracotta` + `días de racha` en `text-eyebrow`.
 
 ---
 
