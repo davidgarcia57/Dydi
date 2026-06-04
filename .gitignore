@@ -20,6 +20,7 @@ frontend/.vite/
 # Claude Code
 .claude/
 .agent/
+.agents/
 
 # OS
 .DS_Store
