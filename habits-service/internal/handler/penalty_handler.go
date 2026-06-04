@@ -80,7 +80,26 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 
 	weekStart := db.CurrentWeekStart().Format("2006-01-02")
 
-	entry, err := db.GetOrCreateRouletteEntry(r.Context(), h.pool, body.GroupID, body.DebtorID, weekStart)
+	punishment, err := h.randomPunishment()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not select punishment")
+		return
+	}
+	var emoji *string
+	if punishment.Emoji != "" {
+		emoji = &punishment.Emoji
+	}
+
+	// Wrap the three writes in a transaction so a mid-flight failure cannot
+	// leave a debt without a completed entry (or vice-versa).
+	tx, err := h.pool.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck — rollback on any early return
+
+	entry, err := db.GetOrCreateRouletteEntry(r.Context(), tx, body.GroupID, body.DebtorID, weekStart)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -90,30 +109,23 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	punishment, err := h.randomPunishment()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not select punishment")
-		return
-	}
-
-	var emoji *string
-	if punishment.Emoji != "" {
-		emoji = &punishment.Emoji
-	}
-
-	debt, err := db.CreateDebt(r.Context(), h.pool, body.GroupID, body.DebtorID, entry.ID, punishment.Text, emoji, weekStart)
+	debt, err := db.CreateDebt(r.Context(), tx, entry.ID, punishment.Text, emoji)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create debt")
 		return
 	}
 
-	if err := db.MarkEntryCompleted(r.Context(), h.pool, entry.ID); err != nil {
+	if err := db.MarkEntryCompleted(r.Context(), tx, entry.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not finalize spin")
 		return
 	}
 
-	go h.notifyRealtime(body.GroupID, debt)
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
 
+	go h.notifyRealtime(body.GroupID, debt)
 	writeJSON(w, http.StatusCreated, debt)
 }
 

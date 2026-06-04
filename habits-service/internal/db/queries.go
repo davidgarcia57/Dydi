@@ -5,10 +5,20 @@ import (
 	"time"
 
 	"github.com/dydi/habits-service/internal/model"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// currentWeekStart returns the Monday of the current ISO week in UTC.
+// DBTX allows passing either *pgxpool.Pool or pgx.Tx to query functions,
+// enabling transactional and non-transactional callers to share the same code.
+type DBTX interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+// CurrentWeekStart returns the Monday of the current ISO week in UTC.
 func CurrentWeekStart() time.Time {
 	now := time.Now().UTC()
 	weekday := int(now.Weekday())
@@ -40,15 +50,15 @@ func ListHabits(ctx context.Context, pool *pgxpool.Pool) ([]model.Habit, error) 
 	return habits, rows.Err()
 }
 
-func AssignHabit(ctx context.Context, pool *pgxpool.Pool, userID, groupID, habitID string) (*model.UserHabit, error) {
+func AssignHabit(ctx context.Context, pool *pgxpool.Pool, userID, groupID, habitID string, scheduledTime *string) (*model.UserHabit, error) {
 	uh := &model.UserHabit{}
 	err := pool.QueryRow(ctx,
-		`INSERT INTO user_habits (user_id, group_id, habit_id)
-		 VALUES ($1, $2, $3)
+		`INSERT INTO user_habits (user_id, group_id, habit_id, scheduled_time)
+		 VALUES ($1, $2, $3, $4)
 		 ON CONFLICT (user_id, group_id, habit_id) DO NOTHING
-		 RETURNING id, user_id, group_id, habit_id, created_at`,
-		userID, groupID, habitID,
-	).Scan(&uh.ID, &uh.UserID, &uh.GroupID, &uh.HabitID, &uh.CreatedAt)
+		 RETURNING id, user_id, group_id, habit_id, scheduled_time::text, created_at`,
+		userID, groupID, habitID, scheduledTime,
+	).Scan(&uh.ID, &uh.UserID, &uh.GroupID, &uh.HabitID, &uh.ScheduledTime, &uh.CreatedAt)
 	return uh, err
 }
 
@@ -83,14 +93,19 @@ func CreateCheckin(ctx context.Context, pool *pgxpool.Pool, userHabitID string, 
 func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.TodayCheckin, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT
-		    u.id, u.display_name,
-		    h.id, h.name, h.icon_key, h.color,
-		    CASE WHEN c.id IS NOT NULL THEN true ELSE false END,
+		    u.id,
+		    u.display_name,
+		    h.id,
+		    h.name,
+		    h.icon_key,
+		    h.color,
+		    uh.scheduled_time::text,
+		    CASE WHEN c.id IS NOT NULL THEN 'done' ELSE 'pending' END AS status,
 		    c.note
 		 FROM group_members gm
-		 JOIN users u ON u.id = gm.user_id
+		 JOIN users u        ON u.id  = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
-		 JOIN habits h ON h.id = uh.habit_id
+		 JOIN habits h       ON h.id  = uh.habit_id
 		 LEFT JOIN checkins c ON c.user_habit_id = uh.id AND c.checked_on = CURRENT_DATE
 		 WHERE gm.group_id = $1
 		 ORDER BY u.display_name, h.name`,
@@ -107,7 +122,9 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID st
 		if err := rows.Scan(
 			&tc.UserID, &tc.DisplayName,
 			&tc.HabitID, &tc.HabitName, &tc.IconKey, &tc.Color,
-			&tc.Checked, &tc.Note,
+			&tc.ScheduledTime,
+			&tc.Status,
+			&tc.Note,
 		); err != nil {
 			return nil, err
 		}
@@ -214,26 +231,24 @@ func IsMemberOfGroup(ctx context.Context, pool *pgxpool.Pool, groupID, userID st
 	return exists, err
 }
 
+// GetEligibleMembers returns members who missed at least one habit on any day
+// this week before today. On Monday the list is always empty.
+// Uses count-based logic to avoid generate_series overhead.
 func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.EligibleMember, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT gm.user_id, u.display_name
 		 FROM group_members gm
-		 JOIN users u ON u.id = gm.user_id
-		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
+		 JOIN users u         ON u.id = gm.user_id
+		 JOIN user_habits uh  ON uh.user_id = gm.user_id AND uh.group_id = $1
 		 WHERE gm.group_id = $1
-		   AND DATE_TRUNC('week', CURRENT_DATE) < CURRENT_DATE
-		   AND EXISTS (
-		       SELECT 1
-		       FROM generate_series(
-		           DATE_TRUNC('week', CURRENT_DATE)::date,
-		           (CURRENT_DATE - INTERVAL '1 day')::date,
-		           '1 day'::interval
-		       ) AS day(d)
-		       WHERE NOT EXISTS (
-		           SELECT 1 FROM checkins c
-		           WHERE c.user_habit_id = uh.id AND c.checked_on = day.d
-		       )
-		   )
+		   AND (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date) > 0
+		   AND (
+		       SELECT COUNT(*)
+		       FROM checkins c
+		       WHERE c.user_habit_id = uh.id
+		         AND c.checked_on >= DATE_TRUNC('week', CURRENT_DATE)::date
+		         AND c.checked_on < CURRENT_DATE
+		   ) < (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date)
 		 ORDER BY u.display_name`,
 		groupID,
 	)
@@ -253,15 +268,16 @@ func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string)
 	return members, rows.Err()
 }
 
-func GetOrCreateRouletteEntry(ctx context.Context, pool *pgxpool.Pool, groupID, debtorID, weekStart string) (*model.RouletteEntry, error) {
-	pool.Exec(ctx,
+// GetOrCreateRouletteEntry accepts DBTX so it can run inside a transaction.
+func GetOrCreateRouletteEntry(ctx context.Context, dbtx DBTX, groupID, debtorID, weekStart string) (*model.RouletteEntry, error) {
+	dbtx.Exec(ctx,
 		`INSERT INTO roulette_entries (group_id, debtor_id, week_start)
 		 VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 		groupID, debtorID, weekStart,
 	)
 
 	e := &model.RouletteEntry{}
-	err := pool.QueryRow(ctx,
+	err := dbtx.QueryRow(ctx,
 		`SELECT id, group_id, debtor_id, week_start, status, spun_at, created_at
 		 FROM roulette_entries
 		 WHERE group_id = $1 AND debtor_id = $2 AND week_start = $3`,
@@ -270,38 +286,53 @@ func GetOrCreateRouletteEntry(ctx context.Context, pool *pgxpool.Pool, groupID, 
 	return e, err
 }
 
-func MarkEntryCompleted(ctx context.Context, pool *pgxpool.Pool, entryID string) error {
-	_, err := pool.Exec(ctx,
+// MarkEntryCompleted accepts DBTX so it can run inside a transaction.
+func MarkEntryCompleted(ctx context.Context, dbtx DBTX, entryID string) error {
+	_, err := dbtx.Exec(ctx,
 		`UPDATE roulette_entries SET status = 'completed', spun_at = NOW() WHERE id = $1`,
 		entryID,
 	)
 	return err
 }
 
-func CreateDebt(ctx context.Context, pool *pgxpool.Pool, groupID, debtorID, entryID, text string, emoji *string, weekStart string) (*model.Debt, error) {
+// CreateDebt inserts a debt and returns it enriched with group/debtor/week
+// from roulette_entries via JOIN. Accepts DBTX so it can run inside a transaction.
+// group_id, debtor_id, week_start are NOT stored in debts — they are read from
+// roulette_entries to avoid duplication.
+func CreateDebt(ctx context.Context, dbtx DBTX, entryID, text string, emoji *string) (*model.Debt, error) {
 	d := &model.Debt{}
-	err := pool.QueryRow(ctx,
-		`INSERT INTO debts (group_id, debtor_id, entry_id, punishment_text, punishment_emoji, week_start)
-		 VALUES ($1, $2, $3, $4, $5, $6)
-		 RETURNING id, group_id, debtor_id, entry_id, punishment_text, punishment_emoji,
-		           week_start, resolved, created_at, resolved_at`,
-		groupID, debtorID, entryID, text, emoji, weekStart,
+	err := dbtx.QueryRow(ctx,
+		`WITH ins AS (
+		     INSERT INTO debts (entry_id, punishment_text, punishment_emoji)
+		     VALUES ($1, $2, $3)
+		     RETURNING *
+		 )
+		 SELECT ins.id, ins.entry_id,
+		        ins.punishment_text, ins.punishment_emoji,
+		        ins.resolved, ins.created_at, ins.resolved_at,
+		        re.group_id, re.debtor_id, re.week_start
+		 FROM ins
+		 JOIN roulette_entries re ON re.id = ins.entry_id`,
+		entryID, text, emoji,
 	).Scan(
-		&d.ID, &d.GroupID, &d.DebtorID, &d.EntryID,
+		&d.ID, &d.EntryID,
 		&d.PunishmentText, &d.PunishmentEmoji,
-		&d.WeekStart, &d.Resolved, &d.CreatedAt, &d.ResolvedAt,
+		&d.Resolved, &d.CreatedAt, &d.ResolvedAt,
+		&d.GroupID, &d.DebtorID, &d.WeekStart,
 	)
 	return d, err
 }
 
 func GetPendingDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Debt, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT id, group_id, debtor_id, entry_id, punishment_text, punishment_emoji,
-		        week_start, resolved, created_at, resolved_at
-		 FROM debts
-		 WHERE group_id = $1 AND resolved = false
-		   AND week_start >= CURRENT_DATE - INTERVAL '7 days'
-		 ORDER BY created_at DESC`,
+		`SELECT d.id, d.entry_id,
+		        d.punishment_text, d.punishment_emoji,
+		        d.resolved, d.created_at, d.resolved_at,
+		        re.group_id, re.debtor_id, re.week_start
+		 FROM debts d
+		 JOIN roulette_entries re ON re.id = d.entry_id
+		 WHERE re.group_id = $1 AND d.resolved = false
+		 ORDER BY d.created_at DESC`,
 		groupID,
 	)
 	if err != nil {
@@ -313,9 +344,10 @@ func GetPendingDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([
 	for rows.Next() {
 		var d model.Debt
 		if err := rows.Scan(
-			&d.ID, &d.GroupID, &d.DebtorID, &d.EntryID,
+			&d.ID, &d.EntryID,
 			&d.PunishmentText, &d.PunishmentEmoji,
-			&d.WeekStart, &d.Resolved, &d.CreatedAt, &d.ResolvedAt,
+			&d.Resolved, &d.CreatedAt, &d.ResolvedAt,
+			&d.GroupID, &d.DebtorID, &d.WeekStart,
 		); err != nil {
 			return nil, err
 		}

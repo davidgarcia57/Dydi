@@ -20,12 +20,18 @@ const routes = [
     component: () => import('@/views/SquadView.vue'),
   },
   {
-    path: '/trial',
+    path: '/ruleta',
     component: () => import('@/views/TrialView.vue'),
   },
   {
-    path: '/shame',
+    path: '/tu',
     component: () => import('@/views/ShameView.vue'),
+  },
+  // checkin flow — modal screen, no tab
+  {
+    path: '/checkin',
+    component: () => import('@/views/CheckinView.vue'),
+    meta: { checkinFlow: true },
   },
 ]
 

@@ -66,6 +66,15 @@ internal/
     └── response.go       ← shared writeError / writeJSON
 ```
 
+## Compiling & Running
+
+Go is NOT installed locally — it runs inside Docker. To verify changes compile:
+```bash
+docker-compose build habits-service
+docker-compose up -d habits-service
+docker-compose logs -f habits-service
+```
+
 ## Key Patterns
 
 ### Health endpoint — do not remove or alter

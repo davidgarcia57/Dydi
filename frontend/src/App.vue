@@ -1,7 +1,84 @@
 <script setup>
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, RouterLink, useRoute } from 'vue-router'
+
+const route = useRoute()
+const isPublic = computed(() => route.meta.public)
+
+const tabs = [
+  {
+    path: '/today',
+    label: 'Hoy',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+      d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125
+      c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25
+      c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504
+      1.125-1.125V9.75"/>`,
+  },
+  {
+    path: '/squad',
+    label: 'Squad',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+      d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94
+      3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21
+      c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971
+      5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995
+      0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197
+      a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25
+      2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0
+      2.25 2.25 0 0 1 4.5 0Z"/>`,
+  },
+  {
+    path: '/ruleta',
+    label: 'Ruleta',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+      d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591
+      M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636
+      5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>`,
+  },
+  {
+    path: '/tu',
+    label: 'Tú',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+      d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501
+      20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12
+      21.75c-2.676 0-5.216-.584-7.499-1.632Z"/>`,
+  },
+]
+
+function isActive(path) {
+  return route.path === path || route.path.startsWith(path + '/')
+}
 </script>
 
 <template>
-  <RouterView />
+  <div class="min-h-screen bg-cream">
+    <main :class="isPublic ? '' : 'pb-20'">
+      <RouterView />
+    </main>
+
+    <nav
+      v-if="!isPublic"
+      class="fixed bottom-0 inset-x-0 bg-paper border-t border-hairline z-50 safe-area-bottom"
+    >
+      <div class="flex items-center max-w-md mx-auto">
+        <RouterLink
+          v-for="tab in tabs"
+          :key="tab.path"
+          :to="tab.path"
+          class="flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors"
+          :class="isActive(tab.path) ? 'text-sage-deep' : 'text-ink-faint'"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            v-html="tab.icon"
+          />
+          <span class="text-[10px] font-semibold tracking-wide">{{ tab.label }}</span>
+        </RouterLink>
+      </div>
+    </nav>
+  </div>
 </template>

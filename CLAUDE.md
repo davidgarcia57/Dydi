@@ -13,10 +13,10 @@ on free-tier platforms maintain acceptable quality metrics for a real-time SaaS?
 
 ```
 frontend/           → Vue 3 + Vite + Pinia + Tailwind (Vercel)
-api-gateway/        → Go 1.22 + chi v5 (Render — Account 1)
-groups-service/     → Go 1.22 + chi v5 (Render — Account 2)
-habits-service/     → Go 1.22 + chi v5 (Render — Account 3)
-realtime-service/   → Go 1.22 + nhooyr/websocket (Render — Account 4)
+api-gateway/        → Go 1.24 + chi v5 (Render — Account 1)
+groups-service/     → Go 1.24 + chi v5 (Render — Account 2)
+habits-service/     → Go 1.24 + chi v5 (Render — Account 3)
+realtime-service/   → Go 1.24 + nhooyr/websocket (Render — Account 4)
 ```
 
 **Auth** is handled entirely by Supabase Auth — no auth-service exists.
@@ -58,7 +58,27 @@ Each service has a multistage `Dockerfile` optimized for Render free tier
 (small final image = faster cold start). Do not simplify or "clean up"
 Dockerfiles without explicit instruction.
 
-### 5. No global dependencies
+### 5. Go runs inside Docker — never try to run it locally
+**Go is NOT installed in the developer's WSL environment.** All Go compilation
+and execution happens inside Docker containers. Never run `go build`, `go test`,
+or `go run` directly in the shell — they will fail with "command not found".
+
+To verify that a Go service compiles after changes:
+```bash
+docker-compose build <service-name>   # e.g. docker-compose build habits-service
+```
+
+To apply changes to a running container:
+```bash
+docker-compose up -d <service-name>
+```
+
+To inspect logs of a running service:
+```bash
+docker-compose logs -f <service-name>
+```
+
+### 6. No global dependencies
 Do not add a shared Go package or module that multiple services import.
 Each service must be fully self-contained. Code duplication between services
 is acceptable and intentional.

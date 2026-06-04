@@ -36,15 +36,16 @@ func (h *HabitHandler) AssignHabit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		GroupID string `json:"group_id"`
-		HabitID string `json:"habit_id"`
+		GroupID       string  `json:"group_id"`
+		HabitID       string  `json:"habit_id"`
+		ScheduledTime *string `json:"scheduled_time,omitempty"` // "HH:MM", optional
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" {
 		writeError(w, http.StatusBadRequest, "group_id and habit_id are required")
 		return
 	}
 
-	uh, err := db.AssignHabit(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
+	uh, err := db.AssignHabit(r.Context(), h.pool, userID, body.GroupID, body.HabitID, body.ScheduledTime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// ON CONFLICT DO NOTHING returned nothing — already assigned
