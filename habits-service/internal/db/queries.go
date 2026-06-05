@@ -85,10 +85,10 @@ func HasCheckinOnDate(ctx context.Context, pool *pgxpool.Pool, habitAssignmentID
 	return exists, err
 }
 
-func CreateCheckin(ctx context.Context, pool *pgxpool.Pool, habitAssignmentID string, note *string, checkedOn string) error {
+func CreateCheckin(ctx context.Context, pool *pgxpool.Pool, habitAssignmentID string, checkedOn string, note *string) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO checkins (habit_assignment_id, note, checked_on) VALUES ($1, $2, $3::date)`,
-		habitAssignmentID, note, checkedOn,
+		`INSERT INTO checkins (habit_assignment_id, checked_on, note) VALUES ($1, $2, $3)`,
+		habitAssignmentID, checkedOn, note,
 	)
 	return err
 }

@@ -48,12 +48,13 @@ CREATE TABLE IF NOT EXISTS habits (
 -- El estado (done/pending/missed) se deriva en el API, no se almacena.
 CREATE TABLE IF NOT EXISTS habit_assignments (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id        UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-    group_id       UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id        UUID NOT NULL,
+    group_id       UUID NOT NULL,
     habit_id       UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
     scheduled_time TIME,           -- recordatorio personal, ej: '06:00'. Nullable.
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, group_id, habit_id)
+    UNIQUE (user_id, group_id, habit_id),
+    FOREIGN KEY (group_id, user_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
 );
 
 -- Check-in diario.
@@ -62,7 +63,7 @@ CREATE TABLE IF NOT EXISTS habit_assignments (
 CREATE TABLE IF NOT EXISTS checkins (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     habit_assignment_id UUID NOT NULL REFERENCES habit_assignments(id) ON DELETE CASCADE,
-    checked_on          DATE NOT NULL DEFAULT CURRENT_DATE,
+    checked_on          DATE NOT NULL,
     note                TEXT,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (habit_assignment_id, checked_on)
@@ -77,13 +78,14 @@ CREATE TABLE IF NOT EXISTS checkins (
 -- week_start = lunes de esa semana (ISODOW = 1).
 CREATE TABLE IF NOT EXISTS roulette_draws (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id   UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    debtor_id  UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    group_id   UUID NOT NULL,
+    debtor_id  UUID NOT NULL,
     week_start DATE NOT NULL,
     spun_at    TIMESTAMPTZ,   -- NULL = pendiente de girar, NOT NULL = ya girado
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (group_id, debtor_id, week_start),
-    CONSTRAINT chk_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1)
+    CONSTRAINT chk_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1),
+    FOREIGN KEY (group_id, debtor_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
 );
 
 -- Sugerencias de castigo propuestas por los miembros del grupo.
@@ -91,14 +93,15 @@ CREATE TABLE IF NOT EXISTS roulette_draws (
 -- cualquier castigo del pool. Un castigo por miembro por semana.
 CREATE TABLE IF NOT EXISTS group_suggestions (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id     UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    group_id     UUID NOT NULL,
     week_start   DATE NOT NULL,
-    suggester_id UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    suggester_id UUID NOT NULL,
     text         TEXT NOT NULL,
     emoji        TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (group_id, week_start, suggester_id),
-    CONSTRAINT chk_suggestions_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1)
+    CONSTRAINT chk_suggestions_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1),
+    FOREIGN KEY (group_id, suggester_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
 );
 
 -- Resultado del giro. group_id/debtor_id/week_start se leen vía draw_id (no se duplican).
@@ -132,21 +135,25 @@ CREATE TABLE IF NOT EXISTS debts (
 -- Aprobación: > 50 % de miembros vota TRUE dentro de expires_at.
 CREATE TABLE IF NOT EXISTS proposals (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id    UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    proposer_id UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    group_id    UUID NOT NULL,
+    proposer_id UUID NOT NULL,
     type        TEXT NOT NULL CHECK (type IN ('add_habit', 'remove_habit', 'kick_member', 'delete_group')),
     payload     JSONB NOT NULL DEFAULT '{}',
     status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'approved', 'rejected', 'expired')),
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours'
+    expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
+    FOREIGN KEY (group_id, proposer_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS proposal_votes (
-    proposal_id UUID NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
-    voter_id    UUID NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
+    proposal_id UUID NOT NULL,
+    voter_id    UUID NOT NULL,
+    group_id    UUID NOT NULL,
     approved    BOOLEAN NOT NULL,
     voted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (proposal_id, voter_id)
+    PRIMARY KEY (proposal_id, voter_id),
+    FOREIGN KEY (group_id, proposal_id) REFERENCES proposals(group_id, id) ON DELETE CASCADE,
+    FOREIGN KEY (group_id, voter_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
 );
 
 -- =============================================================

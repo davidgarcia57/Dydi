@@ -189,8 +189,9 @@ func (h *PenaltyHandler) notifyRealtime(groupID string, debt *model.Debt) {
 	}
 
 	payload, err := json.Marshal(map[string]any{
-		"group_id": groupID,
-		"event":    "roulette_result",
+		"type":    "roulette_result",
+		"groupID": groupID,
+		"userID":  debt.DebtorID,
 		"payload":  debt,
 	})
 	if err != nil {

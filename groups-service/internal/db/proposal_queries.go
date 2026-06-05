@@ -81,7 +81,8 @@ func HasVoted(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID strin
 
 func CastVote(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID string, approved bool) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO proposal_votes (proposal_id, voter_id, approved) VALUES ($1, $2, $3)`,
+		`INSERT INTO proposal_votes (proposal_id, voter_id, group_id, approved)
+		 SELECT $1, $2, group_id, $3 FROM proposals WHERE id = $1`,
 		proposalID, voterID, approved,
 	)
 	return err

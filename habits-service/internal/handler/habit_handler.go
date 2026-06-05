@@ -106,7 +106,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.CreateCheckin(r.Context(), h.pool, habitAssignmentID, body.Note, body.CheckedOn); err != nil {
+	if err := db.CreateCheckin(r.Context(), h.pool, habitAssignmentID, body.CheckedOn, body.Note); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create checkin")
 		return
 	}
