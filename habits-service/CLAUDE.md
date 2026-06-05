@@ -5,13 +5,29 @@ Owns the habits catalog, user habit assignments per group, daily check-ins,
 streak calculation, and the Saturday roulette / penalty mechanic.
 This is the core data service of the app.
 
+## Core loop (what this service enables day-to-day)
+
+```
+1. Daily  → member submits check-in for each assigned habit
+2. Daily  → service calculates streak and broadcasts via realtime-service
+3. Saturday → any member triggers the roulette for the group
+              → service finds who failed habits during the week (Mon–Fri)
+              → picks a punishment from the catalog (JSON) at random
+              → creates a debt record for the offender
+              → broadcasts result via realtime-service
+4. Debt auto-expires at the end of the following week (no manual intervention needed)
+```
+
 ## This service does NOT
 - Send real-time events directly — after a spin it fires a goroutine that
   POSTs to realtime-service `/internal/broadcast`; if realtime is down the
   spin still succeeds
 - Handle group membership validation for most endpoints — it reads
   `group_members` directly (cross-service read, not write)
-- Validate JWT — api-gateway does that, trust X-User-ID header
+- Validate JWT — api-gateway does that; trust the `X-User-ID` header
+- Own proposal logic — proposals/votes live in groups-service.
+  This service exposes `/internal/proposals/apply` for groups-service
+  to call when a proposal is approved.
 
 ## Endpoints
 
@@ -19,18 +35,21 @@ This is the core data service of the app.
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | /habits | JWT | List available habits catalog |
-| POST | /habits/assign | JWT | Assign habit to self in a group |
 | POST | /checkins | JWT | Submit daily check-in |
-| GET | /checkins/:groupID/today | JWT | Get today's check-ins for group |
+| GET | /checkins/:groupID/today | JWT | Get today's check-ins for the group |
 | GET | /streaks/:userID | JWT | Get user's current streaks across all groups |
 
-### Penalties (owned by this service — no separate penalties-service)
+### Penalties
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | /penalties/:groupID/eligible | JWT | Members who failed habits this week |
 | POST | /penalties/spin | JWT | Spin roulette, assign punishment, trigger broadcast |
-| GET | /penalties/:groupID | JWT | List pending debts for group (last 7 days) |
-| PATCH | /penalties/:id/resolve | JWT | Mark debt as resolved |
+| GET | /penalties/:groupID | JWT | List active debts for the group |
+
+### Internal (called by other services only — not exposed via api-gateway)
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | /internal/proposals/apply | none | Apply approved proposal: assign or unassign a habit for all group members |
 
 ### Health
 | Method | Path | Auth | Description |
@@ -41,7 +60,7 @@ This is the core data service of the app.
 ```
 PORT=8083
 DATABASE_URL=...                  # Supabase PostgreSQL connection string
-REALTIME_SERVICE_URL=http://...   # To trigger broadcast after spin
+REALTIME_SERVICE_URL=http://...   # to trigger broadcast after spin
 PUNISHMENT_CATALOG_PATH=./punishments.json
 ```
 
@@ -56,14 +75,14 @@ Cross-service reads of `group_members` and `users` are acceptable.
 ```
 internal/
 ├── model/
-│   └── habit.go          ← Habit, UserHabit, TodayCheckin, Streak,
+│   └── habit.go          <- Habit, UserHabit, TodayCheckin, Streak,
 │                            RouletteEntry, Debt, EligibleMember, Punishment
 ├── db/
-│   └── queries.go        ← all pgxpool queries + calculateStreak + CurrentWeekStart
+│   └── queries.go        <- all pgxpool queries + calculateStreak + CurrentWeekStart
 └── handler/
-    ├── habit_handler.go  ← HabitHandler (habits, checkins, streaks)
-    ├── penalty_handler.go← PenaltyHandler (roulette, debts)
-    └── response.go       ← shared writeError / writeJSON
+    ├── habit_handler.go  <- HabitHandler (habits, checkins, streaks)
+    ├── penalty_handler.go <- PenaltyHandler (roulette, debts)
+    └── response.go       <- shared writeError / writeJSON
 ```
 
 ## Compiling & Running
@@ -117,11 +136,20 @@ The query uses `generate_series` to enumerate weekdays.
 `notifyRealtime` runs in a goroutine and ignores errors. A realtime-service
 outage must never fail a spin. Timeout is 3 seconds.
 
+### Debt expiry
+Debts do NOT require manual resolution. Each debt has a `week_start` date;
+the frontend filters and the query only returns debts whose
+`week_start >= current_week_start - 1 week` (i.e. active and previous week).
+Older debts are considered expired and are excluded from all queries.
+
+### Proposal apply (internal endpoint)
+`POST /internal/proposals/apply` receives `{ "group_id": "...", "habit_id": "...", "action": "add" | "remove" }`.
+- `add`: inserts a `user_habits` row for every current group member who doesn't have it yet.
+- `remove`: deletes `user_habits` rows for all group members for that habit.
+
 ## Service-Specific Notes
-- `POST /habits/assign` is a direct assignment. The proposals/voting system
-  (`proposals`, `proposal_votes` tables) is not yet implemented in this service.
-- `GET /penalties/:groupID` returns only debts from the last 7 days to
-  avoid loading stale data (matches the `idx_debts_week` index).
-- The `suggestion_id` column in `debts` is always NULL for now — user-submitted
-  punishment suggestions are captured in `punishment_suggestions` but the spin
-  currently draws from the JSON catalog only.
+- `punishment_suggestions` captures punishments proposed by users (future feature).
+  The spin currently draws from the JSON catalog only. `suggestion_id` in `debts`
+  is always NULL until user-submitted suggestions are integrated into the spin.
+- `GET /penalties/:groupID` returns only debts from the current and previous week
+  to match the `idx_debts_week` index and avoid loading stale data.

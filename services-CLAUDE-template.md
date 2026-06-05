@@ -1,29 +1,29 @@
 # CLAUDE.md — [SERVICE NAME]
 # Copy this file into each remaining service and fill in the blanks.
-# Lines marked with ← FILL IN need to be completed per service.
+# Lines marked with <- FILL IN need to be completed per service.
 
 ## Purpose
-← FILL IN: One paragraph describing what this service owns and is responsible for.
+<- FILL IN: One paragraph describing what this service owns and is responsible for.
 
 ## This service does NOT
-← FILL IN: Explicit list of what this service must NOT do (prevents scope creep).
+<- FILL IN: Explicit list of what this service must NOT do (prevents scope creep).
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-← FILL IN: one row per endpoint
+<- FILL IN: one row per endpoint
 
 ## Environment Variables
 ```
-PORT=808X                    ← FILL IN port number
-DATABASE_URL=...             # Supabase PostgreSQL connection string
-SUPABASE_JWT_SECRET=...      # For validating forwarded tokens (if needed)
-← FILL IN: any service-specific vars
+PORT=808X                       <- FILL IN port number
+DATABASE_URL=...                # Supabase PostgreSQL connection string
+SUPABASE_JWKS_URL=https://...   # only if this service validates JWTs directly
+<- FILL IN: any service-specific vars
 ```
 
 ## Database Tables Owned
-← FILL IN: List which tables this service reads/writes.
+<- FILL IN: List which tables this service reads/writes.
 Other services must NOT write to these tables directly.
 Cross-service data needs go through HTTP calls to this service.
 
@@ -41,7 +41,7 @@ r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 ```go
 port := os.Getenv("PORT")
 if port == "" {
-    port = "808X" // ← FILL IN default port
+    port = "808X" // <- FILL IN default port
 }
 http.ListenAndServe(":"+port, r)
 ```
@@ -64,10 +64,10 @@ pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
 ```
 
 ### Request context — userID
-The API gateway attaches `userID` to every authenticated request context.
-Extract it like this — do not re-validate the JWT in this service:
+The API gateway attaches the authenticated user's ID as a header.
+Read it from the header — do not re-validate the JWT in this service:
 ```go
-userID := r.Context().Value("userID").(string)
+userID := r.Header.Get("X-User-ID")
 ```
 
 ### Folder structure (standard for all Go services)
@@ -80,16 +80,15 @@ userID := r.Context().Value("userID").(string)
 ├── go.sum
 ├── main.go              ← wiring only, no business logic
 └── internal/
-    ├── handler/         ← HTTP handlers (thin, delegate to service layer)
-    ├── service/         ← business logic
+    ├── handler/         ← HTTP handlers (thin, delegate to db layer)
     ├── model/           ← structs / domain types
-    └── db/              ← sqlc generated files + queries
+    └── db/              ← pgxpool queries
 ```
 
 ## Dockerfile Template (multistage — do not simplify)
 ```dockerfile
 # Stage 1: Build
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -105,7 +104,7 @@ CMD ["./service"]
 ```
 
 ## Service-Specific Notes
-← FILL IN: Any patterns, decisions, or constraints unique to this service.
+<- FILL IN: Any patterns, decisions, or constraints unique to this service.
 
 ---
 
@@ -116,13 +115,18 @@ CMD ["./service"]
 # CLAUDE.md — groups-service
 
 ## Purpose
-Manages group creation, invite codes, membership, and group metadata.
+Manages group creation, invite codes, membership, and habit proposals.
 Enforces the hard limit of 8 members per group.
+
+A proposal is a democratic request to add or remove a shared habit for the
+entire group. Any member can open a proposal; it passes when a simple majority
+votes yes. When approved, groups-service notifies habits-service to assign or
+unassign the habit for all current members.
 
 ## This service does NOT
 - Handle check-ins or habit tracking (that is habits-service)
 - Handle real-time events (that is realtime-service)
-- Validate JWT (api-gateway does that)
+- Validate JWT — api-gateway does that; trust the `X-User-ID` header
 
 ## Endpoints
 
@@ -133,6 +137,9 @@ Enforces the hard limit of 8 members per group.
 | POST | /groups/:id/join | JWT | Join via invite code |
 | GET | /groups/:id/members | JWT | List members |
 | DELETE | /groups/:id/leave | JWT | Leave group |
+| POST | /groups/:id/proposals | JWT | Open a new proposal (add_habit or remove_habit) |
+| GET | /groups/:id/proposals | JWT | List open and recent proposals |
+| POST | /proposals/:id/vote | JWT | Cast a vote (yes/no) |
 | GET | /health | None | Keepalive ping |
 
 ## Environment Variables
@@ -140,14 +147,18 @@ Enforces the hard limit of 8 members per group.
 PORT=8082
 DATABASE_URL=...
 MAX_GROUP_SIZE=8
+HABITS_SERVICE_URL=http://...   # notified when a proposal is approved
 ```
 
 ## Database Tables Owned
-`groups` · `group_members`
+`groups` · `group_members` · `proposals` · `proposal_votes`
 
 ## Service-Specific Notes
-MAX_GROUP_SIZE=8 is enforced at the service layer before any DB write.
-This is both a product constraint and a free-tier protection measure.
+- MAX_GROUP_SIZE=8 is enforced at the service layer before any DB write.
+  This is both a product constraint and a Render free-tier protection measure.
+- JoinGroup returns 404 (not 403) on wrong invite code to avoid leaking group existence.
+- The call to habits-service on proposal approval runs in a goroutine — a
+  habits-service outage must not block or fail the vote response.
 
 ---
 
@@ -155,50 +166,48 @@ This is both a product constraint and a free-tier protection measure.
 
 ## Purpose
 Owns the habits catalog, user habit assignments per group, daily check-ins,
-and streak calculation. This is the core data service of the app.
+streak calculation, and the Saturday roulette / penalty mechanic.
+This is the core data service of the app.
 
 ## This service does NOT
-- Send real-time events (after saving a check-in, it returns 200 and the
-  api-gateway notifies realtime-service separately)
-- Handle group membership validation (calls groups-service for that)
+- Send real-time events directly — after a spin it fires a goroutine that
+  POSTs to realtime-service `/internal/broadcast`; if realtime is down the
+  spin still succeeds
+- Handle group membership validation — it reads `group_members` directly
+  (cross-service read, not write)
+- Validate JWT — api-gateway does that; trust the `X-User-ID` header
+- Own proposal logic — proposals live in groups-service. This service
+  exposes `/internal/proposals/apply` for groups-service to call.
 
 ## Endpoints
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | /habits | JWT | List available habits catalog |
-| POST | /habits/assign | JWT | Assign habit to self in a group |
 | POST | /checkins | JWT | Submit daily check-in |
 | GET | /checkins/:groupID/today | JWT | Get today's check-ins for group |
 | GET | /streaks/:userID | JWT | Get user's current streaks |
+| GET | /penalties/:groupID/eligible | JWT | Members who failed habits this week |
+| POST | /penalties/spin | JWT | Spin roulette, assign punishment, trigger broadcast |
+| GET | /penalties/:groupID | JWT | List active debts for the group |
+| POST | /internal/proposals/apply | none | Apply approved proposal (called by groups-service) |
 | GET | /health | None | Keepalive ping |
 
 ## Environment Variables
 ```
 PORT=8083
 DATABASE_URL=...
+REALTIME_SERVICE_URL=http://...
+PUNISHMENT_CATALOG_PATH=./punishments.json
 ```
 
 ## Database Tables Owned
-`habits` · `user_habits` · `checkins` · `debts`
+`habits` · `user_habits` · `checkins` · `roulette_entries` · `punishment_suggestions` · `debts`
 
 ## Service-Specific Notes
-Streak calculation runs on every check-in. It counts consecutive days
-with at least one check-in. A streak breaks if no check-in was recorded
-the previous calendar day (CST timezone).
-
-**Penalty logic is owned by this service** (no separate penalties-service exists).
-The Saturday roulette mechanic, debt assignment, and punishment catalog all
-live here alongside the habits domain.
-
-Endpoints for the penalty subdomain:
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | /penalties/:groupID/eligible | JWT | Members who failed habits this week |
-| POST | /penalties/spin | JWT | Spin roulette, assign punishment, trigger broadcast |
-| GET | /penalties/:groupID | JWT | List pending debts for group |
-| PATCH | /penalties/:id/resolve | JWT | Mark debt as resolved |
-
-The punishment catalog is a JSON file loaded at startup (`punishments.json`),
-not stored in the DB. Randomness uses `crypto/rand`, not `math/rand`.
+- Debts auto-expire at the end of the following week. There is no manual
+  resolution endpoint. Queries filter by `week_start` to exclude stale debts.
+- The punishment catalog is a JSON file loaded at startup (`punishments.json`).
+  Randomness uses `crypto/rand`, not `math/rand`.
+- `POST /internal/proposals/apply` receives `{ "group_id", "habit_id", "action": "add"|"remove" }`.
+  `add` inserts user_habits rows for all current members. `remove` deletes them.

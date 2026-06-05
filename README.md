@@ -1,6 +1,12 @@
 # Dydi
 
-SaaS de accountability social donde grupos de amigos rastrean habitos diarios y gamifican las consecuencias. Proyecto academico - UTD Integradora 2025.
+SaaS de accountability social donde grupos de amigos rastrean habitos diarios y gamifican las consecuencias. Proyecto academico UTD Integradora 2026.
+
+---
+
+## Que hace Dydi
+
+Un usuario crea un grupo, invita a sus amigos (maximo 8), y entre todos proponen y votan que habitos quieren rastrear juntos (ej. "30 min de ejercicio", "leer 20 paginas"). Cada dia, cada miembro hace check-in de sus habitos. El sabado, quien haya fallado entra a la ruleta de penitencias: el grupo vota que castigo le toca y se sortea de forma aleatoria entre las opciones aprobadas. La deuda caduca automaticamente al final de la semana siguiente si no se cumple.
 
 ---
 
@@ -8,21 +14,21 @@ SaaS de accountability social donde grupos de amigos rastrean habitos diarios y 
 
 ```text
 frontend/           -> Vue 3 + Vite + Tailwind        (Vercel)
-api-gateway/        -> Go 1.22 + chi v5               (Render - Cuenta 1)
-groups-service/     -> Go 1.22 + chi v5               (Render - Cuenta 2)
-habits-service/     -> Go 1.22 + chi v5               (Render - Cuenta 3)
-realtime-service/   -> Go 1.22 + WebSocket            (Render - Cuenta 4)
+api-gateway/        -> Go 1.24 + chi v5               (Render - Cuenta 1)
+groups-service/     -> Go 1.24 + chi v5               (Render - Cuenta 2)
+habits-service/     -> Go 1.24 + chi v5               (Render - Cuenta 3)
+realtime-service/   -> Go 1.24 + WebSocket            (Render - Cuenta 4)
 ```
 
-Auth vive en Supabase Auth. En local se usa Supabase CLI para Auth y PostgreSQL de `docker-compose` para los datos de la app. El unico punto de entrada publico es `api-gateway`.
+Auth y base de datos viven en Supabase cloud. El unico punto de entrada publico es `api-gateway`.
 
 ---
 
 ## Requisitos
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) con WSL2 habilitado
-- [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started/)
 - Git
+- Credenciales del proyecto Supabase cloud (pedir al lider del proyecto)
 
 No necesitas Go ni Node instalados localmente; Docker los provee.
 
@@ -37,49 +43,26 @@ git clone <url-del-repo>
 cd dydi
 ```
 
-### 2. Levantar Supabase Auth local
+### 2. Crear los archivos de variables de entorno
 
-No necesitas crear cuenta de Supabase para desarrollo local. El CLI levanta Auth, API, Studio e Inbucket usando Docker.
-
-```bash
-supabase init
-supabase start
-supabase status
-```
-
-Del output de `supabase status`, copia:
-
-| Valor del CLI | Variable en `.env` |
-|---|---|
-| `API URL` | `VITE_SUPABASE_URL` |
-| `anon key` | `VITE_SUPABASE_ANON_KEY` |
-| `JWT secret` | `SUPABASE_JWT_SECRET` |
-
-Supabase CLI reciente puede emitir access tokens con firma `ES256`. Para ese caso, `api-gateway` valida contra el JWKS local. En local deja:
-
-```env
-SUPABASE_JWKS_URL=http://host.docker.internal:54321/auth/v1/.well-known/jwks.json
-```
-
-En local normalmente `VITE_SUPABASE_URL` queda como:
-
-```env
-VITE_SUPABASE_URL=http://127.0.0.1:54321
-```
-
-Importante: el `anon key`, el `JWT secret` y el JWKS deben corresponder al mismo Supabase local. Si no coinciden, el frontend podra iniciar sesion, pero `api-gateway` rechazara el token.
-
-### 3. Crear el archivo de variables de entorno
+Cada servicio tiene su propio `.env.example`. Crea un `.env` en la raiz y en cada servicio que vayas a correr:
 
 ```bash
 cp .env.example .env
 ```
 
-Abre `.env` y llena las variables de Supabase con los valores locales que imprimio `supabase status`.
+Llena las variables con las credenciales del proyecto Supabase cloud:
 
-> El resto de las variables (puertos, DB local, URLs internas) ya estan configuradas en `docker-compose.yml` y no requieren ajuste.
+| Variable | Donde encontrarla |
+|---|---|
+| `DATABASE_URL` | Supabase → Project Settings → Database → Connection string |
+| `SUPABASE_JWKS_URL` | `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json` |
+| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key |
 
-### 4. Levantar todos los servicios
+> Nunca subas archivos `.env` al repositorio.
+
+### 3. Levantar todos los servicios
 
 ```bash
 docker compose up --build
@@ -87,15 +70,11 @@ docker compose up --build
 
 La primera vez tarda varios minutos descargando imagenes. Las siguientes son mucho mas rapidas.
 
-### 5. Probar login y registro
-
-Abre:
+### 4. Probar login y registro
 
 ```text
 http://localhost:5173/#/login
 ```
-
-Si Supabase local requiere confirmacion de correo, revisa el inbox local que aparece en `supabase status` como Inbucket.
 
 ---
 
@@ -108,12 +87,8 @@ Si Supabase local requiere confirmacion de correo, revisa el inbox local que apa
 | groups-service | http://localhost:8082 |
 | habits-service | http://localhost:8083 |
 | realtime-service | http://localhost:8084 |
-| PostgreSQL app local | localhost:5432 |
-| Supabase API local | http://127.0.0.1:54321 |
-| Supabase Studio local | ver `supabase status` |
-| Inbucket local | ver `supabase status` |
 
-En local, los datos de la app usan PostgreSQL de `docker-compose`. Supabase local se usa para Auth.
+La base de datos es Supabase cloud — no hay postgres local.
 
 ---
 
@@ -123,7 +98,7 @@ En local, los datos de la app usan PostgreSQL de `docker-compose`. Supabase loca
 docker compose ps
 ```
 
-Todos los servicios deben aparecer como `Up`. Tambien puedes probar los health checks manualmente:
+Todos los servicios deben aparecer como `Up`. Tambien puedes probar los health checks:
 
 ```bash
 curl http://localhost:8080/health
@@ -134,22 +109,14 @@ curl http://localhost:8084/health
 
 ---
 
-## Correr Tests
+## Compilar y Verificar Cambios Go
 
-Los tests corren automaticamente en GitHub Actions. Para correrlos localmente necesitas Go instalado o usar los contenedores.
-
-```bash
-cd api-gateway      && go test ./... && cd ..
-cd groups-service   && go test ./... && cd ..
-cd habits-service   && go test ./... && cd ..
-cd realtime-service && go test ./... && cd ..
-```
-
-Frontend:
+Go NO esta instalado localmente; corre dentro de Docker. Para verificar que un cambio compila:
 
 ```bash
-cd frontend
-npm test
+docker compose build <servicio>   # ej. docker compose build habits-service
+docker compose up -d <servicio>
+docker compose logs -f <servicio>
 ```
 
 ---
@@ -159,7 +126,7 @@ npm test
 1. Crea tu rama desde `main`: `git checkout -b feature/nombre-feature`
 2. Trabaja unicamente dentro del directorio del servicio que te corresponde
 3. Abre un Pull Request a `main`
-4. GitHub Actions corre build y tests automaticamente
+4. GitHub Actions corre build automaticamente
 5. Merge solo cuando el CI este en verde
 
 Cada servicio se despliega de forma independiente. No modifiques archivos fuera de tu directorio sin avisar al equipo.
@@ -170,15 +137,15 @@ Cada servicio se despliega de forma independiente. No modifiques archivos fuera 
 
 ```text
 dydi/
-|-- .env.example        -> copia esto como .env y llena los valores
-|-- docker-compose.yml  -> orquestacion local
-|-- api-gateway/        -> unico punto de entrada publico
-|-- groups-service/     -> grupos y membresias
-|-- habits-service/     -> habitos, check-ins, rachas y penalizaciones
-|-- realtime-service/   -> WebSocket hub para eventos en tiempo real
-|-- frontend/           -> Vue 3 SPA (PWA-ready)
+|-- .env.example              -> variables de entorno raiz (api-gateway)
+|-- docker-compose.yml        -> orquestacion local
+|-- api-gateway/              -> unico punto de entrada publico
+|-- groups-service/           -> grupos, membresias y propuestas de habitos
+|-- habits-service/           -> habitos, check-ins, rachas y penitencias
+|-- realtime-service/         -> WebSocket hub para eventos en tiempo real
+|-- frontend/                 -> Vue 3 SPA
 `-- supabase/
-    `-- migrations/     -> schema de la base de datos
+    `-- migrations/           -> schema de la base de datos (fuente de verdad)
 ```
 
 ---

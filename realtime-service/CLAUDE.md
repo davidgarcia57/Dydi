@@ -11,9 +11,9 @@ Read this file fully before making any changes.
 ## Architecture: Hub Pattern
 
 ```
-Client A ──ws──┐
-Client B ──ws──┤── Hub (in-memory) ── broadcasts to room
-Client C ──ws──┘
+Client A --ws--+
+Client B --ws--+-- Hub (in-memory) -- broadcasts to room
+Client C --ws--+
 ```
 
 The Hub is a single in-memory struct that manages all active connections
@@ -21,24 +21,24 @@ grouped by `groupID`. It runs in its own goroutine.
 
 ```
 internal/
-├── hub/
-│   ├── hub.go        ← Hub struct, Register/Unregister/Broadcast
-│   └── client.go     ← Client struct, read/write pumps
-└── handler/
-    └── ws_handler.go ← HTTP upgrade → WebSocket handshake
++-- hub/
+|   +-- hub.go        <- Hub struct, Register/Unregister/Broadcast
+|   +-- client.go     <- Client struct, read/write pumps
++-- handler/
+    +-- ws_handler.go <- HTTP upgrade -> WebSocket handshake
 ```
 
 ## Event Types (do not add new types without updating frontend)
 
 ```go
 const (
-    EventCheckin       = "checkin"        // member completed a habit
-    EventStreakUpdate   = "streak_update"  // streak count changed
-    EventMemberOnline  = "member_online"  // member connected
-    EventMemberOffline = "member_offline" // member disconnected
-    EventRouletteStart = "roulette_start" // habits-service triggered spin
+    EventCheckin        = "checkin"         // member completed a habit
+    EventStreakUpdate   = "streak_update"   // streak count changed
+    EventMemberOnline  = "member_online"   // member connected
+    EventMemberOffline = "member_offline"  // member disconnected
+    EventRouletteStart = "roulette_start"  // habits-service triggered spin
     EventRouletteResult = "roulette_result" // spin result to broadcast
-    EventDebtCreated   = "debt_created"   // new debt assigned
+    EventDebtCreated   = "debt_created"    // new debt assigned
 )
 ```
 
@@ -52,10 +52,19 @@ const (
 }
 ```
 
+## Internal Endpoint (called by habits-service only)
+
+```
+POST /internal/broadcast
+Body: { "type": "...", "groupID": "...", "userID": "...", "payload": {} }
+```
+
+This endpoint is not exposed via api-gateway. Only internal services call it.
+
 ## Environment Variables
 ```
 PORT=8084
-SUPABASE_JWT_SECRET=...
+SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
 MAX_CONNECTIONS_PER_GROUP=8
 PING_INTERVAL_SECONDS=30
 PONG_WAIT_SECONDS=60
@@ -81,7 +90,7 @@ case <-ticker.C:
     }
 ```
 
-### Health endpoint
+### Health endpoint — do not simplify
 ```go
 r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
@@ -103,7 +112,7 @@ prevents ghost connections on reconnect.
 If this service becomes unstable on Render free tier, the fallback plan
 is to replace it with Supabase Realtime (already in our Supabase project).
 The event types and payload structure above are designed to be compatible
-with Supabase Realtime channel format to make migration easy.
+with Supabase Realtime channel format to make migration straightforward.
 Do not change the event structure without considering this fallback.
 
 ## Metrics Instrumentation — do not remove

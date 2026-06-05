@@ -3,9 +3,16 @@
 ## What is this project?
 
 Dydi is a social accountability SaaS where friend groups track daily habits and
-gamify consequences. Built as a university research project (UTD Integradora 2025)
+gamify consequences. Built as a university research project (UTD Integradora 2026)
 to validate the hypothesis: **can a microservices architecture deployed exclusively
 on free-tier platforms maintain acceptable quality metrics for a real-time SaaS?**
+
+### Core loop (what users do day-to-day)
+1. Create a group (max 8 members), share the invite code
+2. Any member proposes a habit → group votes → if majority approves, the habit is assigned to all members
+3. Every day: each member submits a check-in for each assigned habit
+4. Every Saturday: members who failed at least one habit during the week (Mon–Fri) enter the roulette; a punishment is picked at random from the catalog and assigned as a debt
+5. Debts auto-expire at the end of the following week — no manual resolution needed
 
 ---
 
@@ -13,22 +20,28 @@ on free-tier platforms maintain acceptable quality metrics for a real-time SaaS?
 
 ```
 frontend/           → Vue 3 + Vite + Pinia + Tailwind (Vercel)
-api-gateway/        → Go 1.22 + chi v5 (Render — Account 1)
-groups-service/     → Go 1.22 + chi v5 (Render — Account 2)
-habits-service/     → Go 1.22 + chi v5 (Render — Account 3)
-realtime-service/   → Go 1.22 + nhooyr/websocket (Render — Account 4)
+api-gateway/        → Go 1.24 + chi v5 (Render — Account 1)
+groups-service/     → Go 1.24 + chi v5 (Render — Account 2)
+habits-service/     → Go 1.24 + chi v5 (Render — Account 3)
+realtime-service/   → Go 1.24 + nhooyr/websocket (Render — Account 4)
 ```
 
 **Auth** is handled entirely by Supabase Auth — no auth-service exists.
 The frontend uses the Supabase JS SDK for login/register/logout.
-`api-gateway` validates Supabase JWTs and forwards `X-User-ID` to downstream services.
+`api-gateway` validates Supabase JWTs via JWKS (ES256 / P-256) and forwards
+`X-User-ID` as a header to downstream services.
 
 **Penalty logic** lives inside `habits-service` (same domain: check-ins trigger debts).
 There is no separate penalties-service.
 
+**Proposals** (adding/removing shared habits for a group) live in `groups-service`.
+When a proposal is approved, `groups-service` calls `habits-service /internal/proposals/apply`.
+
 Each service is a **fully independent Go module** with its own `go.mod`,
 `Dockerfile`, and `.env.example`. They communicate via HTTP internally.
 The only public-facing entry point is `api-gateway`.
+
+There is **no local PostgreSQL**. The database is Supabase cloud (free tier).
 
 ---
 
@@ -58,7 +71,18 @@ Each service has a multistage `Dockerfile` optimized for Render free tier
 (small final image = faster cold start). Do not simplify or "clean up"
 Dockerfiles without explicit instruction.
 
-### 5. No global dependencies
+### 5. Go runs inside Docker — never try to run it locally
+**Go is NOT installed in the developer's WSL environment.** All Go compilation
+and execution happens inside Docker containers. Never run `go build`, `go test`,
+or `go run` directly in the shell — they will fail with "command not found".
+
+```bash
+docker-compose build <service-name>   # verify a service compiles
+docker-compose up -d <service-name>   # apply changes to a running container
+docker-compose logs -f <service-name> # inspect logs
+```
+
+### 6. No global dependencies
 Do not add a shared Go package or module that multiple services import.
 Each service must be fully self-contained. Code duplication between services
 is acceptable and intentional.
@@ -74,14 +98,13 @@ is acceptable and intentional.
 | Frontend styling | Tailwind CSS (utility classes only) | v3 |
 | Frontend realtime | @vueuse/core `useWebSocket` | latest |
 | Frontend hosting | Vercel (free) | — |
-| Backend language | Go | 1.22 |
+| Backend language | Go | 1.24 |
 | HTTP router | go-chi/chi | v5 |
 | WebSocket | nhooyr.io/websocket | latest |
 | DB driver | jackc/pgx | v5 |
-| Query generation | sqlc | latest |
 | Database | PostgreSQL 15 | — |
-| DB hosting | Supabase (free tier) | — |
-| Auth | Supabase Auth + JWT | — |
+| DB hosting | Supabase cloud (free tier) | — |
+| Auth | Supabase Auth + JWT ES256 + JWKS validation | — |
 | Backend hosting | Render (free tier) | — |
 | Local dev | Docker + docker-compose | — |
 | Metrics | Prometheus + Grafana | — |
@@ -109,14 +132,14 @@ is acceptable and intentional.
 
 ```
 dydi/
-├── AGENTS.md                     ← you are here
+├── CLAUDE.md / AGENTS.md         ← project-wide rules
 ├── docker-compose.yml            ← local dev only
 ├── .gitignore
 ├── supabase/
 │   └── migrations/
 │       └── 001_initial.sql
 ├── api-gateway/
-│   ├── AGENTS.md
+│   ├── CLAUDE.md
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── go.mod
@@ -126,7 +149,7 @@ dydi/
 │       ├── proxy/
 │       └── middleware/
 ├── groups-service/
-│   ├── AGENTS.md
+│   ├── CLAUDE.md
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── go.mod
@@ -137,7 +160,7 @@ dydi/
 │       ├── model/
 │       └── db/
 ├── habits-service/               ← also owns penalty/debt logic
-│   ├── AGENTS.md
+│   ├── CLAUDE.md
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── go.mod
@@ -148,7 +171,7 @@ dydi/
 │       ├── model/
 │       └── db/
 ├── realtime-service/
-│   ├── AGENTS.md
+│   ├── CLAUDE.md
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── go.mod
@@ -158,7 +181,7 @@ dydi/
 │       ├── hub/
 │       └── handler/
 └── frontend/
-    ├── AGENTS.md
+    ├── CLAUDE.md
     ├── Dockerfile
     ├── .env.example
     ├── package.json
@@ -176,7 +199,7 @@ dydi/
 ## Local Development
 
 All services run locally via `docker-compose.yml` in the root.
-To start everything:
+There is no local PostgreSQL — the database is Supabase cloud.
 
 ```bash
 docker-compose up --build
@@ -191,7 +214,6 @@ Local ports (do not change without updating docker-compose):
 | habits-service | 8083 |
 | realtime-service | 8084 |
 | frontend | 5173 |
-| postgres (local) | 5432 |
 
 ---
 

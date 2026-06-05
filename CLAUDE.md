@@ -3,7 +3,7 @@
 ## What is this project?
 
 Dydi is a social accountability SaaS where friend groups track daily habits and
-gamify consequences. Built as a university research project (UTD Integradora 2025)
+gamify consequences. Built as a university research project (UTD Integradora 2026)
 to validate the hypothesis: **can a microservices architecture deployed exclusively
 on free-tier platforms maintain acceptable quality metrics for a real-time SaaS?**
 
@@ -21,10 +21,16 @@ realtime-service/   → Go 1.24 + nhooyr/websocket (Render — Account 4)
 
 **Auth** is handled entirely by Supabase Auth — no auth-service exists.
 The frontend uses the Supabase JS SDK for login/register/logout.
-`api-gateway` validates Supabase JWTs and forwards `X-User-ID` to downstream services.
+`api-gateway` validates Supabase JWTs via JWKS (ES256 / P-256) and forwards
+`X-User-ID` as a header to downstream services.
 
 **Penalty logic** lives inside `habits-service` (same domain: check-ins trigger debts).
 There is no separate penalties-service.
+
+**Proposals** (adding/removing shared habits for a group) live in `groups-service`.
+When a proposal is approved, `groups-service` calls `habits-service /internal/proposals/apply`.
+
+There is **no local PostgreSQL**. The database is Supabase cloud (free tier).
 
 Each service is a **fully independent Go module** with its own `go.mod`,
 `Dockerfile`, and `.env.example`. They communicate via HTTP internally.
@@ -101,7 +107,7 @@ is acceptable and intentional.
 | Query generation | sqlc | latest |
 | Database | PostgreSQL 15 | — |
 | DB hosting | Supabase (free tier) | — |
-| Auth | Supabase Auth + JWT | — |
+| Auth | Supabase Auth + JWT ES256 + JWKS validation | — |
 | Backend hosting | Render (free tier) | — |
 | Local dev | Docker + docker-compose | — |
 | Metrics | Prometheus + Grafana | — |
@@ -211,7 +217,6 @@ Local ports (do not change without updating docker-compose):
 | habits-service | 8083 |
 | realtime-service | 8084 |
 | frontend | 5173 |
-| postgres (local) | 5432 |
 
 ---
 
