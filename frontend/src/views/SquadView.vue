@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
@@ -7,6 +7,7 @@ import { useHabitsStore } from '@/stores/habits'
 const auth   = useAuthStore()
 const group  = useGroupStore()
 const habits = useHabitsStore()
+const loaded = ref(false)
 
 function localDate() {
   const d = new Date()
@@ -54,6 +55,7 @@ onMounted(async () => {
     const ids = [...new Set(habits.todayCheckins.map(c => c.user_id))]
     await Promise.all(ids.map(id => habits.loadStreaks(id)))
   }
+  loaded.value = true
 })
 </script>
 
@@ -67,7 +69,8 @@ onMounted(async () => {
 
     <div v-if="!squadRows.length"
       class="rounded-card bg-surface border border-hairline py-10 text-center text-sm text-ink-soft">
-      Cargando el squad...
+      <span v-if="!loaded">Cargando el squad…</span>
+      <span v-else>Ningún miembro tiene hábitos asignados todavía.</span>
     </div>
 
     <div v-else class="space-y-3">

@@ -29,6 +29,39 @@ export const useGroupStore = defineStore('group', () => {
     return true
   }
 
+  async function createGroup(name) {
+    const data = await api('/api/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    })
+    group.value = data
+    members.value = []
+    myGroups.value = [data]
+    return data
+  }
+
+  async function joinGroup(groupID, inviteCode) {
+    await api(`/api/groups/${groupID}/join`, {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: inviteCode }),
+    })
+    await loadGroup(groupID)
+    myGroups.value = [group.value]
+  }
+
+  async function leaveGroup() {
+    if (!group.value?.id) return
+    await api(`/api/groups/${group.value.id}/leave`, { method: 'DELETE' })
+    reset()
+  }
+
+  function reset() {
+    group.value = null
+    members.value = []
+    myGroups.value = []
+    onlineMembers.value = new Set()
+  }
+
   function setMemberOnline(userID) {
     onlineMembers.value.add(userID)
   }
@@ -40,6 +73,7 @@ export const useGroupStore = defineStore('group', () => {
   return {
     group, members, onlineMembers, myGroups,
     loadMyGroups, loadGroup, autoLoad,
+    createGroup, joinGroup, leaveGroup, reset,
     setMemberOnline, setMemberOffline,
   }
 })

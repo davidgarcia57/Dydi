@@ -6,9 +6,10 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 
 const router = useRouter()
-const auth  = useAuthStore()
-const group = useGroupStore()
+const auth   = useAuthStore()
+const group  = useGroupStore()
 const habits = useHabitsStore()
+const loaded = ref(false)
 
 // ── Countdown ────────────────────────────────────────────────────────────────
 const now = ref(new Date())
@@ -123,11 +124,18 @@ const STATUS_PILL = {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   ticker = setInterval(() => { now.value = new Date() }, 30_000)
-  await group.autoLoad()
-  if (group.group?.id) {
+  try {
+    const found = await group.autoLoad()
+    if (!found) {
+      router.replace('/onboarding')
+      return
+    }
     await habits.loadToday(group.group.id)
     const memberIDs = [...new Set(habits.todayCheckins.map(c => c.user_id))]
     await Promise.all(memberIDs.map(id => habits.loadStreaks(id)))
+    loaded.value = true
+  } catch (_) {
+    router.replace('/onboarding')
   }
 })
 
@@ -305,7 +313,8 @@ onUnmounted(() => clearInterval(ticker))
       <!-- Empty / loading state -->
       <div v-if="squadRows.length === 0"
         class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft">
-        Cargando el squad...
+        <span v-if="!loaded">Cargando el squad…</span>
+        <span v-else>Propón un hábito en la pestaña Votar para ver al squad aquí.</span>
       </div>
 
       <div v-else class="space-y-3">

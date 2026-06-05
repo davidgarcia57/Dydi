@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 
 const route = useRoute()
-const isPublic = computed(() => route.meta.public || route.meta.checkinFlow)
+const isPublic = computed(() => route.meta.public || route.meta.checkinFlow || route.meta.onboarding)
 
 const tabs = [
   {
@@ -27,6 +27,14 @@ const tabs = [
       a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25
       2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0
       2.25 2.25 0 0 1 4.5 0Z"/>`,
+  },
+  {
+    path: '/propuestas',
+    label: 'Votar',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+      d="M10.05 4.575a1.575 1.575 0 1 0-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 0 1 3.15 0v1.5
+      m-3.15 0 .075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 0 1 3.15 0V15M6.9 7.575a1.575
+      1.575 0 1 0-3.15 0v8.175a6.75 6.75 0 0 0 13.5 0v-5.1m-6.45-8.4"/>`,
   },
   {
     path: '/ruleta',

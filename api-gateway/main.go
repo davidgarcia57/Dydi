@@ -34,6 +34,7 @@ func setupRouter() *chi.Mux {
 		r.Use(apimiddleware.Auth)
 		r.Mount("/users", proxy.To(os.Getenv("GROUPS_SERVICE_URL")))
 		r.Mount("/groups", proxy.To(os.Getenv("GROUPS_SERVICE_URL")))
+		r.Mount("/proposals", proxy.To(os.Getenv("GROUPS_SERVICE_URL")))
 		r.Mount("/habits", proxy.To(os.Getenv("HABITS_SERVICE_URL")))
 		r.Mount("/penalties", proxy.To(os.Getenv("HABITS_SERVICE_URL")))
 	})

@@ -38,9 +38,9 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 
 	habits := handler.NewHabitHandler(pool)
 	r.Get("/habits", habits.ListHabits)
-	r.Post("/checkins", habits.CreateCheckin)
-	r.Get("/checkins/{groupID}/today", habits.GetTodayCheckins)
-	r.Get("/streaks/{userID}", habits.GetStreaks)
+	r.Post("/habits/checkins", habits.CreateCheckin)
+	r.Get("/habits/checkins/{groupID}/today", habits.GetTodayCheckins)
+	r.Get("/habits/streaks/{userID}", habits.GetStreaks)
 
 	penalties := handler.NewPenaltyHandler(pool, os.Getenv("REALTIME_SERVICE_URL"))
 	r.Get("/penalties/{groupID}/eligible", penalties.GetEligible)

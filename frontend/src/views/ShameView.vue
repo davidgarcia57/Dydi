@@ -1,14 +1,38 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { usePenaltiesStore } from '@/stores/penalties'
 
+const router    = useRouter()
 const auth      = useAuthStore()
 const group     = useGroupStore()
 const habits    = useHabitsStore()
 const penalties = usePenaltiesStore()
+const loggingOut  = ref(false)
+const leavingGroup = ref(false)
+const confirmLeave = ref(false)
+
+async function handleLogout() {
+  loggingOut.value = true
+  await auth.logout()
+  group.reset()
+  router.replace('/login')
+}
+
+async function handleLeaveGroup() {
+  leavingGroup.value = true
+  try {
+    await group.leaveGroup()
+    router.replace('/onboarding')
+  } catch (e) {
+    confirmLeave.value = false
+  } finally {
+    leavingGroup.value = false
+  }
+}
 
 const displayName = computed(() =>
   auth.user?.user_metadata?.display_name
@@ -61,6 +85,54 @@ onMounted(async () => {
         <p class="text-eyebrow text-terracotta mt-1">RACHA</p>
       </div>
     </div>
+
+    <!-- Salir del grupo -->
+    <div v-if="group.group" class="mb-3">
+      <div v-if="!confirmLeave">
+        <button
+          class="w-full rounded-pill border border-hairline text-ink-soft py-3 font-semibold
+                 text-sm active:opacity-70 transition-opacity"
+          @click="confirmLeave = true"
+        >
+          Salir del grupo
+        </button>
+      </div>
+      <div v-else class="rounded-card border border-coral/40 bg-coral/5 p-4">
+        <p class="text-sm font-semibold text-ink mb-1">
+          ¿Seguro que quieres salir de <span class="text-coral">{{ group.group.name }}</span>?
+        </p>
+        <p class="text-xs text-ink-soft mb-4">
+          Perderás tus hábitos y rachas en este grupo.
+        </p>
+        <div class="flex gap-2">
+          <button
+            :disabled="leavingGroup"
+            class="flex-1 rounded-pill bg-coral text-paper py-2.5 font-bold text-sm
+                   disabled:opacity-40 active:opacity-80 transition-opacity"
+            @click="handleLeaveGroup"
+          >
+            {{ leavingGroup ? 'Saliendo…' : 'Sí, salir' }}
+          </button>
+          <button
+            class="flex-1 rounded-pill border border-hairline text-ink-soft py-2.5
+                   font-semibold text-sm"
+            @click="confirmLeave = false"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cerrar sesión -->
+    <button
+      :disabled="loggingOut"
+      class="w-full rounded-pill border border-hairline text-ink-soft py-3 font-semibold
+             text-sm mb-6 disabled:opacity-40 active:opacity-70 transition-opacity"
+      @click="handleLogout"
+    >
+      {{ loggingOut ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+    </button>
 
     <!-- Mis deudas -->
     <section>

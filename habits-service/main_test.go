@@ -24,7 +24,7 @@ func TestHealthEndpoint(t *testing.T) {
 func TestCreateCheckin_MissingUserID(t *testing.T) {
 	r := setupRouter(nil)
 	body := strings.NewReader(`{"group_id":"g1","habit_id":"h1","checked_on":"2026-06-04"}`)
-	req := httptest.NewRequest(http.MethodPost, "/checkins", body)
+	req := httptest.NewRequest(http.MethodPost, "/habits/checkins", body)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -36,7 +36,7 @@ func TestCreateCheckin_MissingUserID(t *testing.T) {
 func TestCreateCheckin_MissingFields(t *testing.T) {
 	r := setupRouter(nil)
 	body := strings.NewReader(`{}`)
-	req := httptest.NewRequest(http.MethodPost, "/checkins", body)
+	req := httptest.NewRequest(http.MethodPost, "/habits/checkins", body)
 	req.Header.Set("X-User-ID", "user-123")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -48,7 +48,7 @@ func TestCreateCheckin_MissingFields(t *testing.T) {
 
 func TestGetTodayCheckins_MissingUserID(t *testing.T) {
 	r := setupRouter(nil)
-	req := httptest.NewRequest(http.MethodGet, "/checkins/group-123/today", nil)
+	req := httptest.NewRequest(http.MethodGet, "/habits/checkins/group-123/today", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

@@ -24,6 +24,7 @@ services:
       PORT: 8082
       DATABASE_URL: ${DATABASE_URL}
       MAX_GROUP_SIZE: 8
+      HABITS_SERVICE_URL: http://habits-service:8083
 
   habits-service:
     build: ./habits-service

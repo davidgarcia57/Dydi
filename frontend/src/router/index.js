@@ -8,6 +8,11 @@ const routes = [
     meta: { public: true },
   },
   {
+    path: '/onboarding',
+    component: () => import('@/views/OnboardingView.vue'),
+    meta: { onboarding: true },
+  },
+  {
     path: '/',
     redirect: '/today',
   },
@@ -18,6 +23,10 @@ const routes = [
   {
     path: '/squad',
     component: () => import('@/views/SquadView.vue'),
+  },
+  {
+    path: '/propuestas',
+    component: () => import('@/views/ProposalsView.vue'),
   },
   {
     path: '/ruleta',
@@ -44,6 +53,10 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (!to.meta.public && !auth.isLoggedIn) {
     return '/login'
+  }
+  // Ya logueado → rebotar de /login a /today
+  if (to.path === '/login' && auth.isLoggedIn) {
+    return '/today'
   }
 })
 
