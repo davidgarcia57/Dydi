@@ -55,7 +55,7 @@ func GetGroupByInviteCode(ctx context.Context, pool *pgxpool.Pool, code string) 
 func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Member, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT u.id, u.display_name, u.avatar_url, gm.joined_at
-		 FROM user_groups gm
+		 FROM group_members gm
 		 JOIN users u ON u.id = gm.user_id
 		 WHERE gm.group_id = $1
 		 ORDER BY gm.joined_at ASC`,
@@ -80,7 +80,7 @@ func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]mode
 func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int, error) {
 	var count int
 	err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM user_groups WHERE group_id = $1`,
+		`SELECT COUNT(*) FROM group_members WHERE group_id = $1`,
 		groupID,
 	).Scan(&count)
 	return count, err
@@ -89,7 +89,7 @@ func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int,
 func IsMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM user_groups WHERE group_id = $1 AND user_id = $2)`,
+		`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)`,
 		groupID, userID,
 	).Scan(&exists)
 	return exists, err
@@ -97,7 +97,7 @@ func IsMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (
 
 func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO user_groups (group_id, user_id) VALUES ($1, $2)`,
+		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)`,
 		groupID, userID,
 	)
 	return err
@@ -105,7 +105,7 @@ func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) 
 
 func RemoveMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
 	_, err := pool.Exec(ctx,
-		`DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2`,
+		`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
 		groupID, userID,
 	)
 	return err
@@ -118,8 +118,8 @@ func GetGroupsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) (
 		`SELECT g.id, g.name, g.invite_code, g.created_at,
 		        u.id, u.display_name, u.avatar_url, gm2.joined_at
 		 FROM groups g
-		 JOIN user_groups gm1 ON gm1.group_id = g.id AND gm1.user_id = $1
-		 JOIN user_groups gm2 ON gm2.group_id = g.id
+		 JOIN group_members gm1 ON gm1.group_id = g.id AND gm1.user_id = $1
+		 JOIN group_members gm2 ON gm2.group_id = g.id
 		 JOIN users u ON u.id = gm2.user_id
 		 ORDER BY g.created_at ASC, gm2.joined_at ASC`,
 		userID,

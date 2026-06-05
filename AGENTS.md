@@ -7,6 +7,21 @@ gamify consequences. Built as a university research project (UTD Integradora 202
 to validate the hypothesis: **can a microservices architecture deployed exclusively
 on free-tier platforms maintain acceptable quality metrics for a real-time SaaS?**
 
+## Target-State Contract
+
+This file describes the intended MVP architecture and product behavior for Dydi.
+It is the source of truth for where the project is going, not necessarily a
+perfect description of the current implementation.
+
+If the code, migrations, README, or service-level `CLAUDE.md` files disagree
+with this document, treat that as implementation drift. Do not "fix" this file
+to match old code. Instead, migrate the code, database schema, and service docs
+toward this contract.
+
+Before running migrations against Supabase cloud, make sure
+`supabase/migrations/001_initial.sql` matches the canonical domain names and
+flows defined here.
+
 ### Core loop (what users do day-to-day)
 1. Create a group (max 8 members), share the invite code
 2. Any member proposes a habit → group votes → if majority approves, the habit is assigned to all members
@@ -248,8 +263,14 @@ instrumentation code related to these:
 ## Database Schema (Source of truth)
 
 Schema lives in `supabase/migrations/`. Never modify the database directly.
-All schema changes go through migration files. The canonical table list:
+All schema changes go through migration files.
+
+The canonical domain table list for the target MVP is:
 
 `users` · `groups` · `group_members` · `habits` · `user_habits` · `checkins` · `roulette_entries` · `punishment_suggestions` · `debts` · `proposals` · `proposal_votes`
 
-Full schema definition is in `supabase/migrations/001_initial.sql`.
+`supabase/migrations/001_initial.sql` must be brought into alignment with this
+table list before it is executed in Supabase cloud. If the migration currently
+uses older names such as `user_groups`, `habit_assignments`, `roulette_draws`,
+or `group_suggestions`, update the migration and then migrate the services
+toward the canonical names.

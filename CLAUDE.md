@@ -1,5 +1,7 @@
 # CLAUDE.md — Dydi (Root)
 
+> **Target architecture:** See [`AGENTS.md`](AGENTS.md) for the MVP contract — what the project is being built toward. If this file and `AGENTS.md` disagree, `AGENTS.md` wins.
+
 ## What is this project?
 
 Dydi is a social accountability SaaS where friend groups track daily habits and

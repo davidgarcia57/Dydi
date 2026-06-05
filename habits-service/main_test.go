@@ -5,16 +5,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/dydi/habits-service/internal/model"
 )
 
-var testCatalog = []model.Punishment{
-	{ID: 1, Text: "Do 10 pushups", Emoji: "💪", Category: "exercise"},
-}
-
 func TestHealthEndpoint(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
+	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -27,34 +21,9 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 }
 
-func TestAssignHabit_MissingUserID(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
-	body := strings.NewReader(`{"group_id":"g1","habit_id":"h1"}`)
-	req := httptest.NewRequest(http.MethodPost, "/habits/assign", body)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-}
-
-func TestAssignHabit_MissingFields(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
-	body := strings.NewReader(`{}`)
-	req := httptest.NewRequest(http.MethodPost, "/habits/assign", body)
-	req.Header.Set("X-User-ID", "user-123")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d", w.Code)
-	}
-}
-
 func TestCreateCheckin_MissingUserID(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
-	body := strings.NewReader(`{"group_id":"g1","habit_id":"h1"}`)
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"group_id":"g1","habit_id":"h1","checked_on":"2026-06-04"}`)
 	req := httptest.NewRequest(http.MethodPost, "/checkins", body)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -65,7 +34,7 @@ func TestCreateCheckin_MissingUserID(t *testing.T) {
 }
 
 func TestCreateCheckin_MissingFields(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
+	r := setupRouter(nil)
 	body := strings.NewReader(`{}`)
 	req := httptest.NewRequest(http.MethodPost, "/checkins", body)
 	req.Header.Set("X-User-ID", "user-123")
@@ -77,10 +46,9 @@ func TestCreateCheckin_MissingFields(t *testing.T) {
 	}
 }
 
-func TestSpin_MissingUserID(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
-	body := strings.NewReader(`{"group_id":"g1","debtor_id":"u1"}`)
-	req := httptest.NewRequest(http.MethodPost, "/penalties/spin", body)
+func TestGetTodayCheckins_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/checkins/group-123/today", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -89,10 +57,22 @@ func TestSpin_MissingUserID(t *testing.T) {
 	}
 }
 
-func TestSpin_MissingFields(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
+func TestOpenRoulette_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"group_id":"g1","debtor_id":"u1"}`)
+	req := httptest.NewRequest(http.MethodPost, "/penalties/roulette", body)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestOpenRoulette_MissingFields(t *testing.T) {
+	r := setupRouter(nil)
 	body := strings.NewReader(`{}`)
-	req := httptest.NewRequest(http.MethodPost, "/penalties/spin", body)
+	req := httptest.NewRequest(http.MethodPost, "/penalties/roulette", body)
 	req.Header.Set("X-User-ID", "user-123")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
@@ -102,9 +82,21 @@ func TestSpin_MissingFields(t *testing.T) {
 	}
 }
 
-func TestGetTodayCheckins_MissingUserID(t *testing.T) {
-	r := setupRouter(nil, testCatalog)
-	req := httptest.NewRequest(http.MethodGet, "/checkins/group-123/today", nil)
+func TestSpin_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPost, "/penalties/roulette/entry-123/spin", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestSubmitSuggestion_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	body := strings.NewReader(`{"text":"do 20 pushups"}`)
+	req := httptest.NewRequest(http.MethodPost, "/penalties/roulette/entry-123/suggestions", body)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 

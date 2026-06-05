@@ -28,46 +28,6 @@ func (h *HabitHandler) ListHabits(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, habits)
 }
 
-func (h *HabitHandler) AssignHabit(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
-		writeError(w, http.StatusBadRequest, "missing X-User-ID")
-		return
-	}
-
-	var body struct {
-		GroupID       string  `json:"group_id"`
-		HabitID       string  `json:"habit_id"`
-		ScheduledTime *string `json:"scheduled_time,omitempty"` // "HH:MM", optional
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" {
-		writeError(w, http.StatusBadRequest, "group_id and habit_id are required")
-		return
-	}
-
-	member, err := db.IsMemberOfGroup(r.Context(), h.pool, body.GroupID, userID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "db error")
-		return
-	}
-	if !member {
-		writeError(w, http.StatusForbidden, "not a member of this group")
-		return
-	}
-
-	uh, err := db.AssignHabit(r.Context(), h.pool, userID, body.GroupID, body.HabitID, body.ScheduledTime)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			// ON CONFLICT DO NOTHING returned nothing — already assigned
-			writeError(w, http.StatusConflict, "habit already assigned")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "could not assign habit")
-		return
-	}
-	writeJSON(w, http.StatusCreated, uh)
-}
-
 func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
@@ -86,7 +46,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	habitAssignmentID, err := db.FindHabitAssignmentID(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
+	userHabitID, err := db.FindUserHabitID(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "habit not assigned to this user in this group")
@@ -96,7 +56,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	already, err := db.HasCheckinOnDate(r.Context(), h.pool, habitAssignmentID, body.CheckedOn)
+	already, err := db.HasCheckinOnDate(r.Context(), h.pool, userHabitID, body.CheckedOn)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -106,7 +66,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.CreateCheckin(r.Context(), h.pool, habitAssignmentID, body.CheckedOn, body.Note); err != nil {
+	if err := db.CreateCheckin(r.Context(), h.pool, userHabitID, body.CheckedOn, body.Note); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create checkin")
 		return
 	}
@@ -145,4 +105,37 @@ func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, streaks)
+}
+
+// ApplyProposal is an internal endpoint called by groups-service when a proposal
+// is approved. It bulk-assigns or bulk-removes a habit for all group members.
+// Not exposed through api-gateway.
+func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		GroupID string `json:"group_id"`
+		HabitID string `json:"habit_id"`
+		Action  string `json:"action"` // "add" | "remove"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" {
+		writeError(w, http.StatusBadRequest, "group_id, habit_id and action are required")
+		return
+	}
+
+	switch body.Action {
+	case "add":
+		if err := db.BulkAssignHabit(r.Context(), h.pool, body.GroupID, body.HabitID); err != nil {
+			writeError(w, http.StatusInternalServerError, "could not assign habit")
+			return
+		}
+	case "remove":
+		if err := db.BulkUnassignHabit(r.Context(), h.pool, body.GroupID, body.HabitID); err != nil {
+			writeError(w, http.StatusInternalServerError, "could not remove habit")
+			return
+		}
+	default:
+		writeError(w, http.StatusBadRequest, "action must be 'add' or 'remove'")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

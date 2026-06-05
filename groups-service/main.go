@@ -47,7 +47,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r.Get("/groups/{id}/members", h.ListMembers)
 	r.Delete("/groups/{id}/leave", h.LeaveGroup)
 
-	p := handler.NewProposalHandler(pool)
+	p := handler.NewProposalHandler(pool, os.Getenv("HABITS_SERVICE_URL"))
 	r.Post("/groups/{groupID}/proposals", p.CreateProposal)
 	r.Get("/groups/{groupID}/proposals", p.ListProposals)
 	r.Post("/proposals/{proposalID}/vote", p.Vote)

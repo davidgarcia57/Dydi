@@ -5,24 +5,26 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"math/big"
 	"net/http"
 	"time"
 
 	"github.com/dydi/habits-service/internal/db"
-	"github.com/dydi/habits-service/internal/model"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const suggestionWindowHours = 48
+
 type PenaltyHandler struct {
 	pool        *pgxpool.Pool
-	catalog     []model.Punishment
 	realtimeURL string
 }
 
-func NewPenaltyHandler(pool *pgxpool.Pool, catalog []model.Punishment, realtimeURL string) *PenaltyHandler {
-	return &PenaltyHandler{pool: pool, catalog: catalog, realtimeURL: realtimeURL}
+func NewPenaltyHandler(pool *pgxpool.Pool, realtimeURL string) *PenaltyHandler {
+	return &PenaltyHandler{pool: pool, realtimeURL: realtimeURL}
 }
 
 func (h *PenaltyHandler) GetEligible(w http.ResponseWriter, r *http.Request) {
@@ -52,7 +54,9 @@ func (h *PenaltyHandler) GetEligible(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, members)
 }
 
-func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
+// OpenRoulette creates a roulette entry for an eligible debtor and starts the
+// suggestion window. Any group member can call this.
+func (h *PenaltyHandler) OpenRoulette(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		writeError(w, http.StatusBadRequest, "missing X-User-ID")
@@ -79,57 +83,216 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	weekStart := db.CurrentWeekStart().Format("2006-01-02")
+	deadline := time.Now().UTC().Add(suggestionWindowHours * time.Hour)
 
-	punishment, err := h.randomPunishment()
+	entry, err := db.GetOrCreateRouletteEntry(r.Context(), h.pool, body.GroupID, body.DebtorID, weekStart, deadline)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "could not select punishment")
+		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	var emoji *string
-	if punishment.Emoji != "" {
-		emoji = &punishment.Emoji
+
+	writeJSON(w, http.StatusCreated, entry)
+}
+
+// SubmitSuggestion adds a punishment suggestion to a roulette entry.
+// Any group member (including the debtor) can submit one suggestion per entry.
+func (h *PenaltyHandler) SubmitSuggestion(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
 	}
 
-	// Wrap the three writes in a transaction so a mid-flight failure cannot
-	// leave a debt without a completed entry (or vice-versa).
+	entryID := chi.URLParam(r, "entryID")
+
+	entry, err := db.GetRouletteEntry(r.Context(), h.pool, entryID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "roulette entry not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, entry.GroupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
+	if time.Now().After(entry.SuggestionDeadline) {
+		writeError(w, http.StatusConflict, "suggestion window has closed")
+		return
+	}
+
+	already, err := db.HasSuggested(r.Context(), h.pool, entryID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if already {
+		writeError(w, http.StatusConflict, "already submitted a suggestion for this entry")
+		return
+	}
+
+	var body struct {
+		Text  string  `json:"text"`
+		Emoji *string `json:"emoji,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Text == "" {
+		writeError(w, http.StatusBadRequest, "text is required")
+		return
+	}
+
+	suggestion, err := db.CreateSuggestion(r.Context(), h.pool, entryID, entry.GroupID, userID, body.Text, body.Emoji)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not submit suggestion")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, suggestion)
+}
+
+// GetSuggestions returns all suggestions for a roulette entry.
+func (h *PenaltyHandler) GetSuggestions(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	entryID := chi.URLParam(r, "entryID")
+
+	entry, err := db.GetRouletteEntry(r.Context(), h.pool, entryID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "roulette entry not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, entry.GroupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
+	suggestions, err := db.GetSuggestionsForEntry(r.Context(), h.pool, entryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, suggestions)
+}
+
+// Spin picks a random suggestion and assigns the debt. Only the debtor themselves
+// can spin, and only after the suggestion deadline has passed.
+// If no suggestions were submitted the whole group receives a collective debt.
+func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	entryID := chi.URLParam(r, "entryID")
+
+	entry, err := db.GetRouletteEntry(r.Context(), h.pool, entryID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "roulette entry not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if entry.DebtorID != userID {
+		writeError(w, http.StatusForbidden, "only the debtor can spin their own roulette")
+		return
+	}
+	if entry.SpunAt != nil {
+		writeError(w, http.StatusConflict, "already spun for this entry")
+		return
+	}
+	if time.Now().Before(entry.SuggestionDeadline) {
+		writeError(w, http.StatusConflict, "suggestion window has not closed yet")
+		return
+	}
+
+	suggestions, err := db.GetSuggestionsForEntry(r.Context(), h.pool, entryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	defer tx.Rollback(r.Context()) //nolint:errcheck — rollback on any early return
+	defer tx.Rollback(r.Context()) //nolint:errcheck
 
-	draw, err := db.GetOrCreateRouletteDraw(r.Context(), tx, body.GroupID, body.DebtorID, weekStart)
+	weekStart := entry.WeekStart.Format("2006-01-02")
+
+	if len(suggestions) == 0 {
+		// No suggestions → collective punishment for all group members.
+		debts, err := db.CreateCollectiveDebts(r.Context(), tx, entryID, entry.GroupID, weekStart)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not create collective debts")
+			return
+		}
+		if err := db.MarkEntrySpun(r.Context(), tx, entryID); err != nil {
+			writeError(w, http.StatusInternalServerError, "could not finalize spin")
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		go h.notifyRealtime(entry.GroupID, "collective_punishment", debts)
+		writeJSON(w, http.StatusCreated, debts)
+		return
+	}
+
+	// Pick a random suggestion.
+	idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(suggestions))))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "db error")
+		writeError(w, http.StatusInternalServerError, "could not select suggestion")
 		return
 	}
-	if draw.SpunAt != nil {
-		writeError(w, http.StatusConflict, "already spun for this member this week")
-		return
-	}
+	winner := suggestions[idx.Int64()]
 
-	debt, err := db.CreateDebt(r.Context(), tx, draw.ID, punishment.Text, emoji)
+	debt, err := db.CreateDebt(r.Context(), tx, entryID, entry.GroupID, entry.DebtorID, weekStart, &winner.ID, winner.Text, winner.Emoji)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create debt")
 		return
 	}
-
-	if err := db.MarkDrawCompleted(r.Context(), tx, draw.ID); err != nil {
+	if err := db.MarkEntrySpun(r.Context(), tx, entryID); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not finalize spin")
 		return
 	}
-
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
-	go h.notifyRealtime(body.GroupID, debt)
+	go h.notifyRealtime(entry.GroupID, "roulette_result", debt)
 	writeJSON(w, http.StatusCreated, debt)
 }
 
-func (h *PenaltyHandler) GetPendingDebts(w http.ResponseWriter, r *http.Request) {
+func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
 		writeError(w, http.StatusBadRequest, "missing X-User-ID")
@@ -148,7 +311,7 @@ func (h *PenaltyHandler) GetPendingDebts(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	debts, err := db.GetPendingDebts(r.Context(), h.pool, groupID)
+	debts, err := db.GetActiveDebts(r.Context(), h.pool, groupID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -156,43 +319,17 @@ func (h *PenaltyHandler) GetPendingDebts(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, debts)
 }
 
-func (h *PenaltyHandler) ResolveDebt(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-ID")
-	if userID == "" {
-		writeError(w, http.StatusBadRequest, "missing X-User-ID")
-		return
-	}
-
-	debtID := chi.URLParam(r, "id")
-
-	if err := db.ResolveDebt(r.Context(), h.pool, debtID); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not resolve debt")
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *PenaltyHandler) randomPunishment() (model.Punishment, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(int64(len(h.catalog))))
-	if err != nil {
-		return model.Punishment{}, err
-	}
-	return h.catalog[n.Int64()], nil
-}
-
 // notifyRealtime fires a broadcast to realtime-service. Errors are ignored
 // so a realtime outage never fails the spin.
-func (h *PenaltyHandler) notifyRealtime(groupID string, debt *model.Debt) {
+func (h *PenaltyHandler) notifyRealtime(groupID, eventType string, data any) {
 	if h.realtimeURL == "" {
 		return
 	}
 
 	payload, err := json.Marshal(map[string]any{
-		"type":    "roulette_result",
+		"type":    eventType,
 		"groupID": groupID,
-		"userID":  debt.DebtorID,
-		"payload":  debt,
+		"payload": data,
 	})
 	if err != nil {
 		return
@@ -207,5 +344,5 @@ func (h *PenaltyHandler) notifyRealtime(groupID string, debt *model.Debt) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req)
+	http.DefaultClient.Do(req) //nolint:errcheck
 }

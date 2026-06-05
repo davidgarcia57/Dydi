@@ -1,212 +1,292 @@
--- Dydi — Schema inicial (versión definitiva)
--- week_start siempre es el lunes de la semana ISO: DATE_TRUNC('week', NOW())::DATE
-
 -- =============================================================
--- USUARIOS Y GRUPOS
+-- Dydi — canonical MVP schema
+-- Source of truth. If code disagrees with this file, fix the code.
 -- =============================================================
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+-- =============================================================
+-- IDENTITY
+-- =============================================================
+
+-- Mirrors auth.users. Populated and kept in sync by the trigger below.
 CREATE TABLE IF NOT EXISTS users (
-    id           UUID PRIMARY KEY,  -- mismo id que auth.users de Supabase
-    display_name TEXT NOT NULL,
+    id           UUID PRIMARY KEY,          -- same id as auth.users
+    display_name TEXT        NOT NULL,
     avatar_url   TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS groups (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name         TEXT NOT NULL,
-    invite_code  TEXT NOT NULL UNIQUE,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT        NOT NULL,
+    invite_code TEXT        NOT NULL UNIQUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Tabla de unión groups × users.
--- Representa la membresía de un usuario en un grupo.
-CREATE TABLE IF NOT EXISTS user_groups (
-    group_id   UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    user_id    UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
-    joined_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+-- Max 8 members per group — enforced in application layer.
+CREATE TABLE IF NOT EXISTS group_members (
+    group_id  UUID        NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    user_id   UUID        NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
+    joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (group_id, user_id)
 );
 
 -- =============================================================
--- HÁBITOS
+-- HABITS
 -- =============================================================
 
--- Catálogo fijo gestionado por el equipo. Los usuarios eligen de aquí.
--- icon_key mapea al SVG/animación en el frontend.
+-- Global pre-seeded catalog. Users never create habits — they propose
+-- adding or removing habits from this catalog via the proposals system.
 CREATE TABLE IF NOT EXISTS habits (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name        TEXT NOT NULL,
     description TEXT,
     icon_key    TEXT NOT NULL,
-    color       TEXT NOT NULL
+    color       TEXT NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Asignación de un hábito a un usuario dentro de un grupo.
--- Tabla de unión ternaria: users × habits × groups.
--- scheduled_time es individual: cada miembro decide su horario personal.
--- El estado (done/pending/missed) se deriva en el API, no se almacena.
-CREATE TABLE IF NOT EXISTS habit_assignments (
+-- One row per member per habit per group.
+-- Created/deleted by the proposals system (add_habit / remove_habit).
+-- The composite FK to group_members guarantees only active members
+-- can hold habits in a group.
+CREATE TABLE IF NOT EXISTS user_habits (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id        UUID NOT NULL,
     group_id       UUID NOT NULL,
     habit_id       UUID NOT NULL REFERENCES habits(id) ON DELETE CASCADE,
-    scheduled_time TIME,           -- recordatorio personal, ej: '06:00'. Nullable.
+    scheduled_time TIME,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (user_id, group_id, habit_id),
-    FOREIGN KEY (group_id, user_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
+    FOREIGN KEY (group_id, user_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
--- Check-in diario.
--- checked_on DATE registra el día de negocio (¿hizo check hoy?).
--- created_at TIMESTAMPTZ registra el instante exacto (para métricas y analytics).
+-- One check-in per user_habit per calendar day.
+-- Presence of a row = done. Absence = pending/missed (derived at query time).
 CREATE TABLE IF NOT EXISTS checkins (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_habit_id UUID        NOT NULL REFERENCES user_habits(id) ON DELETE CASCADE,
+    checked_on    DATE        NOT NULL,
+    note          TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_habit_id, checked_on)
+);
+
+-- =============================================================
+-- ROULETTE AND DEBTS
+-- =============================================================
+
+-- Created when any group member opens a roulette for an eligible offender
+-- (someone who missed at least one habit Mon–Fri of the current ISO week).
+-- suggestion_deadline: members can submit suggestions until this timestamp.
+-- After the deadline the offender can spin with whatever suggestions exist.
+-- If no suggestions exist at deadline → collective debt (see debts table).
+CREATE TABLE IF NOT EXISTS roulette_entries (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    habit_assignment_id UUID NOT NULL REFERENCES habit_assignments(id) ON DELETE CASCADE,
-    checked_on          DATE NOT NULL,
-    note                TEXT,
+    group_id            UUID        NOT NULL,
+    debtor_id           UUID        NOT NULL,
+    week_start          DATE        NOT NULL,
+    suggestion_deadline TIMESTAMPTZ NOT NULL,
+    spun_at             TIMESTAMPTZ,                   -- NULL = not yet spun
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (habit_assignment_id, checked_on)
-);
-
--- =============================================================
--- RULETA Y CASTIGOS
--- =============================================================
-
--- Una entrada por persona por semana en que falló al menos un hábito.
--- spun_at IS NOT NULL indica que ya se giró la ruleta para esta persona esta semana.
--- week_start = lunes de esa semana (ISODOW = 1).
-CREATE TABLE IF NOT EXISTS roulette_draws (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id   UUID NOT NULL,
-    debtor_id  UUID NOT NULL,
-    week_start DATE NOT NULL,
-    spun_at    TIMESTAMPTZ,   -- NULL = pendiente de girar, NOT NULL = ya girado
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (group_id, debtor_id, week_start),
-    CONSTRAINT chk_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1),
-    FOREIGN KEY (group_id, debtor_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
+    -- Required by punishment_suggestions composite FK below.
+    UNIQUE (id, group_id),
+    CONSTRAINT chk_roulette_week_start_monday
+        CHECK (EXTRACT(ISODOW FROM week_start) = 1),
+    FOREIGN KEY (group_id, debtor_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
--- Sugerencias de castigo propuestas por los miembros del grupo.
--- Son un pool compartido por grupo+semana — cualquier miembro puede recibir
--- cualquier castigo del pool. Un castigo por miembro por semana.
-CREATE TABLE IF NOT EXISTS group_suggestions (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id     UUID NOT NULL,
-    week_start   DATE NOT NULL,
-    suggester_id UUID NOT NULL,
-    text         TEXT NOT NULL,
-    emoji        TEXT,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (group_id, week_start, suggester_id),
-    CONSTRAINT chk_suggestions_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1),
-    FOREIGN KEY (group_id, suggester_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
+-- One suggestion per group member per roulette_entry.
+-- The offender can also suggest their own punishment.
+-- Suggestions are locked once submitted (no updates).
+CREATE TABLE IF NOT EXISTS punishment_suggestions (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    roulette_entry_id UUID        NOT NULL,
+    group_id          UUID        NOT NULL,   -- denormalized for FK to group_members
+    suggester_id      UUID        NOT NULL,
+    text              TEXT        NOT NULL,
+    emoji             TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (roulette_entry_id, suggester_id),
+    FOREIGN KEY (roulette_entry_id, group_id)
+        REFERENCES roulette_entries(id, group_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (group_id, suggester_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
--- Resultado del giro. group_id/debtor_id/week_start se leen vía draw_id (no se duplican).
--- punishment_text se copia para preservar el texto histórico si la sugerencia se elimina.
--- UNIQUE(draw_id): un giro produce exactamente una deuda; previene duplicados por race condition.
+-- One debt per (roulette_entry, debtor).
+-- Normal flow: winning_suggestion_id NOT NULL, is_collective = false,
+--   one row with debtor_id = the offender.
+-- Collective punishment: winning_suggestion_id NULL, is_collective = true,
+--   one row per group member (all reference the same roulette_entry_id).
+-- punishment_text is always snapshotted so deleting the suggestion
+--   does not erase the debt description.
+-- Debts auto-expire — there is no manual resolved state.
 CREATE TABLE IF NOT EXISTS debts (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    draw_id               UUID NOT NULL UNIQUE REFERENCES roulette_draws(id) ON DELETE CASCADE,
-    penalty_suggestion_id UUID         REFERENCES group_suggestions(id) ON DELETE SET NULL,
-    punishment_text       TEXT NOT NULL,
+    roulette_entry_id     UUID        NOT NULL REFERENCES roulette_entries(id) ON DELETE CASCADE,
+    group_id              UUID        NOT NULL,
+    debtor_id             UUID        NOT NULL,
+    week_start            DATE        NOT NULL,
+    winning_suggestion_id UUID        REFERENCES punishment_suggestions(id) ON DELETE SET NULL,
+    punishment_text       TEXT        NOT NULL,
     punishment_emoji      TEXT,
-    resolved              BOOLEAN NOT NULL DEFAULT FALSE,
+    is_collective         BOOLEAN     NOT NULL DEFAULT false,
+    expires_at            DATE        NOT NULL,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    resolved_at           TIMESTAMPTZ,
-    CONSTRAINT chk_resolved_time CHECK (
-        (resolved = FALSE AND resolved_at IS NULL) OR
-        (resolved = TRUE  AND resolved_at IS NOT NULL)
-    )
+    UNIQUE (roulette_entry_id, debtor_id),
+    CONSTRAINT chk_debts_week_start_monday
+        CHECK (EXTRACT(ISODOW FROM week_start) = 1),
+    CONSTRAINT chk_debts_expires_following_week
+        CHECK (expires_at >= week_start + INTERVAL '14 days'),
+    FOREIGN KEY (group_id, debtor_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
 -- =============================================================
--- PROPUESTAS Y VOTACIONES
+-- PROPOSALS AND VOTES
 -- =============================================================
 
--- Tipos de propuesta y sus payloads:
---   add_habit     → { "habit_id": "uuid", "scheduled_time": "06:00" }
---   remove_habit  → { "habit_id": "uuid" }
---   kick_member   → { "user_id": "uuid" }
---   delete_group  → {}
---
--- Aprobación: > 50 % de miembros vota TRUE dentro de expires_at.
+-- All habit changes go through proposals. Quorum: yes_votes * 2 >= member_count
+-- (at least 50% of current members must approve; proposer's vote is implicit yes).
+-- Typed columns instead of JSONB to preserve referential integrity:
+--   add_habit / remove_habit → habit_id required
+--   kick_member              → target_user_id required
+--   delete_group             → neither required
 CREATE TABLE IF NOT EXISTS proposals (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    group_id    UUID NOT NULL,
-    proposer_id UUID NOT NULL,
-    type        TEXT NOT NULL CHECK (type IN ('add_habit', 'remove_habit', 'kick_member', 'delete_group')),
-    payload     JSONB NOT NULL DEFAULT '{}',
-    status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'approved', 'rejected', 'expired')),
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at  TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
-    FOREIGN KEY (group_id, proposer_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    group_id       UUID        NOT NULL,
+    proposer_id    UUID        NOT NULL,
+    type           TEXT        NOT NULL
+        CHECK (type IN ('add_habit', 'remove_habit', 'kick_member', 'delete_group')),
+    habit_id       UUID        REFERENCES habits(id) ON DELETE CASCADE,
+    target_user_id UUID        REFERENCES users(id)  ON DELETE CASCADE,
+    status         TEXT        NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'approved', 'rejected', 'expired')),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at     TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+    CONSTRAINT chk_proposals_habit_required
+        CHECK (type NOT IN ('add_habit', 'remove_habit') OR habit_id IS NOT NULL),
+    CONSTRAINT chk_proposals_target_required
+        CHECK (type != 'kick_member' OR target_user_id IS NOT NULL),
+    -- Required so proposal_votes can FK to (id, group_id) and cascade-validate
+    -- that voters belong to the same group as the proposal.
+    UNIQUE (id, group_id),
+    FOREIGN KEY (group_id, proposer_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS proposal_votes (
-    proposal_id UUID NOT NULL,
-    voter_id    UUID NOT NULL,
-    group_id    UUID NOT NULL,
-    approved    BOOLEAN NOT NULL,
+    proposal_id UUID        NOT NULL,
+    group_id    UUID        NOT NULL,
+    voter_id    UUID        NOT NULL,
+    approved    BOOLEAN     NOT NULL,
     voted_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (proposal_id, voter_id),
-    FOREIGN KEY (group_id, proposal_id) REFERENCES proposals(group_id, id) ON DELETE CASCADE,
-    FOREIGN KEY (group_id, voter_id) REFERENCES user_groups(group_id, user_id) ON DELETE CASCADE
+    FOREIGN KEY (proposal_id, group_id)
+        REFERENCES proposals(id, group_id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (group_id, voter_id)
+        REFERENCES group_members(group_id, user_id)
+        ON DELETE CASCADE
 );
 
 -- =============================================================
--- ÍNDICES
+-- INDEXES
 -- =============================================================
 
--- checkins: query principal = "checkins de hoy para este grupo"
-CREATE INDEX IF NOT EXISTS idx_checkins_habit_assignment ON checkins (habit_assignment_id, checked_on DESC);
-CREATE INDEX IF NOT EXISTS idx_checkins_date             ON checkins (checked_on DESC);
+CREATE INDEX IF NOT EXISTS idx_group_members_user
+    ON group_members (user_id);
 
--- habit_assignments: hábitos de un usuario / hábitos de un grupo
-CREATE INDEX IF NOT EXISTS idx_habit_assignments_user  ON habit_assignments (user_id);
-CREATE INDEX IF NOT EXISTS idx_habit_assignments_group ON habit_assignments (group_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_habits_group_user
+    ON user_habits (group_id, user_id);
 
--- user_groups: grupos a los que pertenece un usuario
-CREATE INDEX IF NOT EXISTS idx_user_groups_user ON user_groups (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_habits_user
+    ON user_habits (user_id);
 
--- ruleta y deudas
-CREATE INDEX IF NOT EXISTS idx_roulette_draws_group_week ON roulette_draws (group_id, week_start);
-CREATE INDEX IF NOT EXISTS idx_roulette_draws_debtor     ON roulette_draws (debtor_id, week_start);
-CREATE INDEX IF NOT EXISTS idx_debts_draw                ON debts (draw_id);
+CREATE INDEX IF NOT EXISTS idx_checkins_user_habit_date
+    ON checkins (user_habit_id, checked_on DESC);
 
--- sugerencias de castigo
-CREATE INDEX IF NOT EXISTS idx_group_suggestions_group_week ON group_suggestions (group_id, week_start);
+CREATE INDEX IF NOT EXISTS idx_checkins_date
+    ON checkins (checked_on DESC);
 
--- propuestas
-CREATE INDEX IF NOT EXISTS idx_proposals_group_status ON proposals (group_id, status);
+CREATE INDEX IF NOT EXISTS idx_roulette_entries_group_week
+    ON roulette_entries (group_id, week_start);
+
+CREATE INDEX IF NOT EXISTS idx_roulette_entries_debtor_week
+    ON roulette_entries (debtor_id, week_start);
+
+CREATE INDEX IF NOT EXISTS idx_suggestions_entry
+    ON punishment_suggestions (roulette_entry_id);
+
+CREATE INDEX IF NOT EXISTS idx_debts_group_active
+    ON debts (group_id, expires_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_debts_debtor_active
+    ON debts (debtor_id, expires_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_proposals_group_status
+    ON proposals (group_id, status, created_at DESC);
+
+-- Only one open proposal per habit type per group at a time.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_proposals_one_open_per_habit
+    ON proposals (group_id, habit_id, type)
+    WHERE status = 'open';
 
 -- =============================================================
--- TRIGGER: sincronizar auth.users → public.users
+-- AUTH SYNC TRIGGER: auth.users -> public.users
 -- =============================================================
--- Corre dentro de Postgres en la misma transacción que el registro.
--- search_path fijo para prevenir ataques de manipulación del search_path.
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.users (id, display_name, avatar_url)
-  VALUES (
-    new.id,
-    COALESCE(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
-    new.raw_user_meta_data->>'avatar_url'
-  )
-  ON CONFLICT (id) DO UPDATE
-    SET display_name = COALESCE(EXCLUDED.display_name, public.users.display_name),
-        avatar_url   = COALESCE(EXCLUDED.avatar_url,   public.users.avatar_url);
-  RETURN new;
+    INSERT INTO public.users (id, display_name, avatar_url)
+    VALUES (
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+        NEW.raw_user_meta_data->>'avatar_url'
+    )
+    ON CONFLICT (id) DO UPDATE
+        SET display_name = COALESCE(EXCLUDED.display_name, public.users.display_name),
+            avatar_url   = COALESCE(EXCLUDED.avatar_url,   public.users.avatar_url);
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT OR UPDATE ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Solo el trigger (ejecutado como superuser) puede invocar esta función.
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT OR UPDATE ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+
+-- =============================================================
+-- SUPABASE ROW LEVEL SECURITY
+-- =============================================================
+-- All product data is accessed exclusively through api-gateway using
+-- the service role key (bypasses RLS). The frontend never touches
+-- these tables directly — it only uses Supabase for Auth.
+-- RLS is enabled with no policies as a defense-in-depth measure.
+
+ALTER TABLE users               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE groups              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE group_members       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE habits              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_habits         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE checkins            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE roulette_entries    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE punishment_suggestions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE debts               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proposals           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE proposal_votes      ENABLE ROW LEVEL SECURITY;

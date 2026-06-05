@@ -17,9 +17,9 @@ export function useGroupSocket(groupID) {
     streak_update:   (p) => habitsStore.updateStreak(p),
     member_online:   (p) => groupStore.setMemberOnline(p.userID),
     member_offline:  (p) => groupStore.setMemberOffline(p.userID),
-    roulette_start:  (p) => penaltiesStore.startRoulette(p),
-    roulette_result: (p) => penaltiesStore.setRouletteResult(p),
-    debt_created:    (p) => penaltiesStore.addDebt(p),
+    roulette_result:      (p) => penaltiesStore.setRouletteResult(p),
+    collective_punishment:(p) => penaltiesStore.setRouletteResult(p),
+    debt_created:         (p) => penaltiesStore.addDebt(p),
   }
 
   const { status, close } = useWebSocket(url, {
