@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/dydi/habits-service/internal/db"
 	"github.com/go-chi/chi/v5"
@@ -12,11 +15,12 @@ import (
 )
 
 type HabitHandler struct {
-	pool *pgxpool.Pool
+	pool        *pgxpool.Pool
+	realtimeURL string
 }
 
-func NewHabitHandler(pool *pgxpool.Pool) *HabitHandler {
-	return &HabitHandler{pool: pool}
+func NewHabitHandler(pool *pgxpool.Pool, realtimeURL string) *HabitHandler {
+	return &HabitHandler{pool: pool, realtimeURL: realtimeURL}
 }
 
 func (h *HabitHandler) ListHabits(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +75,37 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go h.notifyRealtime(body.GroupID, userID, "checkin", map[string]any{
+		"user_id":  userID,
+		"habit_id": body.HabitID,
+		"status":   "done",
+	})
+
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *HabitHandler) notifyRealtime(groupID, userID, eventType string, data any) {
+	if h.realtimeURL == "" {
+		return
+	}
+	payload, err := json.Marshal(map[string]any{
+		"type":    eventType,
+		"groupID": groupID,
+		"userID":  userID,
+		"payload": data,
+	})
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		h.realtimeURL+"/internal/broadcast", bytes.NewReader(payload))
+	if err != nil {
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	http.DefaultClient.Do(req) //nolint:errcheck
 }
 
 func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) {

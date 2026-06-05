@@ -36,7 +36,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		w.Write([]byte("ok"))
 	})
 
-	habits := handler.NewHabitHandler(pool)
+	habits := handler.NewHabitHandler(pool, os.Getenv("REALTIME_SERVICE_URL"))
 	r.Get("/habits", habits.ListHabits)
 	r.Post("/habits/checkins", habits.CreateCheckin)
 	r.Get("/habits/checkins/{groupID}/today", habits.GetTodayCheckins)

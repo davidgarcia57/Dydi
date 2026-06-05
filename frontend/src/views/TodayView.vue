@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
+import { useGroupSocket } from '@/composables/useGroupSocket'
 
 const router = useRouter()
 const auth   = useAuthStore()
@@ -122,6 +123,8 @@ const STATUS_PILL = {
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
+let socketDisconnect = null
+
 onMounted(async () => {
   ticker = setInterval(() => { now.value = new Date() }, 30_000)
   try {
@@ -133,13 +136,18 @@ onMounted(async () => {
     await habits.loadToday(group.group.id)
     const memberIDs = [...new Set(habits.todayCheckins.map(c => c.user_id))]
     await Promise.all(memberIDs.map(id => habits.loadStreaks(id)))
+    const { disconnect } = useGroupSocket(group.group.id)
+    socketDisconnect = disconnect
     loaded.value = true
   } catch (_) {
     router.replace('/onboarding')
   }
 })
 
-onUnmounted(() => clearInterval(ticker))
+onUnmounted(() => {
+  clearInterval(ticker)
+  socketDisconnect?.()
+})
 </script>
 
 <template>
