@@ -170,3 +170,29 @@ CREATE INDEX IF NOT EXISTS idx_suggestions_group_week ON punishment_suggestions 
 
 -- propuestas
 CREATE INDEX IF NOT EXISTS idx_proposals_group_status ON proposals (group_id, status);
+
+-- =============================================================
+-- TRIGGER: sincronizar auth.users → public.users
+-- =============================================================
+-- Corre dentro de Postgres en la misma transacción que el registro.
+-- No requiere llamada HTTP desde el frontend — escala con Supabase.
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.users (id, display_name, avatar_url)
+  VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)),
+    new.raw_user_meta_data->>'avatar_url'
+  )
+  ON CONFLICT (id) DO UPDATE
+    SET display_name = COALESCE(EXCLUDED.display_name, public.users.display_name),
+        avatar_url   = COALESCE(EXCLUDED.avatar_url,   public.users.avatar_url);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT OR UPDATE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
