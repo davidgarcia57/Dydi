@@ -10,7 +10,7 @@ type Habit struct {
 	Color       string  `json:"color"`
 }
 
-type UserHabit struct {
+type HabitAssignment struct {
 	ID            string    `json:"id"`
 	UserID        string    `json:"user_id"`
 	GroupID       string    `json:"group_id"`
@@ -35,28 +35,28 @@ type TodayCheckin struct {
 }
 
 type Streak struct {
-	UserHabitID string `json:"user_habit_id"`
-	HabitID     string `json:"habit_id"`
-	HabitName   string `json:"habit_name"`
-	GroupID     string `json:"group_id"`
-	Current     int    `json:"current"`
+	HabitAssignmentID string `json:"habit_assignment_id"`
+	HabitID           string `json:"habit_id"`
+	HabitName         string `json:"habit_name"`
+	GroupID           string `json:"group_id"`
+	Current           int    `json:"current"`
 }
 
-type RouletteEntry struct {
+// RouletteEntry.Status removed — derive from SpunAt IS NOT NULL.
+type RouletteDraw struct {
 	ID        string     `json:"id"`
 	GroupID   string     `json:"group_id"`
 	DebtorID  string     `json:"debtor_id"`
 	WeekStart time.Time  `json:"week_start"`
-	Status    string     `json:"status"`
 	SpunAt    *time.Time `json:"spun_at,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 }
 
-// Debt.GroupID, DebtorID, WeekStart are read from roulette_entries via JOIN —
+// Debt.GroupID, DebtorID, WeekStart are read from roulette_draws via JOIN —
 // they are not stored in the debts table.
 type Debt struct {
 	ID              string     `json:"id"`
-	EntryID         string     `json:"entry_id"`
+	DrawID          string     `json:"draw_id"`
 	GroupID         string     `json:"group_id"`
 	DebtorID        string     `json:"debtor_id"`
 	WeekStart       time.Time  `json:"week_start"`
@@ -79,7 +79,7 @@ type Punishment struct {
 	Category string `json:"category"`
 }
 
-type PunishmentSuggestion struct {
+type GroupSuggestion struct {
 	ID          string    `json:"id"`
 	GroupID     string    `json:"group_id"`
 	WeekStart   time.Time `json:"week_start"`

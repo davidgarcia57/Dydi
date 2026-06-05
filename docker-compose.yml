@@ -1,21 +1,4 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: dydi
-      POSTGRES_PASSWORD: dydi
-      POSTGRES_DB: dydi
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./supabase/migrations:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dydi"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   api-gateway:
     build: ./api-gateway
     ports:
@@ -26,7 +9,7 @@ services:
       HABITS_SERVICE_URL: http://habits-service:8083
       REALTIME_SERVICE_URL: http://realtime-service:8084
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
-      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-http://host.docker.internal:54321/auth/v1/.well-known/jwks.json}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
       ALLOWED_ORIGINS: http://localhost:5173
     depends_on:
       - groups-service
@@ -39,11 +22,8 @@ services:
       - "8082:8082"
     environment:
       PORT: 8082
-      DATABASE_URL: postgres://dydi:dydi@postgres:5432/dydi?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL}
       MAX_GROUP_SIZE: 8
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   habits-service:
     build: ./habits-service
@@ -51,12 +31,9 @@ services:
       - "8083:8083"
     environment:
       PORT: 8083
-      DATABASE_URL: postgres://dydi:dydi@postgres:5432/dydi?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL}
       REALTIME_SERVICE_URL: http://realtime-service:8084
       PUNISHMENT_CATALOG_PATH: ./punishments.json
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   realtime-service:
     build: ./realtime-service
@@ -85,5 +62,3 @@ services:
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     command: sh -c "npm install && npm run dev -- --host"
 
-volumes:
-  postgres_data:

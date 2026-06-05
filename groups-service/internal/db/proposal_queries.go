@@ -43,7 +43,7 @@ func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID string) 
 	rows, err := pool.Query(ctx,
 		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.payload, p.status, p.created_at, p.expires_at,
 		        COUNT(pv.voter_id) AS vote_count,
-		        (SELECT COUNT(*) FROM group_members WHERE group_id = p.group_id) AS member_count
+		        (SELECT COUNT(*) FROM user_groups WHERE group_id = p.group_id) AS member_count
 		 FROM proposals p
 		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
 		 WHERE p.group_id = $1 AND p.status = 'open' AND p.expires_at > NOW()
@@ -91,7 +91,7 @@ func CountApprovalVotes(ctx context.Context, pool *pgxpool.Pool, proposalID stri
 	err = pool.QueryRow(ctx,
 		`SELECT
 		   (SELECT COUNT(*) FROM proposal_votes WHERE proposal_id = $1 AND approved = TRUE),
-		   (SELECT COUNT(*) FROM group_members
+		   (SELECT COUNT(*) FROM user_groups
 		    WHERE group_id = (SELECT group_id FROM proposals WHERE id = $1))`,
 		proposalID,
 	).Scan(&approvals, &members)

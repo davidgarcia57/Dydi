@@ -99,23 +99,23 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck — rollback on any early return
 
-	entry, err := db.GetOrCreateRouletteEntry(r.Context(), tx, body.GroupID, body.DebtorID, weekStart)
+	draw, err := db.GetOrCreateRouletteDraw(r.Context(), tx, body.GroupID, body.DebtorID, weekStart)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	if entry.Status == "completed" {
+	if draw.SpunAt != nil {
 		writeError(w, http.StatusConflict, "already spun for this member this week")
 		return
 	}
 
-	debt, err := db.CreateDebt(r.Context(), tx, entry.ID, punishment.Text, emoji)
+	debt, err := db.CreateDebt(r.Context(), tx, draw.ID, punishment.Text, emoji)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create debt")
 		return
 	}
 
-	if err := db.MarkEntryCompleted(r.Context(), tx, entry.ID); err != nil {
+	if err := db.MarkDrawCompleted(r.Context(), tx, draw.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not finalize spin")
 		return
 	}

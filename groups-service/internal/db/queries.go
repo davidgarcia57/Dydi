@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"math/big"
+	"time"
 
 	"github.com/dydi/groups-service/internal/model"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,7 +55,7 @@ func GetGroupByInviteCode(ctx context.Context, pool *pgxpool.Pool, code string) 
 func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Member, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT u.id, u.display_name, u.avatar_url, gm.joined_at
-		 FROM group_members gm
+		 FROM user_groups gm
 		 JOIN users u ON u.id = gm.user_id
 		 WHERE gm.group_id = $1
 		 ORDER BY gm.joined_at ASC`,
@@ -79,7 +80,7 @@ func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]mode
 func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int, error) {
 	var count int
 	err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM group_members WHERE group_id = $1`,
+		`SELECT COUNT(*) FROM user_groups WHERE group_id = $1`,
 		groupID,
 	).Scan(&count)
 	return count, err
@@ -88,7 +89,7 @@ func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int,
 func IsMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)`,
+		`SELECT EXISTS(SELECT 1 FROM user_groups WHERE group_id = $1 AND user_id = $2)`,
 		groupID, userID,
 	).Scan(&exists)
 	return exists, err
@@ -96,7 +97,7 @@ func IsMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (
 
 func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)`,
+		`INSERT INTO user_groups (group_id, user_id) VALUES ($1, $2)`,
 		groupID, userID,
 	)
 	return err
@@ -104,20 +105,23 @@ func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) 
 
 func RemoveMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
 	_, err := pool.Exec(ctx,
-		`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
+		`DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2`,
 		groupID, userID,
 	)
 	return err
 }
 
+// GetGroupsByUserID fetches all groups a user belongs to, with their members,
+// using a single JOIN query to avoid N+1 database round-trips.
 func GetGroupsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) ([]model.GroupWithMembers, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT id, name, invite_code, created_at
-		 FROM groups
-		 WHERE id IN (
-		   SELECT group_id FROM group_members WHERE user_id = $1
-		 )
-		 ORDER BY created_at ASC`,
+		`SELECT g.id, g.name, g.invite_code, g.created_at,
+		        u.id, u.display_name, u.avatar_url, gm2.joined_at
+		 FROM groups g
+		 JOIN user_groups gm1 ON gm1.group_id = g.id AND gm1.user_id = $1
+		 JOIN user_groups gm2 ON gm2.group_id = g.id
+		 JOIN users u ON u.id = gm2.user_id
+		 ORDER BY g.created_at ASC, gm2.joined_at ASC`,
 		userID,
 	)
 	if err != nil {
@@ -125,25 +129,35 @@ func GetGroupsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) (
 	}
 	defer rows.Close()
 
-	var groups []model.GroupWithMembers
+	grouped := map[string]*model.GroupWithMembers{}
+	order := []string{}
+
 	for rows.Next() {
 		var g model.Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt); err != nil {
+		var m model.Member
+		var joinedAt time.Time
+		if err := rows.Scan(
+			&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt,
+			&m.UserID, &m.DisplayName, &m.AvatarURL, &joinedAt,
+		); err != nil {
 			return nil, err
 		}
-		groups = append(groups, model.GroupWithMembers{Group: g, Members: []model.Member{}})
+		m.JoinedAt = joinedAt
+
+		if _, ok := grouped[g.ID]; !ok {
+			gwm := &model.GroupWithMembers{Group: g, Members: make([]model.Member, 0)}
+			grouped[g.ID] = gwm
+			order = append(order, g.ID)
+		}
+		grouped[g.ID].Members = append(grouped[g.ID].Members, m)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	for i, g := range groups {
-		members, err := GetMembers(ctx, pool, g.ID)
-		if err != nil {
-			return nil, err
-		}
-		groups[i].Members = members
+	result := make([]model.GroupWithMembers, 0, len(order))
+	for _, id := range order {
+		result = append(result, *grouped[id])
 	}
-
-	return groups, nil
+	return result, nil
 }

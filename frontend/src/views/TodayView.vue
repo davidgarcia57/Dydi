@@ -123,11 +123,11 @@ const STATUS_PILL = {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 onMounted(async () => {
   ticker = setInterval(() => { now.value = new Date() }, 30_000)
+  await group.autoLoad()
   if (group.group?.id) {
-    await Promise.all([
-      habits.loadToday(group.group.id),
-      habits.loadStreaks(auth.user?.id),
-    ])
+    await habits.loadToday(group.group.id)
+    const memberIDs = [...new Set(habits.todayCheckins.map(c => c.user_id))]
+    await Promise.all(memberIDs.map(id => habits.loadStreaks(id)))
   }
 })
 

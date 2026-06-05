@@ -12,6 +12,8 @@ export async function api(path, options = {}) {
       ...options.headers,
     },
   })
-  if (!res.ok) throw await res.json()
-  return res.json()
+  const text = await res.text()
+  const body = text ? JSON.parse(text) : null
+  if (!res.ok) throw body ?? { message: `HTTP ${res.status}` }
+  return body
 }

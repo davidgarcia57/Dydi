@@ -45,6 +45,16 @@ func (h *HabitHandler) AssignHabit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, body.GroupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
 	uh, err := db.AssignHabit(r.Context(), h.pool, userID, body.GroupID, body.HabitID, body.ScheduledTime)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -66,16 +76,17 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		GroupID string  `json:"group_id"`
-		HabitID string  `json:"habit_id"`
-		Note    *string `json:"note,omitempty"`
+		GroupID   string  `json:"group_id"`
+		HabitID   string  `json:"habit_id"`
+		Note      *string `json:"note,omitempty"`
+		CheckedOn string  `json:"checked_on"` // "YYYY-MM-DD", local date from client
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" {
-		writeError(w, http.StatusBadRequest, "group_id and habit_id are required")
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" || body.CheckedOn == "" {
+		writeError(w, http.StatusBadRequest, "group_id, habit_id and checked_on are required")
 		return
 	}
 
-	userHabitID, err := db.FindUserHabitID(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
+	habitAssignmentID, err := db.FindHabitAssignmentID(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeError(w, http.StatusNotFound, "habit not assigned to this user in this group")
@@ -85,7 +96,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	already, err := db.HasCheckinToday(r.Context(), h.pool, userHabitID)
+	already, err := db.HasCheckinOnDate(r.Context(), h.pool, habitAssignmentID, body.CheckedOn)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -95,7 +106,7 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.CreateCheckin(r.Context(), h.pool, userHabitID, body.Note); err != nil {
+	if err := db.CreateCheckin(r.Context(), h.pool, habitAssignmentID, body.Note, body.CheckedOn); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create checkin")
 		return
 	}
@@ -111,8 +122,13 @@ func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) 
 	}
 
 	groupID := chi.URLParam(r, "groupID")
+	date := r.URL.Query().Get("date") // "YYYY-MM-DD", local date from client
+	if date == "" {
+		writeError(w, http.StatusBadRequest, "date query param is required")
+		return
+	}
 
-	checkins, err := db.GetTodayCheckinsByGroup(r.Context(), h.pool, groupID)
+	checkins, err := db.GetTodayCheckinsByGroup(r.Context(), h.pool, groupID, date)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return

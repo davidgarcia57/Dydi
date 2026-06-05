@@ -1,4 +1,4 @@
--- Dydi — Schema inicial
+-- Dydi — Schema inicial (versión definitiva)
 -- week_start siempre es el lunes de la semana ISO: DATE_TRUNC('week', NOW())::DATE
 
 -- =============================================================
@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS groups (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS group_members (
+-- Tabla de unión groups × users.
+-- Representa la membresía de un usuario en un grupo.
+CREATE TABLE IF NOT EXISTS user_groups (
     group_id   UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     user_id    UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
     joined_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -40,14 +42,11 @@ CREATE TABLE IF NOT EXISTS habits (
     color       TEXT NOT NULL
 );
 
--- Hábito asignado a un usuario dentro de un grupo.
--- Se crean N filas (una por miembro) cuando el grupo aprueba un add_habit.
+-- Asignación de un hábito a un usuario dentro de un grupo.
+-- Tabla de unión ternaria: users × habits × groups.
 -- scheduled_time es individual: cada miembro decide su horario personal.
--- status se deriva en el API — no se almacena:
---   done    = existe checkin para hoy
---   pending = no existe checkin y aún no pasó la medianoche
---   missed  = no existe checkin y ya pasó la medianoche
-CREATE TABLE IF NOT EXISTS user_habits (
+-- El estado (done/pending/missed) se deriva en el API, no se almacena.
+CREATE TABLE IF NOT EXISTS habit_assignments (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id        UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
     group_id       UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -57,13 +56,16 @@ CREATE TABLE IF NOT EXISTS user_habits (
     UNIQUE (user_id, group_id, habit_id)
 );
 
--- Check-in diario. checked_on es DATE para simplificar "¿hizo check hoy?".
+-- Check-in diario.
+-- checked_on DATE registra el día de negocio (¿hizo check hoy?).
+-- created_at TIMESTAMPTZ registra el instante exacto (para métricas y analytics).
 CREATE TABLE IF NOT EXISTS checkins (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_habit_id UUID NOT NULL REFERENCES user_habits(id) ON DELETE CASCADE,
-    checked_on    DATE NOT NULL DEFAULT CURRENT_DATE,
-    note          TEXT,
-    UNIQUE (user_habit_id, checked_on)
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    habit_assignment_id UUID NOT NULL REFERENCES habit_assignments(id) ON DELETE CASCADE,
+    checked_on          DATE NOT NULL DEFAULT CURRENT_DATE,
+    note                TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (habit_assignment_id, checked_on)
 );
 
 -- =============================================================
@@ -71,23 +73,23 @@ CREATE TABLE IF NOT EXISTS checkins (
 -- =============================================================
 
 -- Una entrada por persona por semana en que falló al menos un hábito.
--- Se crea en cuanto se detecta la primera falla de la semana.
--- week_start = lunes de esa semana.
-CREATE TABLE IF NOT EXISTS roulette_entries (
+-- spun_at IS NOT NULL indica que ya se giró la ruleta para esta persona esta semana.
+-- week_start = lunes de esa semana (ISODOW = 1).
+CREATE TABLE IF NOT EXISTS roulette_draws (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id   UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     debtor_id  UUID NOT NULL REFERENCES users(id)  ON DELETE CASCADE,
     week_start DATE NOT NULL,
-    status     TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'completed')),
-    spun_at    TIMESTAMPTZ,
+    spun_at    TIMESTAMPTZ,   -- NULL = pendiente de girar, NOT NULL = ya girado
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (group_id, debtor_id, week_start)
+    UNIQUE (group_id, debtor_id, week_start),
+    CONSTRAINT chk_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1)
 );
 
--- Sugerencias de castigo propuestas por los miembros del grupo durante la semana.
--- Son un pool compartido por grupo+semana — cualquiera puede caer en la ruleta
--- y recibir cualquier castigo del pool. Cada miembro puede agregar la suya.
-CREATE TABLE IF NOT EXISTS punishment_suggestions (
+-- Sugerencias de castigo propuestas por los miembros del grupo.
+-- Son un pool compartido por grupo+semana — cualquier miembro puede recibir
+-- cualquier castigo del pool. Un castigo por miembro por semana.
+CREATE TABLE IF NOT EXISTS group_suggestions (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id     UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     week_start   DATE NOT NULL,
@@ -95,20 +97,26 @@ CREATE TABLE IF NOT EXISTS punishment_suggestions (
     text         TEXT NOT NULL,
     emoji        TEXT,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (group_id, week_start, suggester_id)  -- un castigo por persona por semana
+    UNIQUE (group_id, week_start, suggester_id),
+    CONSTRAINT chk_suggestions_week_start_monday CHECK (EXTRACT(ISODOW FROM week_start) = 1)
 );
 
--- Resultado del giro. debtor_id/group_id/week_start se leen vía entry_id (no se duplican).
+-- Resultado del giro. group_id/debtor_id/week_start se leen vía draw_id (no se duplican).
 -- punishment_text se copia para preservar el texto histórico si la sugerencia se elimina.
+-- UNIQUE(draw_id): un giro produce exactamente una deuda; previene duplicados por race condition.
 CREATE TABLE IF NOT EXISTS debts (
-    id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entry_id         UUID NOT NULL REFERENCES roulette_entries(id)      ON DELETE CASCADE,
-    suggestion_id    UUID          REFERENCES punishment_suggestions(id) ON DELETE SET NULL,
-    punishment_text  TEXT NOT NULL,
-    punishment_emoji TEXT,
-    resolved         BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    resolved_at      TIMESTAMPTZ
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    draw_id               UUID NOT NULL UNIQUE REFERENCES roulette_draws(id) ON DELETE CASCADE,
+    penalty_suggestion_id UUID         REFERENCES group_suggestions(id) ON DELETE SET NULL,
+    punishment_text       TEXT NOT NULL,
+    punishment_emoji      TEXT,
+    resolved              BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at           TIMESTAMPTZ,
+    CONSTRAINT chk_resolved_time CHECK (
+        (resolved = FALSE AND resolved_at IS NULL) OR
+        (resolved = TRUE  AND resolved_at IS NOT NULL)
+    )
 );
 
 -- =============================================================
@@ -117,15 +125,11 @@ CREATE TABLE IF NOT EXISTS debts (
 
 -- Tipos de propuesta y sus payloads:
 --   add_habit     → { "habit_id": "uuid", "scheduled_time": "06:00" }
---                    scheduled_time es el default que se asigna a todos los miembros.
---                    Cada usuario puede ajustar el suyo después.
 --   remove_habit  → { "habit_id": "uuid" }
---                    Elimina user_habits de todos los miembros (cascada a checkins futuros).
 --   kick_member   → { "user_id": "uuid" }
 --   delete_group  → {}
 --
 -- Aprobación: > 50 % de miembros vota TRUE dentro de expires_at.
--- Si expires_at pasa sin mayoría → status = 'expired'.
 CREATE TABLE IF NOT EXISTS proposals (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     group_id    UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
@@ -150,23 +154,23 @@ CREATE TABLE IF NOT EXISTS proposal_votes (
 -- =============================================================
 
 -- checkins: query principal = "checkins de hoy para este grupo"
-CREATE INDEX IF NOT EXISTS idx_checkins_user_habit    ON checkins (user_habit_id, checked_on DESC);
-CREATE INDEX IF NOT EXISTS idx_checkins_date          ON checkins (checked_on DESC);
+CREATE INDEX IF NOT EXISTS idx_checkins_habit_assignment ON checkins (habit_assignment_id, checked_on DESC);
+CREATE INDEX IF NOT EXISTS idx_checkins_date             ON checkins (checked_on DESC);
 
--- user_habits: hábitos de un usuario / hábitos de un grupo
-CREATE INDEX IF NOT EXISTS idx_user_habits_user       ON user_habits (user_id);
-CREATE INDEX IF NOT EXISTS idx_user_habits_group      ON user_habits (group_id, user_id);
+-- habit_assignments: hábitos de un usuario / hábitos de un grupo
+CREATE INDEX IF NOT EXISTS idx_habit_assignments_user  ON habit_assignments (user_id);
+CREATE INDEX IF NOT EXISTS idx_habit_assignments_group ON habit_assignments (group_id, user_id);
 
--- group_members: grupos a los que pertenece un usuario
-CREATE INDEX IF NOT EXISTS idx_group_members_user     ON group_members (user_id);
+-- user_groups: grupos a los que pertenece un usuario
+CREATE INDEX IF NOT EXISTS idx_user_groups_user ON user_groups (user_id);
 
 -- ruleta y deudas
-CREATE INDEX IF NOT EXISTS idx_roulette_group_week    ON roulette_entries (group_id, week_start);
-CREATE INDEX IF NOT EXISTS idx_roulette_debtor        ON roulette_entries (debtor_id, week_start);
-CREATE INDEX IF NOT EXISTS idx_debts_entry            ON debts (entry_id);
+CREATE INDEX IF NOT EXISTS idx_roulette_draws_group_week ON roulette_draws (group_id, week_start);
+CREATE INDEX IF NOT EXISTS idx_roulette_draws_debtor     ON roulette_draws (debtor_id, week_start);
+CREATE INDEX IF NOT EXISTS idx_debts_draw                ON debts (draw_id);
 
 -- sugerencias de castigo
-CREATE INDEX IF NOT EXISTS idx_suggestions_group_week ON punishment_suggestions (group_id, week_start);
+CREATE INDEX IF NOT EXISTS idx_group_suggestions_group_week ON group_suggestions (group_id, week_start);
 
 -- propuestas
 CREATE INDEX IF NOT EXISTS idx_proposals_group_status ON proposals (group_id, status);
@@ -175,7 +179,7 @@ CREATE INDEX IF NOT EXISTS idx_proposals_group_status ON proposals (group_id, st
 -- TRIGGER: sincronizar auth.users → public.users
 -- =============================================================
 -- Corre dentro de Postgres en la misma transacción que el registro.
--- No requiere llamada HTTP desde el frontend — escala con Supabase.
+-- search_path fijo para prevenir ataques de manipulación del search_path.
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
@@ -191,8 +195,11 @@ BEGIN
         avatar_url   = COALESCE(EXCLUDED.avatar_url,   public.users.avatar_url);
   RETURN new;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Solo el trigger (ejecutado como superuser) puede invocar esta función.
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;

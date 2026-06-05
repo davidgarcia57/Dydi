@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 
 const route = useRoute()
-const isPublic = computed(() => route.meta.public)
+const isPublic = computed(() => route.meta.public || route.meta.checkinFlow)
 
 const tabs = [
   {
