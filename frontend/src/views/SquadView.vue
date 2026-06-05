@@ -1,8 +1,9 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
+import { useGroupSocket } from '@/composables/useGroupSocket'
 
 const auth   = useAuthStore()
 const group  = useGroupStore()
@@ -48,15 +49,21 @@ const STATUS_LABEL = {
   missed:  { cls: 'bg-coral/30 text-coral',     label: '✗' },
 }
 
+let socketDisconnect = null
+
 onMounted(async () => {
   await group.autoLoad()
   if (group.group?.id) {
     await habits.loadToday(group.group.id)
     const ids = [...new Set(habits.todayCheckins.map(c => c.user_id))]
     await Promise.all(ids.map(id => habits.loadStreaks(id)))
+    const { disconnect } = useGroupSocket(group.group.id)
+    socketDisconnect = disconnect
   }
   loaded.value = true
 })
+
+onUnmounted(() => socketDisconnect?.())
 </script>
 
 <template>
