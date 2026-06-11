@@ -13,12 +13,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/dydi/realtime-service/internal/handler"
-	"github.com/dydi/realtime-service/internal/hub"
+	"github.com/dydi/realtime-service/internal/delivery/websocket"
+	"github.com/dydi/realtime-service/internal/usecase"
 )
 
 func main() {
-	h := hub.New()
+	h := usecase.NewHubUseCase()
 	go h.Run()
 
 	srv := &http.Server{
@@ -39,7 +39,6 @@ func main() {
 	<-quit
 	log.Println("shutdown signal received")
 
-	// Broadcast member_offline for all active clients before closing
 	h.Shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -58,7 +57,7 @@ func port() string {
 	return p
 }
 
-func setupRouter(h *hub.Hub) *chi.Mux {
+func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -73,8 +72,8 @@ func setupRouter(h *hub.Hub) *chi.Mux {
 
 	r.Handle("/metrics", promhttp.Handler())
 
-	r.Get("/ws/{groupID}", handler.WebSocket(h))
-	r.Post("/internal/broadcast", handler.Broadcast(h))
+	r.Get("/ws/{groupID}", websocket.WebSocketHandler(h))
+	r.Post("/internal/broadcast", websocket.BroadcastHandler(h))
 
 	return r
 }

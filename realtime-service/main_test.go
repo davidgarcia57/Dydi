@@ -7,11 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/dydi/realtime-service/internal/hub"
+	"github.com/dydi/realtime-service/internal/domain"
+	"github.com/dydi/realtime-service/internal/usecase"
 )
 
 func TestHealthEndpoint(t *testing.T) {
-	h := hub.New()
+	h := usecase.NewHubUseCase()
 	go h.Run()
 	r := setupRouter(h)
 
@@ -33,12 +34,12 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestBroadcastEndpoint(t *testing.T) {
-	h := hub.New()
+	h := usecase.NewHubUseCase()
 	go h.Run()
 	r := setupRouter(h)
 
-	ev := hub.Event{
-		Type:    hub.EventCheckin,
+	ev := domain.Event{
+		Type:    domain.EventCheckin,
 		GroupID: "group-123",
 		UserID:  "user-456",
 	}
@@ -55,7 +56,7 @@ func TestBroadcastEndpoint(t *testing.T) {
 }
 
 func TestBroadcastEndpointInvalidBody(t *testing.T) {
-	h := hub.New()
+	h := usecase.NewHubUseCase()
 	go h.Run()
 	r := setupRouter(h)
 
