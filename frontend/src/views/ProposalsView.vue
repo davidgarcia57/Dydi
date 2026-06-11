@@ -98,9 +98,12 @@ onMounted(async () => {
   <div class="max-w-md mx-auto px-4 pt-4 pb-6">
 
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
-    <header class="flex items-center justify-between mb-6">
-      <h1 class="font-serif text-2xl font-semibold text-ink">Propuestas</h1>
-      <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+    <header class="mb-6">
+      <div class="flex items-center justify-between">
+        <h1 class="font-serif text-2xl font-semibold text-ink">Propuestas</h1>
+        <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+      </div>
+      <p class="text-xs text-ink-faint mt-0.5">Propón y vota hábitos para el squad</p>
     </header>
 
     <!-- ── Loading ─────────────────────────────────────────────────────────── -->
@@ -110,7 +113,7 @@ onMounted(async () => {
 
     <template v-else>
       <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
-      <div class="flex gap-1 bg-surface rounded-[14px] p-1 mb-6">
+      <div class="flex gap-1 bg-cream-2 rounded-[14px] p-1 mb-6">
         <button
           class="flex-1 rounded-[10px] py-2 text-sm font-semibold transition-all"
           :class="tab === 'catalogo'
@@ -171,20 +174,20 @@ onMounted(async () => {
               </p>
               <span v-if="assignedHabitIDs.has(habit.id)"
                 class="inline-block mt-1 text-[10px] font-semibold text-sage-deep
-                       bg-sage/20 rounded-full px-2 py-0.5">
+                       bg-sage-soft rounded-full px-2 py-0.5">
                 Ya en el grupo
               </span>
             </div>
 
             <button
               v-if="proposeOk === habit.id"
-              class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage/20
+              class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
                      rounded-full px-3 py-1.5"
             >
               ✓ Propuesto
             </button>
             <button
-              v-else
+              v-else-if="!assignedHabitIDs.has(habit.id)"
               :disabled="proposing === habit.id"
               class="flex-shrink-0 rounded-pill border border-hairline bg-surface
                      text-ink-soft text-xs font-semibold px-3 py-1.5
@@ -205,10 +208,10 @@ onMounted(async () => {
       <div v-else-if="tab === 'propuestas'">
 
         <div v-if="!store.proposals.length"
-          class="rounded-card bg-surface py-14 text-center">
-          <p class="text-3xl mb-3">🗳</p>
-          <p class="text-sm text-ink-soft">
-            No hay propuestas abiertas.<br>
+          class="rounded-card bg-paper shadow-flat py-14 text-center">
+          <p class="text-eyebrow text-ink-faint mb-2">SIN PROPUESTAS</p>
+          <p class="font-serif text-xl font-semibold text-ink mb-1">Todo tranquilo</p>
+          <p class="text-sm text-ink-soft mt-1">
             Propón un hábito desde el catálogo.
           </p>
         </div>
@@ -231,7 +234,7 @@ onMounted(async () => {
                   {{ habitName(p.habit_id) }}
                 </p>
               </div>
-              <span class="rounded-full bg-amber/20 text-amber text-[10px] font-bold
+              <span class="rounded-full bg-amber-soft text-amber-deep text-[10px] font-bold
                            px-2.5 py-1 flex-shrink-0">
                 ABIERTA
               </span>
@@ -276,7 +279,7 @@ onMounted(async () => {
               </button>
             </div>
             <div v-else
-              class="rounded-pill bg-sage/10 text-sage-deep text-sm font-semibold
+              class="rounded-pill bg-sage-soft text-sage-deep text-sm font-semibold
                      py-2.5 text-center">
               ✓ Ya votaste
             </div>

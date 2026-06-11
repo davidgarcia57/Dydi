@@ -69,9 +69,12 @@ onUnmounted(() => socketDisconnect?.())
 <template>
   <div class="max-w-md mx-auto px-4 pt-4 pb-6">
 
-    <header class="flex items-center justify-between mb-6">
-      <h1 class="font-serif text-2xl font-semibold text-ink">Squad</h1>
-      <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+    <header class="mb-6">
+      <div class="flex items-center justify-between">
+        <h1 class="font-serif text-2xl font-semibold text-ink">Squad</h1>
+        <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+      </div>
+      <p class="text-xs text-ink-faint mt-0.5">Presencia y hábitos de hoy</p>
     </header>
 
     <div v-if="!squadRows.length"
@@ -84,8 +87,8 @@ onUnmounted(() => socketDisconnect?.())
       <div
         v-for="row in squadRows"
         :key="row.user_id"
-        class="rounded-card shadow-flat bg-surface p-4"
-        :class="{ 'ring-2 ring-sage/30': group.onlineMembers.has(row.user_id) }"
+        class="rounded-card shadow-flat bg-paper p-4"
+        :class="{ 'ring-2 ring-sage/40': group.onlineMembers.has(row.user_id) }"
       >
         <div class="flex items-center gap-3 mb-3">
           <!-- Avatar + online dot -->
@@ -118,16 +121,16 @@ onUnmounted(() => socketDisconnect?.())
           </div>
 
           <!-- Overall status pill -->
-          <div
-            class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+          <span
+            class="rounded-pill px-2.5 py-1 text-[10px] font-bold flex-shrink-0"
             :class="row.habits.every(h => h.status === 'done')
-              ? 'bg-sage/30 text-sage-deep'
+              ? 'bg-sage-soft text-sage-deep'
               : row.habits.some(h => h.status === 'missed')
-                ? 'bg-coral/30 text-coral'
-                : 'bg-amber/30 text-amber'"
+                ? 'bg-coral-soft text-coral-deep'
+                : 'bg-amber-soft text-amber-deep'"
           >
-            {{ row.habits.every(h => h.status === 'done') ? '✓' : row.habits.some(h => h.status === 'missed') ? '✗' : '–' }}
-          </div>
+            {{ row.habits.every(h => h.status === 'done') ? '✓ hoy' : row.habits.some(h => h.status === 'missed') ? '✗ falló' : '· pendiente' }}
+          </span>
         </div>
 
         <!-- Habits list -->

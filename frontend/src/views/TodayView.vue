@@ -49,18 +49,31 @@ const weekNumber = computed(() => {
 })
 
 // ── My check-in ──────────────────────────────────────────────────────────────
-const myCheckin = computed(() =>
-  habits.todayCheckins.find(c => c.user_id === auth.user?.id)
+const myCheckins = computed(() =>
+  habits.todayCheckins.filter(c => c.user_id === auth.user?.id)
 )
+
+const hasPending = computed(() => myCheckins.value.some(c => c.status === 'pending'))
+const allDone    = computed(() => myCheckins.value.length > 0 && myCheckins.value.every(c => c.status === 'done'))
+const anyMissed  = computed(() => myCheckins.value.some(c => c.status === 'missed') && !hasPending.value)
 
 const myStreak = computed(() => habits.streaks[auth.user?.id] ?? 0)
 
-// ── Squad stats ───────────────────────────────────────────────────────────────
-const stats = computed(() => ({
-  done:    habits.todayCheckins.filter(c => c.status === 'done').length,
-  pending: habits.todayCheckins.filter(c => c.status === 'pending').length,
-  missed:  habits.todayCheckins.filter(c => c.status === 'missed').length,
-}))
+// ── Squad stats (per member, not per checkin) ─────────────────────────────────
+const stats = computed(() => {
+  const byUser = {}
+  for (const c of habits.todayCheckins) {
+    if (!byUser[c.user_id]) byUser[c.user_id] = []
+    byUser[c.user_id].push(c.status)
+  }
+  let done = 0, pending = 0, missed = 0
+  for (const statuses of Object.values(byUser)) {
+    if (statuses.every(s => s === 'done'))        done++
+    else if (statuses.some(s => s === 'pending')) pending++
+    else                                          missed++
+  }
+  return { done, pending, missed }
+})
 
 const progressPct = computed(() => {
   const total = group.members.length
@@ -110,16 +123,16 @@ function dayStrip(checkin) {
 }
 
 const STATUS_STYLE = {
-  done:    { strip: 'bg-sage',     icon: '✓', iconColor: 'text-sage-deep' },
-  pending: { strip: 'bg-amber',    icon: '',  iconColor: '' },
-  missed:  { strip: 'bg-coral',    icon: '✗', iconColor: 'text-coral' },
-  future:  { strip: 'bg-hairline', icon: '',  iconColor: '' },
+  done:    { strip: 'bg-sage',         icon: '✓', iconColor: 'text-sage-deep' },
+  pending: { strip: 'bg-amber',        icon: '',  iconColor: '' },
+  missed:  { strip: 'bg-coral',        icon: '✗', iconColor: 'text-coral-deep' },
+  future:  { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
 }
 
 const STATUS_PILL = {
-  done:    { cls: 'bg-sage/30 text-sage-deep',    label: '✓ hoy' },
-  pending: { cls: 'bg-amber/30 text-amber',       label: 'pendiente' },
-  missed:  { cls: 'bg-coral/30 text-coral',       label: '✗ hoy' },
+  done:    { cls: 'bg-sage-soft text-sage-deep',    label: '✓ hoy' },
+  pending: { cls: 'bg-amber-soft text-amber-deep',  label: 'pendiente' },
+  missed:  { cls: 'bg-coral-soft text-coral-deep',  label: '✗ hoy' },
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -198,37 +211,37 @@ onUnmounted(() => {
     </div>
 
     <!-- ── Countdown card ─────────────────────────────────────────────────── -->
-    <div class="rounded-card bg-[#1C2E28] p-5 mb-4">
+    <div class="rounded-card bg-paper shadow-card p-5 mb-4">
       <div class="flex justify-between items-start mb-3">
-        <span class="text-eyebrow text-[#7AAF9E]">EL CICLO CIERRA EN</span>
+        <span class="text-eyebrow">EL CICLO CIERRA EN</span>
         <span class="text-xs font-semibold text-terracotta">{{ closingLabel }}</span>
       </div>
 
       <div class="flex items-end gap-2 mb-4">
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-paper leading-none">{{ countdown.days }}</p>
-          <p class="text-[11px] text-[#7AAF9E] mt-1">días</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.days }}</p>
+          <p class="text-[11px] text-ink-faint mt-1">días</p>
         </div>
-        <span class="font-serif text-4xl text-[#4A6E62] mb-2">:</span>
+        <span class="font-serif text-4xl text-hairline mb-2">:</span>
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-paper leading-none">{{ countdown.hours }}</p>
-          <p class="text-[11px] text-[#7AAF9E] mt-1">hrs</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.hours }}</p>
+          <p class="text-[11px] text-ink-faint mt-1">hrs</p>
         </div>
-        <span class="font-serif text-4xl text-[#4A6E62] mb-2">:</span>
+        <span class="font-serif text-4xl text-hairline mb-2">:</span>
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-paper leading-none">{{ countdown.mins }}</p>
-          <p class="text-[11px] text-[#7AAF9E] mt-1">min</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.mins }}</p>
+          <p class="text-[11px] text-ink-faint mt-1">min</p>
         </div>
       </div>
 
       <!-- Progress bar -->
       <div class="flex justify-between text-xs mb-1.5">
-        <span class="text-[#7AAF9E]">Semana {{ weekNumber }}</span>
+        <span class="text-ink-faint">Semana {{ weekNumber }}</span>
         <span class="text-terracotta font-semibold">
           {{ stats.done }} de {{ group.members.length || '—' }} al corriente
         </span>
       </div>
-      <div class="h-1.5 rounded-full bg-white/10">
+      <div class="h-1.5 rounded-full bg-hairline">
         <div
           class="h-full rounded-full bg-terracotta transition-all duration-500"
           :style="{ width: progressPct + '%' }"
@@ -250,19 +263,25 @@ onUnmounted(() => {
         ¿Ya hiciste el tuyo?
       </h2>
 
-      <!-- Habit info -->
-      <div v-if="myCheckin" class="flex flex-wrap items-center gap-2 mb-4">
-        <span class="text-sm font-semibold text-ink">{{ myCheckin.habit_name }}</span>
-        <span v-if="myCheckin.scheduled_time"
-          class="rounded-pill bg-hairline px-2.5 py-0.5 text-xs text-ink-soft font-medium">
-          {{ myCheckin.scheduled_time }}
-        </span>
-        <span
-          class="rounded-pill px-2.5 py-0.5 text-xs font-semibold"
-          :class="STATUS_PILL[myCheckin.status]?.cls ?? 'bg-hairline text-ink-soft'"
+      <!-- Habit list (one row per assigned habit) -->
+      <div v-if="myCheckins.length" class="space-y-2 mb-4">
+        <div
+          v-for="c in myCheckins"
+          :key="c.habit_id"
+          class="flex flex-wrap items-center gap-2"
         >
-          {{ STATUS_PILL[myCheckin.status]?.label ?? myCheckin.status }}
-        </span>
+          <span class="text-sm font-semibold text-ink">{{ c.habit_name }}</span>
+          <span v-if="c.scheduled_time"
+            class="rounded-pill bg-hairline px-2.5 py-0.5 text-xs text-ink-soft font-medium">
+            {{ c.scheduled_time }}
+          </span>
+          <span
+            class="rounded-pill px-2.5 py-0.5 text-xs font-semibold"
+            :class="STATUS_PILL[c.status]?.cls ?? 'bg-hairline text-ink-soft'"
+          >
+            {{ STATUS_PILL[c.status]?.label ?? c.status }}
+          </span>
+        </div>
       </div>
       <p v-else class="text-sm text-ink-soft mb-4">
         No tienes un hábito registrado en este grupo todavía.
@@ -270,7 +289,7 @@ onUnmounted(() => {
 
       <!-- Action button -->
       <button
-        v-if="!myCheckin || myCheckin.status === 'pending'"
+        v-if="hasPending || !myCheckins.length"
         class="w-full rounded-pill bg-sage-deep text-paper py-3.5 font-bold text-sm
                active:opacity-80 transition-opacity"
         @click="router.push('/checkin')"
@@ -279,16 +298,16 @@ onUnmounted(() => {
       </button>
 
       <div
-        v-else-if="myCheckin.status === 'done'"
-        class="w-full rounded-pill bg-sage/20 text-sage-deep py-3.5 font-bold
+        v-else-if="allDone"
+        class="w-full rounded-pill bg-sage-soft text-sage-deep py-3.5 font-bold
                text-sm text-center"
       >
         ✓ &nbsp;Ya cumpliste hoy
       </div>
 
       <div
-        v-else-if="myCheckin.status === 'missed'"
-        class="w-full rounded-pill bg-coral/20 text-coral py-3.5 font-bold
+        v-else-if="anyMissed"
+        class="w-full rounded-pill bg-coral-soft text-coral-deep py-3.5 font-bold
                text-sm text-center"
       >
         Se te fue el día
@@ -296,17 +315,17 @@ onUnmounted(() => {
     </div>
 
     <!-- ── Summary numbers ────────────────────────────────────────────────── -->
-    <div class="grid grid-cols-3 text-center mb-6">
-      <div>
-        <p class="font-serif text-3xl font-semibold text-ink">{{ stats.done }}</p>
+    <div class="rounded-card bg-paper shadow-flat grid grid-cols-3 text-center mb-6 overflow-hidden">
+      <div class="py-4">
+        <p class="font-serif text-3xl font-semibold text-sage-deep">{{ stats.done }}</p>
         <p class="text-xs text-ink-soft mt-0.5">cumplieron</p>
       </div>
-      <div class="border-x border-hairline">
-        <p class="font-serif text-3xl font-semibold text-ink">{{ stats.pending }}</p>
+      <div class="border-x border-hairline py-4">
+        <p class="font-serif text-3xl font-semibold text-amber-deep">{{ stats.pending }}</p>
         <p class="text-xs text-ink-soft mt-0.5">pendientes</p>
       </div>
-      <div>
-        <p class="font-serif text-3xl font-semibold text-ink">{{ stats.missed }}</p>
+      <div class="py-4">
+        <p class="font-serif text-3xl font-semibold text-coral-deep">{{ stats.missed }}</p>
         <p class="text-xs text-ink-soft mt-0.5">fallaron</p>
       </div>
     </div>

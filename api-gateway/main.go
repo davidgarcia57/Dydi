@@ -18,7 +18,6 @@ func main() {
 	}
 	http.ListenAndServe(":"+port, r)
 }
-
 func setupRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

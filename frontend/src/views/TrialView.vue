@@ -9,7 +9,7 @@ const group     = useGroupStore()
 const penalties = usePenaltiesStore()
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const view       = ref('list')  // 'list' | 'entry'
+const view       = ref('list')
 const loading    = ref(false)
 const spinning   = ref(false)
 const error      = ref(null)
@@ -18,18 +18,21 @@ const showForm   = ref(false)
 const sugText    = ref('')
 const sugEmoji   = ref('')
 
+// ── Wheel animation ───────────────────────────────────────────────────────────
+const spinDeg = ref(0)
+
 // ── Entry computed ─────────────────────────────────────────────────────────────
 const entry = computed(() => penalties.activeEntry)
 
 const deadlinePassed = computed(() =>
   entry.value ? new Date() > new Date(entry.value.suggestion_deadline) : false
 )
-const isDebtor    = computed(() => entry.value?.debtor_id === auth.user?.id)
-const canSpin     = computed(() => isDebtor.value && deadlinePassed.value && !entry.value?.spun_at)
+const isDebtor     = computed(() => entry.value?.debtor_id === auth.user?.id)
+const canSpin      = computed(() => isDebtor.value && deadlinePassed.value && !entry.value?.spun_at)
 const hasSuggested = computed(() =>
   penalties.suggestions.some(s => s.suggester_id === auth.user?.id)
 )
-const canSuggest  = computed(() => !deadlinePassed.value && !hasSuggested.value)
+const canSuggest = computed(() => !deadlinePassed.value && !hasSuggested.value)
 
 const deadlineLabel = computed(() => {
   if (!entry.value) return ''
@@ -57,10 +60,40 @@ const spinDebts = computed(() =>
     : []
 )
 
+// ── Wheel SVG ─────────────────────────────────────────────────────────────────
+const WHEEL_COLORS = [
+  '#C26F4D', '#A8C39A', '#5C7650', '#E9C281',
+  '#EDA48F', '#BC5C42', '#7CA39D', '#A57B33',
+]
+
+function polarToCartesian(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)]
+}
+
+function segmentPath(cx, cy, r, start, end) {
+  const [sx, sy] = polarToCartesian(cx, cy, r, start)
+  const [ex, ey] = polarToCartesian(cx, cy, r, end)
+  const large = (end - start) > 180 ? 1 : 0
+  return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey} Z`
+}
+
+const wheelSegments = computed(() => {
+  const items = penalties.suggestions.length >= 2
+    ? penalties.suggestions
+    : Array.from({ length: 8 })
+  const anglePer = 360 / items.length
+  return items.map((_, i) => ({
+    path:  segmentPath(100, 100, 95, i * anglePer, (i + 1) * anglePer),
+    color: WHEEL_COLORS[i % WHEEL_COLORS.length],
+    label: penalties.suggestions[i]?.text?.slice(0, 12) ?? '',
+  }))
+})
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const COLORS = ['bg-sage-deep', 'bg-terracotta', 'bg-sage', 'bg-amber', 'bg-coral']
-const initials  = (n = '') => n.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
-const avatarBg  = (n = '') => COLORS[(n?.charCodeAt(0) ?? 0) % COLORS.length]
+const COLORS     = ['bg-sage-deep', 'bg-terracotta', 'bg-sage', 'bg-amber', 'bg-coral']
+const initials   = (n = '') => n.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+const avatarBg   = (n = '') => COLORS[(n?.charCodeAt(0) ?? 0) % COLORS.length]
 const memberName = id => group.members.find(m => m.user_id === id)?.display_name ?? '?'
 const shortDate  = iso  => new Date(iso).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })
 
@@ -94,15 +127,27 @@ async function submitSuggestion() {
 }
 
 async function doSpin() {
+  if (spinning.value) return
   spinning.value = true
   error.value    = null
+
+  // Start visual spin immediately (5+ full rotations + random offset)
+  spinDeg.value += 1800 + Math.random() * 360
+
+  let result = null
   try {
-    spinResult.value = await penalties.spin(entry.value.id)
+    const [apiResult] = await Promise.all([
+      penalties.spin(entry.value.id),
+      new Promise(r => setTimeout(r, 4200)),
+    ])
+    result = apiResult
   } catch (e) {
     error.value = e?.error ?? 'Error al girar'
   } finally {
     spinning.value = false
   }
+
+  if (result) spinResult.value = result
 }
 
 function backToList() {
@@ -110,6 +155,7 @@ function backToList() {
   spinResult.value = null
   showForm.value   = false
   error.value      = null
+  spinDeg.value    = 0
   penalties.clearEntry()
 }
 
@@ -130,9 +176,12 @@ onMounted(async () => {
     <!-- ═══════════════════ LIST VIEW ═══════════════════════════════════════ -->
     <template v-if="view === 'list'">
 
-      <header class="flex items-center justify-between mb-6">
-        <h1 class="font-serif text-2xl font-semibold text-ink">Ruleta</h1>
-        <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+      <header class="mb-6">
+        <div class="flex items-center justify-between">
+          <h1 class="font-serif text-2xl font-semibold text-ink">Ruleta</h1>
+          <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
+        </div>
+        <p class="text-xs text-ink-faint mt-0.5">Penitencias del ciclo actual</p>
       </header>
 
       <div v-if="error"
@@ -142,11 +191,11 @@ onMounted(async () => {
 
       <!-- En deuda esta semana -->
       <section class="mb-7">
-        <h2 class="text-eyebrow mb-3">EN DEUDA ESTA SEMANA</h2>
+        <h2 class="text-eyebrow mb-3">EN EL BOTE ESTA SEMANA</h2>
 
         <div v-if="!penalties.eligible.length"
-          class="rounded-card border border-sage/30 bg-sage/10 px-4 py-6 text-center">
-          <p class="font-serif text-3xl mb-1">🎉</p>
+          class="rounded-card border border-sage/30 bg-sage-soft px-4 py-8 text-center">
+          <p class="text-4xl mb-3">🎉</p>
           <p class="text-sm font-semibold text-sage-deep">Squad limpio esta semana</p>
           <p class="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</p>
         </div>
@@ -206,7 +255,7 @@ onMounted(async () => {
                 </div>
                 <span class="text-xs font-semibold text-ink">{{ memberName(debt.debtor_id) }}</span>
                 <span v-if="debt.is_collective"
-                  class="rounded-pill bg-coral/20 text-coral text-[10px] font-bold px-2 py-0.5">
+                  class="rounded-pill bg-coral-soft text-coral-deep text-[10px] font-bold px-2 py-0.5">
                   colectiva
                 </span>
               </div>
@@ -223,7 +272,7 @@ onMounted(async () => {
     <!-- ═══════════════════ ENTRY VIEW ════════════════════════════════════════ -->
     <template v-else-if="view === 'entry' && entry">
 
-      <header class="flex items-center gap-3 mb-6">
+      <header class="flex items-center gap-3 mb-5">
         <button
           class="w-9 h-9 rounded-full flex items-center justify-center
                  bg-surface border border-hairline"
@@ -246,23 +295,44 @@ onMounted(async () => {
         {{ error }}
       </div>
 
-      <!-- RESULTADO DEL SPIN -->
+      <!-- ── RESULTADO DEL SPIN ─────────────────────────────────────────────── -->
       <template v-if="spinResult">
-        <div class="rounded-card shadow-card bg-paper p-8 mb-5 text-center">
-          <p class="text-6xl mb-4">{{ spinDebts[0]?.punishment_emoji ?? '🎲' }}</p>
+        <!-- Wheel (stopped, dimmed) -->
+        <div class="flex justify-center mb-5 opacity-40">
+          <svg width="160" height="160" viewBox="0 0 200 200">
+            <path v-for="(seg, i) in wheelSegments" :key="i" :d="seg.path" :fill="seg.color"/>
+            <circle cx="100" cy="100" r="22" fill="white"/>
+          </svg>
+        </div>
+
+        <div class="rounded-card shadow-card bg-paper p-6 mb-5 text-center">
           <p class="text-eyebrow text-terracotta mb-2">
-            {{ spinDebts[0]?.is_collective ? 'DEUDA COLECTIVA' : 'PENITENCIA ASIGNADA' }}
+            {{ spinDebts[0]?.is_collective ? 'DEUDA COLECTIVA' : 'LE TOCÓ A' }}
           </p>
-          <h2 class="font-serif text-2xl font-semibold text-ink leading-snug mb-3">
-            {{ spinDebts[0]?.punishment_text }}
+          <div
+            class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center
+                   text-paper text-xl font-bold"
+            :class="avatarBg(memberName(spinDebts[0]?.debtor_id))"
+          >
+            {{ initials(memberName(spinDebts[0]?.debtor_id)) }}
+          </div>
+          <h2 class="font-serif text-2xl font-semibold text-ink mb-4">
+            {{ memberName(spinDebts[0]?.debtor_id) }}
           </h2>
-          <p v-if="spinDebts[0]?.is_collective" class="text-sm text-ink-soft mb-3">
+          <div class="rounded-[14px] bg-terracotta/10 border border-terracotta/20 px-5 py-4 mb-3">
+            <p class="text-eyebrow text-terracotta mb-1">PENITENCIA</p>
+            <p class="font-semibold text-ink">
+              {{ spinDebts[0]?.punishment_emoji ?? '' }} {{ spinDebts[0]?.punishment_text }}
+            </p>
+          </div>
+          <p v-if="spinDebts[0]?.is_collective" class="text-xs text-ink-soft mb-1">
             Nadie propuso penitencia — el squad completo paga.
           </p>
           <p class="text-xs text-ink-faint">
             Expira el {{ shortDate(spinDebts[0]?.expires_at) }}
           </p>
         </div>
+
         <button
           class="w-full rounded-pill bg-sage-deep text-paper py-3.5 font-bold text-sm"
           @click="backToList"
@@ -271,28 +341,55 @@ onMounted(async () => {
         </button>
       </template>
 
-      <!-- PRE-SPIN -->
+      <!-- ── PRE-SPIN ──────────────────────────────────────────────────────── -->
       <template v-else>
 
-        <!-- Deadline strip -->
-        <div class="rounded-card bg-surface border border-hairline p-4 mb-4
-                    flex justify-between items-center">
-          <div>
-            <p class="text-eyebrow">VENTANA DE SUGERENCIAS</p>
-            <p class="font-semibold text-sm text-ink mt-0.5">
-              {{ deadlinePassed ? 'Cerrada' : 'Abierta' }}
-            </p>
+        <!-- Spinning wheel -->
+        <div class="flex flex-col items-center mb-5">
+          <!-- Pointer -->
+          <div class="w-0 h-0 border-l-[9px] border-r-[9px] border-t-0 border-b-[18px]
+                      border-l-transparent border-r-transparent border-b-ink mb-[-2px] z-10" />
+
+          <div class="relative">
+            <svg
+              width="220" height="220" viewBox="0 0 200 200"
+              :style="{
+                transform: `rotate(${spinDeg}deg)`,
+                transition: spinning ? 'transform 4.2s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
+              }"
+            >
+              <path
+                v-for="(seg, i) in wheelSegments"
+                :key="i"
+                :d="seg.path"
+                :fill="seg.color"
+              />
+              <!-- Inner ring -->
+              <circle cx="100" cy="100" r="28" fill="white" opacity="0.9"/>
+              <circle cx="100" cy="100" r="10" fill="#1C2E28"/>
+            </svg>
           </div>
-          <p class="font-serif text-lg font-semibold"
-            :class="deadlinePassed ? 'text-coral' : 'text-sage-deep'">
-            {{ deadlineLabel }}
-          </p>
+
+          <!-- Countdown chip -->
+          <div v-if="!deadlinePassed"
+            class="mt-3 flex items-center gap-1.5 rounded-pill bg-amber-soft text-amber-deep
+                   px-3 py-1 text-xs font-semibold">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
+            </svg>
+            Gira en {{ deadlineLabel }}
+          </div>
+          <div v-else-if="!entry.spun_at"
+            class="mt-3 rounded-pill bg-coral-soft text-coral-deep px-3 py-1 text-xs font-semibold">
+            ¡La ruleta está lista!
+          </div>
         </div>
 
-        <!-- Suggestions -->
+        <!-- Suggestions (penitencias en juego) -->
         <section class="mb-4">
           <div class="flex items-center justify-between mb-3">
-            <h2 class="text-eyebrow">PENITENCIAS PROPUESTAS</h2>
+            <h2 class="text-eyebrow">PENITENCIAS EN JUEGO</h2>
             <span class="text-xs text-ink-soft">{{ penalties.suggestions.length }}</span>
           </div>
 
@@ -302,23 +399,15 @@ onMounted(async () => {
             Nadie ha propuesto una penitencia aún.
           </div>
 
-          <div v-else class="space-y-2 mb-3">
-            <div
-              v-for="s in penalties.suggestions"
+          <div v-else class="flex flex-wrap gap-2 mb-3">
+            <span
+              v-for="(s, i) in penalties.suggestions"
               :key="s.id"
-              class="rounded-card bg-surface border border-hairline p-3 flex items-center gap-3"
+              class="rounded-full px-3 py-1.5 text-xs font-semibold text-paper"
+              :style="{ backgroundColor: WHEEL_COLORS[i % WHEEL_COLORS.length] }"
             >
-              <div
-                class="w-7 h-7 rounded-full flex-shrink-0 flex items-center
-                       justify-center text-paper text-[10px] font-bold"
-                :class="avatarBg(memberName(s.suggester_id))"
-              >
-                {{ initials(memberName(s.suggester_id)) }}
-              </div>
-              <p class="text-sm text-ink">
-                <span v-if="s.emoji" class="mr-1">{{ s.emoji }}</span>{{ s.text }}
-              </p>
-            </div>
+              {{ s.emoji ? s.emoji + ' ' : '' }}{{ s.text }}
+            </span>
           </div>
 
           <!-- Suggestion form -->
@@ -354,21 +443,17 @@ onMounted(async () => {
                 <button
                   class="flex-1 rounded-pill bg-sage-deep text-paper py-2.5 font-bold text-sm"
                   @click="submitSuggestion"
-                >
-                  Enviar
-                </button>
+                >Enviar</button>
                 <button
                   class="rounded-pill border border-hairline text-ink-soft px-4 py-2.5 text-sm font-bold"
                   @click="showForm = false"
-                >
-                  Cancelar
-                </button>
+                >Cancelar</button>
               </div>
             </div>
           </template>
 
           <div v-else-if="!deadlinePassed && hasSuggested"
-            class="rounded-pill bg-sage/20 text-sage-deep px-4 py-3 text-sm font-semibold text-center">
+            class="rounded-pill bg-sage-soft text-sage-deep px-4 py-3 text-sm font-semibold text-center">
             ✓ Ya propusiste tu penitencia
           </div>
         </section>
@@ -377,19 +462,24 @@ onMounted(async () => {
         <button
           v-if="canSpin"
           class="w-full rounded-pill bg-terracotta text-paper py-4 font-bold text-base
-                 active:opacity-80 transition-all"
+                 active:opacity-80 transition-all flex items-center justify-center gap-2"
           :class="{ 'opacity-60': spinning }"
           :disabled="spinning"
           @click="doSpin"
         >
-          {{ spinning ? 'Girando...' : '¡GIRAR LA RULETA!' }}
+          <svg v-if="spinning" class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+          {{ spinning ? 'Girando…' : '⊕ Girar la ruleta' }}
         </button>
 
         <div
           v-else-if="deadlinePassed && !isDebtor && !entry.spun_at"
-          class="rounded-card bg-amber/10 border border-amber/30 p-4 text-center"
+          class="rounded-card bg-amber-soft border border-amber/30 p-4 text-center"
         >
-          <p class="text-sm font-semibold text-amber">
+          <p class="text-sm font-semibold text-amber-deep">
             Esperando que {{ debtorName }} gire
           </p>
           <p class="text-xs text-ink-soft mt-1">La ventana de sugerencias ya cerró.</p>

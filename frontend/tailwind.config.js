@@ -19,15 +19,26 @@ export default {
 
         // Estados semánticos
         sage: {
-          DEFAULT: '#A8C39A', // cumplió
+          DEFAULT: '#A8C39A', // cumplió (fill)
           deep:    '#7CA39D', // CTA primario / salvia profundo
+          soft:    '#E4EDDC', // wash de fondo
         },
-        amber:      '#E9C281', // pendiente
-        coral:      '#EDA48F', // falló
+        amber: {
+          DEFAULT: '#E9C281', // pendiente (fill)
+          deep:    '#A57B33', // texto/íconos sobre claro
+          soft:    '#F5E8CD', // wash de fondo
+        },
+        coral: {
+          DEFAULT: '#EDA48F', // falló (fill)
+          deep:    '#BC5C42', // texto/íconos sobre claro
+          soft:    '#F7E2DA', // wash de fondo
+        },
 
         // Acentos de marca
         terracotta: '#C26F4D', // botón secundario / identidad Dydi
+        'accent-deep': '#4C736C', // hover / texto-acento
         wash:       '#DFEBE8', // fondos de acento suave
+        'cream-2':  '#EFE7D8', // fondo alterno / hendiduras
       },
 
       fontFamily: {
