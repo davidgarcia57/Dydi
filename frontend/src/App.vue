@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
+import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 
 const route = useRoute()
 const isPublic = computed(() => route.meta.public || route.meta.checkinFlow || route.meta.onboarding)
@@ -61,6 +62,7 @@ function isActive(path) {
 
 <template>
   <div class="min-h-screen bg-cream">
+    <ServerWakeup />
     <main :class="isPublic ? '' : 'pb-20'">
       <RouterView />
     </main>

@@ -4,11 +4,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
+import { usePenaltiesStore } from '@/stores/penalties'
 
-const auth   = useAuthStore()
-const group  = useGroupStore()
-const habits = useHabitsStore()
-const loaded = ref(false)
+const auth      = useAuthStore()
+const group     = useGroupStore()
+const habits    = useHabitsStore()
+const penalties = usePenaltiesStore()
+const loaded    = ref(false)
 
 function localDate() {
   const d = new Date()
@@ -56,7 +58,10 @@ onMounted(async () => {
   if (group.group?.id) {
     await habits.loadToday(group.group.id)
     const ids = [...new Set(habits.todayCheckins.map(c => c.user_id))]
-    await Promise.all(ids.map(id => habits.loadStreaks(id)))
+    await Promise.all([
+      ...ids.map(id => habits.loadStreaks(id)),
+      penalties.loadDebts(group.group.id)
+    ])
     const { disconnect } = useGroupSocket(group.group.id)
     socketDisconnect = disconnect
   }
@@ -155,6 +160,43 @@ onUnmounted(() => socketDisconnect?.())
         </div>
       </div>
     </div>
+
+    <!-- Muro de la Vergüenza -->
+    <section v-if="penalties.debts.length > 0" class="mt-8">
+      <h2 class="text-eyebrow mb-3 flex items-center gap-2 text-coral-deep">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        MURO DE LA VERGÜENZA
+      </h2>
+      <div class="space-y-3">
+        <div
+          v-for="debt in penalties.debts"
+          :key="debt.id"
+          class="rounded-card bg-coral-soft/30 border border-coral/30 p-4 flex items-center gap-3"
+        >
+          <div
+            class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
+            :class="avatarBg(squadRows.find(r => r.user_id === debt.debtor_id)?.display_name)"
+          >
+            {{ initials(squadRows.find(r => r.user_id === debt.debtor_id)?.display_name) }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-center mb-0.5">
+              <span class="font-semibold text-sm text-ink truncate">
+                {{ squadRows.find(r => r.user_id === debt.debtor_id)?.display_name ?? 'Miembro' }}
+              </span>
+              <span v-if="debt.is_collective" class="rounded-pill bg-coral/20 text-coral-deep text-[10px] font-bold px-2 py-0.5">
+                colectiva
+              </span>
+            </div>
+            <p class="text-sm font-semibold text-coral-deep leading-snug">
+              {{ debt.punishment_emoji ?? '' }} {{ debt.punishment_text }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
   </div>
 </template>

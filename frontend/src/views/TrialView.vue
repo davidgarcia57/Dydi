@@ -131,23 +131,61 @@ async function doSpin() {
   spinning.value = true
   error.value    = null
 
-  // Start visual spin immediately (5+ full rotations + random offset)
-  spinDeg.value += 1800 + Math.random() * 360
-
   let result = null
   try {
-    const [apiResult] = await Promise.all([
-      penalties.spin(entry.value.id),
-      new Promise(r => setTimeout(r, 4200)),
-    ])
-    result = apiResult
+    // Pedimos el ganador real primero
+    result = await penalties.spin(entry.value.id)
   } catch (e) {
     error.value = e?.error ?? 'Error al girar'
-  } finally {
     spinning.value = false
+    return
   }
 
-  if (result) spinResult.value = result
+  // 1. Encontrar el segmento ganador
+  const items = penalties.suggestions.length >= 2 ? penalties.suggestions : Array.from({ length: 8 })
+  let winnerIndex = items.findIndex(s => s.id === result.winning_suggestion_id)
+  if (winnerIndex === -1) winnerIndex = Math.floor(Math.random() * items.length)
+
+  // 2. Calcular ángulo exacto para que el segmento ganador aterrice arriba (0 grados)
+  const anglePer = 360 / items.length
+  const centerDeg = (winnerIndex + 0.5) * anglePer
+  // Desplazamiento aleatorio dentro del segmento para que no se vea robótico
+  const offset = (Math.random() - 0.5) * (anglePer * 0.8)
+  const targetLanding = centerDeg + offset
+
+  // 3. Aplicar rotaciones extra y ajustar grado final
+  const currentRotations = Math.floor(spinDeg.value / 360)
+  const extraRotations = 5 // 5 vueltas completas de suspenso
+  const newDeg = (currentRotations + extraRotations) * 360 + (360 - targetLanding)
+
+  spinDeg.value = newDeg
+
+  // Esperar a que la transición CSS (4.2s) termine antes de mostrar el pop-up
+  setTimeout(() => {
+    spinResult.value = result
+    spinning.value = false
+    
+    // Celebración via CDN
+    const triggerConfetti = () => {
+      if (window.confetti) {
+        window.confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#C26F4D', '#A8C39A', '#5C7650', '#E9C281']
+        })
+      }
+    }
+
+    if (!window.confetti) {
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js'
+      script.onload = triggerConfetti
+      document.head.appendChild(script)
+    } else {
+      triggerConfetti()
+    }
+  }, 4200)
 }
 
 function backToList() {

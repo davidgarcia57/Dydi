@@ -25,6 +25,14 @@ const assignedHabitIDs = computed(() => {
   return new Set(habits.todayCheckins.map(c => c.habit_id))
 })
 
+const availableHabits = computed(() => {
+  return store.catalog.filter(h => !assignedHabitIDs.value.has(h.id))
+})
+
+const activeHabits = computed(() => {
+  return store.catalog.filter(h => assignedHabitIDs.value.has(h.id))
+})
+
 const PROPOSAL_LABEL = {
   add_habit:    'Agregar hábito',
   remove_habit: 'Quitar hábito',
@@ -46,12 +54,12 @@ function quorumLabel(p) {
   return `${p.vote_count} de ${need} votos necesarios`
 }
 
-async function propose(habit) {
+async function propose(habit, type = 'add_habit') {
   if (proposing.value || proposeOk.value === habit.id) return
   proposing.value = habit.id
   proposeErr.value = ''
   try {
-    await store.propose(group.group.id, 'add_habit', habit.id)
+    await store.propose(group.group.id, type, habit.id)
     proposeOk.value = habit.id
     tab.value = 'propuestas'
   } catch (e) {
@@ -152,55 +160,106 @@ onMounted(async () => {
           No hay hábitos en el catálogo todavía.
         </div>
 
-        <div v-else class="space-y-2">
-          <div
-            v-for="habit in store.catalog"
-            :key="habit.id"
-            class="rounded-card bg-paper shadow-flat p-4 flex items-center gap-3"
-          >
-            <!-- Color dot -->
-            <div
-              class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
-                     text-paper text-sm font-bold"
-              :style="{ backgroundColor: habit.color || '#A8C39A' }"
-            >
-              {{ habit.name.charAt(0).toUpperCase() }}
-            </div>
+        <div v-else class="space-y-6">
+          
+          <!-- HÁBITOS DISPONIBLES -->
+          <div v-if="availableHabits.length > 0">
+            <h3 class="text-eyebrow text-ink-soft mb-3">DISPONIBLES PARA AÑADIR</h3>
+            <div class="space-y-2">
+              <div
+                v-for="habit in availableHabits"
+                :key="habit.id"
+                class="rounded-card bg-paper shadow-flat p-4 flex items-center gap-3"
+              >
+                <div
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
+                         text-paper text-sm font-bold"
+                  :style="{ backgroundColor: habit.color || '#A8C39A' }"
+                >
+                  {{ habit.name.charAt(0).toUpperCase() }}
+                </div>
 
-            <div class="flex-1 min-w-0">
-              <p class="font-semibold text-sm text-ink truncate">{{ habit.name }}</p>
-              <p v-if="habit.description" class="text-xs text-ink-soft truncate mt-0.5">
-                {{ habit.description }}
-              </p>
-              <span v-if="assignedHabitIDs.has(habit.id)"
-                class="inline-block mt-1 text-[10px] font-semibold text-sage-deep
-                       bg-sage-soft rounded-full px-2 py-0.5">
-                Ya en el grupo
-              </span>
-            </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm text-ink truncate">{{ habit.name }}</p>
+                  <p v-if="habit.description" class="text-xs text-ink-soft truncate mt-0.5">
+                    {{ habit.description }}
+                  </p>
+                </div>
 
-            <button
-              v-if="proposeOk === habit.id"
-              class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
-                     rounded-full px-3 py-1.5"
-            >
-              ✓ Propuesto
-            </button>
-            <button
-              v-else-if="!assignedHabitIDs.has(habit.id)"
-              :disabled="proposing === habit.id"
-              class="flex-shrink-0 rounded-pill border border-hairline bg-surface
-                     text-ink-soft text-xs font-semibold px-3 py-1.5
-                     active:opacity-70 disabled:opacity-40 transition-opacity"
-              @click="propose(habit)"
-            >
-              <span v-if="proposing === habit.id" class="flex items-center gap-1">
-                <span class="w-3 h-3 rounded-full border border-ink-soft
-                             border-t-transparent animate-spin" />
-              </span>
-              <span v-else>+ Proponer</span>
-            </button>
+                <button
+                  v-if="proposeOk === habit.id"
+                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
+                         rounded-full px-3 py-1.5"
+                >
+                  ✓ Propuesto
+                </button>
+                <button
+                  v-else
+                  :disabled="proposing === habit.id"
+                  class="flex-shrink-0 rounded-pill border border-hairline bg-surface
+                         text-ink-soft text-xs font-semibold px-3 py-1.5
+                         active:opacity-70 disabled:opacity-40 transition-opacity"
+                  @click="propose(habit, 'add_habit')"
+                >
+                  <span v-if="proposing === habit.id" class="flex items-center gap-1">
+                    <span class="w-3 h-3 rounded-full border border-ink-soft
+                                 border-t-transparent animate-spin" />
+                  </span>
+                  <span v-else>+ Proponer</span>
+                </button>
+              </div>
+            </div>
           </div>
+
+          <!-- HÁBITOS ACTIVOS -->
+          <div v-if="activeHabits.length > 0">
+            <h3 class="text-eyebrow text-ink-soft mb-3">ACTIVOS EN EL SQUAD</h3>
+            <div class="space-y-2">
+              <div
+                v-for="habit in activeHabits"
+                :key="habit.id"
+                class="rounded-card bg-surface border border-hairline p-4 flex items-center gap-3"
+              >
+                <div
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
+                         text-paper text-sm font-bold opacity-60"
+                  :style="{ backgroundColor: habit.color || '#A8C39A' }"
+                >
+                  {{ habit.name.charAt(0).toUpperCase() }}
+                </div>
+
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-sm text-ink truncate">{{ habit.name }}</p>
+                  <span class="inline-block mt-1 text-[10px] font-semibold text-sage-deep
+                         bg-sage-soft rounded-full px-2 py-0.5">
+                    Ya en el grupo
+                  </span>
+                </div>
+
+                <button
+                  v-if="proposeOk === habit.id"
+                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
+                         rounded-full px-3 py-1.5"
+                >
+                  ✓ Propuesto
+                </button>
+                <button
+                  v-else
+                  :disabled="proposing === habit.id"
+                  class="flex-shrink-0 rounded-pill border border-coral/30 bg-coral-soft/50
+                         text-coral-deep text-xs font-semibold px-3 py-1.5
+                         active:opacity-70 disabled:opacity-40 transition-opacity"
+                  @click="propose(habit, 'remove_habit')"
+                >
+                  <span v-if="proposing === habit.id" class="flex items-center gap-1">
+                    <span class="w-3 h-3 rounded-full border border-coral-deep border-t-transparent animate-spin" />
+                  </span>
+                  <span v-else>- Quitar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
