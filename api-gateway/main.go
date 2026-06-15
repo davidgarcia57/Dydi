@@ -26,35 +26,28 @@ func setupRouter() *chi.Mux {
 	r.Use(apimiddleware.CORS)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		// Despertar todos los servicios en paralelo
+		// Despertar todos los servicios en segundo plano (asíncrono)
 		urls := []string{
 			os.Getenv("GROUPS_SERVICE_URL"),
 			os.Getenv("HABITS_SERVICE_URL"),
 			os.Getenv("REALTIME_SERVICE_URL"),
 		}
 
-		errChan := make(chan error, len(urls))
 		for _, u := range urls {
+			if u == "" {
+				continue
+			}
 			go func(serviceUrl string) {
-				if serviceUrl == "" {
-					errChan <- nil
-					return
-				}
-				// Usamos un timeout alto porque el cold start de Render tarda ~40s
-				client := &http.Client{Timeout: 60 * time.Second}
+				// Timeout de seguridad para la petición interna
+				client := &http.Client{Timeout: 45 * time.Second}
 				resp, err := client.Get(serviceUrl + "/health")
 				if err == nil {
 					resp.Body.Close()
 				}
-				errChan <- err
 			}(u)
 		}
 
-		// Esperamos a que todos terminen (con éxito o error)
-		for i := 0; i < len(urls); i++ {
-			<-errChan
-		}
-
+		// Respondemos "ok" de inmediato para evitar el timeout de 30s de Render
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
