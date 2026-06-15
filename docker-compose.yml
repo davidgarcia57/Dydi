@@ -42,10 +42,8 @@ services:
       - "8084:8084"
     environment:
       PORT: 8084
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       MAX_CONNECTIONS_PER_GROUP: 8
       PING_INTERVAL_SECONDS: 30
-      PONG_WAIT_SECONDS: 60
       WRITE_WAIT_SECONDS: 10
 
   frontend:

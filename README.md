@@ -43,15 +43,14 @@ git clone <url-del-repo>
 cd dydi
 ```
 
-### 2. Crear los archivos de variables de entorno
+### 2. Variables de entorno
 
-Cada servicio tiene su propio `.env.example`. Crea un `.env` en la raiz y en cada servicio que vayas a correr:
-
+Crea un archivo `.env` en la **raíz del proyecto** copiándolo del ejemplo:
 ```bash
 cp .env.example .env
 ```
 
-Llena las variables con las credenciales del proyecto Supabase cloud:
+Llena las variables de la raíz con las credenciales del proyecto Supabase cloud:
 
 | Variable | Donde encontrarla |
 |---|---|
@@ -60,6 +59,8 @@ Llena las variables con las credenciales del proyecto Supabase cloud:
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key |
 
+> **Nota para despliegues o ejecución nativa:** Cada microservicio (`api-gateway`, `groups-service`, etc.) tiene su propio `.env.example`. Estos son necesarios si vas a correr los servicios con `go run main.go` o para configurar las variables en **Render**. Si solo vas a usar Docker Compose, el `.env` de la raíz es suficiente, ya que `docker-compose.yml` gestiona las rutas internas automáticamente.
+> 
 > Nunca subas archivos `.env` al repositorio.
 
 ### 3. Levantar todos los servicios
