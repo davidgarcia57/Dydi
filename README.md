@@ -122,6 +122,18 @@ docker compose logs -f <servicio>
 
 ---
 
+## Despliegue en Producción (Render Free Tier)
+
+El backend está diseñado para desplegarse en la capa gratuita de Render (un microservicio por cuenta). Para lidiar con el límite de inactividad de 15 minutos de Render, el proyecto cuenta con dos mecanismos:
+
+1. **Despertar en Paralelo:** El endpoint `/health` del `api-gateway` hace peticiones asíncronas a los demás microservicios (`groups`, `habits`, `realtime`) para despertarlos simultáneamente sin agotar el timeout de Render.
+2. **Cron Job (Keep-Awake):** 
+   - Se recomienda configurar un job gratuito en [cron-job.org](https://cron-job.org) que haga un ping HTTP GET a `https://<tu-api-gateway>.onrender.com/health` cada **12 minutos** durante las horas de mayor tráfico.
+   - Esto mantiene despiertos a **todos** los servicios automáticamente gracias a la arquitectura del Gateway.
+   - *(Opcional)* Existe un workflow de respaldo en `.github/workflows/keep-awake.yml` que cumple esta misma función, pero consume minutos de GitHub Actions.
+
+---
+
 ## Flujo De Trabajo En Equipo
 
 1. Crea tu rama desde `main`: `git checkout -b feature/nombre-feature`
