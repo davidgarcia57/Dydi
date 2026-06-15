@@ -134,7 +134,7 @@ is acceptable and intentional.
 | Go functions/types | PascalCase | `CreateHabit()` |
 | Go variables | camelCase | `habitID` |
 | Go constants | UPPER_SNAKE | `MAX_GROUP_SIZE` |
-| Database tables | snake_case plural | `group_members` |
+| Database tables | snake_case plural | `memberships` |
 | Database columns | snake_case | `created_at` |
 | API endpoints | kebab-case | `/api/group-members` |
 | Vue components | PascalCase | `HabitCard.vue` |
@@ -267,10 +267,12 @@ All schema changes go through migration files.
 
 The canonical domain table list for the target MVP is:
 
-`users` · `groups` · `group_members` · `habits` · `user_habits` · `checkins` · `roulette_entries` · `punishment_suggestions` · `debts` · `proposals` · `proposal_votes`
+`users` · `groups` · `memberships` · `habits` · `group_habits` · `user_habits` · `checkins` · `roulette_entries` · `punishment_suggestions` · `debts` · `proposals` · `proposal_eligible_voters` · `proposal_votes`
 
-`supabase/migrations/001_initial.sql` must be brought into alignment with this
-table list before it is executed in Supabase cloud. If the migration currently
-uses older names such as `user_groups`, `habit_assignments`, `roulette_draws`,
-or `group_suggestions`, update the migration and then migrate the services
-toward the canonical names.
+`supabase/migrations/001_initial.sql` is the single canonical schema (the habit
+catalog seed is folded into it). Key relationships are enforced with composite
+foreign keys so no row can belong to a group it doesn't actually belong to:
+every `group_id`-bearing row references `memberships(group_id, user_id)`.
+`memberships` is the user↔group join table; `group_habits` records which catalog
+habits a group has adopted; `proposal_eligible_voters` freezes a proposal's
+electorate at creation time.

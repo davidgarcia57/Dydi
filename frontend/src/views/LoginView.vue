@@ -42,6 +42,10 @@ function switchMode() {
 
 function translateAuthError(error) {
   const msg = error?.message?.toLowerCase?.() ?? ''
+  // Correo ya registrado (nuestro marcador o el mensaje nativo de Supabase).
+  if (msg.includes('email_taken') || msg.includes('already registered') || msg.includes('user already')) {
+    return 'Ese correo ya está registrado. Inicia sesión.'
+  }
   if (msg.includes('invalid login credentials')) return 'El correo o la contraseña no coinciden.'
   if (msg.includes('email'))    return 'Revisa que el correo esté bien escrito.'
   if (msg.includes('password')) return 'La contraseña debe tener al menos 6 caracteres.'

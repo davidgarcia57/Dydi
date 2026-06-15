@@ -292,7 +292,7 @@ onMounted(async () => {
                   {{ initials(memberName(debt.debtor_id)) }}
                 </div>
                 <span class="text-xs font-semibold text-ink">{{ memberName(debt.debtor_id) }}</span>
-                <span v-if="debt.is_collective"
+                <span v-if="debt.scope === 'collective'"
                   class="rounded-pill bg-coral-soft text-coral-deep text-[10px] font-bold px-2 py-0.5">
                   colectiva
                 </span>
@@ -345,7 +345,7 @@ onMounted(async () => {
 
         <div class="rounded-card shadow-card bg-paper p-6 mb-5 text-center">
           <p class="text-eyebrow text-terracotta mb-2">
-            {{ spinDebts[0]?.is_collective ? 'DEUDA COLECTIVA' : 'LE TOCÓ A' }}
+            {{ spinDebts[0]?.scope === 'collective' ? 'DEUDA COLECTIVA' : 'LE TOCÓ A' }}
           </p>
           <div
             class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center
@@ -363,7 +363,7 @@ onMounted(async () => {
               {{ spinDebts[0]?.punishment_emoji ?? '' }} {{ spinDebts[0]?.punishment_text }}
             </p>
           </div>
-          <p v-if="spinDebts[0]?.is_collective" class="text-xs text-ink-soft mb-1">
+          <p v-if="spinDebts[0]?.scope === 'collective'" class="text-xs text-ink-soft mb-1">
             Nadie propuso penitencia — el squad completo paga.
           </p>
           <p class="text-xs text-ink-faint">

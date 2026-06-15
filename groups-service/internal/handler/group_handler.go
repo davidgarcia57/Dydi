@@ -50,13 +50,14 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group, err := db.CreateGroup(r.Context(), h.pool, body.Name, code)
+	group, err := db.CreateGroup(r.Context(), h.pool, body.Name, code, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create group")
 		return
 	}
 
-	if err := db.AddMember(r.Context(), h.pool, group.ID, userID); err != nil {
+	// The creator joins as the group owner.
+	if err := db.AddMember(r.Context(), h.pool, group.ID, userID, "owner"); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not add creator to group")
 		return
 	}
@@ -155,7 +156,7 @@ func (h *GroupHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.AddMember(r.Context(), h.pool, groupID, userID); err != nil {
+	if err := db.AddMember(r.Context(), h.pool, groupID, userID, "member"); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not join group")
 		return
 	}
@@ -226,7 +227,7 @@ func (h *GroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.RemoveMember(r.Context(), h.pool, groupID, userID); err != nil {
+	if err := db.SetMembershipStatus(r.Context(), h.pool, groupID, userID, "left"); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not leave group")
 		return
 	}

@@ -150,16 +150,16 @@ onMounted(async () => {
           v-for="debt in myDebts"
           :key="debt.id"
           class="rounded-card shadow-flat bg-paper p-4 border-l-4"
-          :class="debt.is_collective ? 'border-coral' : 'border-terracotta'"
+          :class="debt.scope === 'collective' ? 'border-coral' : 'border-terracotta'"
         >
           <div class="flex items-center justify-between mb-2">
             <span
               class="text-[10px] font-bold rounded-pill px-2 py-0.5"
-              :class="debt.is_collective
+              :class="debt.scope === 'collective'
                 ? 'bg-coral/20 text-coral'
                 : 'bg-terracotta/20 text-terracotta'"
             >
-              {{ debt.is_collective ? 'COLECTIVA' : 'PERSONAL' }}
+              {{ debt.scope === 'collective' ? 'COLECTIVA' : 'PERSONAL' }}
             </span>
             <span class="text-[10px] text-ink-faint">
               expira {{ shortDate(debt.expires_at) }}

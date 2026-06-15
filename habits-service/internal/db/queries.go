@@ -60,25 +60,47 @@ func FindUserHabitID(ctx context.Context, pool *pgxpool.Pool, userID, groupID, h
 	return id, err
 }
 
-// BulkAssignHabit assigns a habit to every current member of a group.
-// Called when an add_habit proposal is approved.
-func BulkAssignHabit(ctx context.Context, pool *pgxpool.Pool, groupID, habitID string) error {
-	_, err := pool.Exec(ctx,
+// BulkAssignHabit makes a group adopt a habit and assigns it to every active
+// member. Called when an add_habit proposal is approved. Runs in a transaction
+// because user_habits has a composite FK to group_habits — the group must adopt
+// the habit before any member can hold it. addedBy is the proposer.
+func BulkAssignHabit(ctx context.Context, pool *pgxpool.Pool, groupID, habitID, addedBy string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// The group adopts the habit (un-archive it if it had been removed before).
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO group_habits (group_id, habit_id, added_by)
+		 VALUES ($1, $2, $3)
+		 ON CONFLICT (group_id, habit_id) DO UPDATE SET archived_at = NULL`,
+		groupID, habitID, addedBy,
+	); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx,
 		`INSERT INTO user_habits (user_id, group_id, habit_id)
 		 SELECT user_id, $1, $2
-		 FROM group_members
-		 WHERE group_id = $1
-		 ON CONFLICT (user_id, group_id, habit_id) DO NOTHING`,
+		 FROM memberships
+		 WHERE group_id = $1 AND status = 'active'
+		 ON CONFLICT (group_id, user_id, habit_id) DO NOTHING`,
 		groupID, habitID,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
-// BulkUnassignHabit removes a habit from every member of a group.
+// BulkUnassignHabit removes a habit from a group. Deleting the group_habit row
+// cascades to every member's user_habits (and their checkins) via the FK.
 // Called when a remove_habit proposal is approved.
 func BulkUnassignHabit(ctx context.Context, pool *pgxpool.Pool, groupID, habitID string) error {
 	_, err := pool.Exec(ctx,
-		`DELETE FROM user_habits WHERE group_id = $1 AND habit_id = $2`,
+		`DELETE FROM group_habits WHERE group_id = $1 AND habit_id = $2`,
 		groupID, habitID,
 	)
 	return err
@@ -117,12 +139,12 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID, d
 		     uh.scheduled_time::text,
 		     CASE WHEN c.id IS NOT NULL THEN 'done' ELSE 'pending' END AS status,
 		     c.note
-		 FROM group_members gm
+		 FROM memberships gm
 		 JOIN users       u  ON u.id = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
 		 JOIN habits      h  ON h.id = uh.habit_id
 		 LEFT JOIN checkins c ON c.user_habit_id = uh.id AND c.checked_on = $2::date
-		 WHERE gm.group_id = $1
+		 WHERE gm.group_id = $1 AND gm.status = 'active'
 		 ORDER BY u.display_name, h.name`,
 		groupID, date,
 	)
@@ -238,7 +260,8 @@ func calculateStreak(dates []time.Time) int {
 func IsMemberOfGroup(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)`,
+		`SELECT EXISTS(SELECT 1 FROM memberships
+		               WHERE group_id = $1 AND user_id = $2 AND status = 'active')`,
 		groupID, userID,
 	).Scan(&exists)
 	return exists, err
@@ -249,10 +272,10 @@ func IsMemberOfGroup(ctx context.Context, pool *pgxpool.Pool, groupID, userID st
 func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.EligibleMember, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT gm.user_id, u.display_name
-		 FROM group_members gm
+		 FROM memberships gm
 		 JOIN users       u  ON u.id = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
-		 WHERE gm.group_id = $1
+		 WHERE gm.group_id = $1 AND gm.status = 'active'
 		   AND (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date) > 0
 		   AND (
 		       SELECT COUNT(*)
@@ -379,8 +402,9 @@ func CountSuggestionsAndMembers(ctx context.Context, pool *pgxpool.Pool, entryID
 	err = pool.QueryRow(ctx,
 		`SELECT
 		     (SELECT COUNT(*) FROM punishment_suggestions  WHERE roulette_entry_id = $1),
-		     (SELECT COUNT(*) FROM group_members
-		      WHERE group_id = (SELECT group_id FROM roulette_entries WHERE id = $1))`,
+		     (SELECT COUNT(*) FROM memberships
+		      WHERE group_id = (SELECT group_id FROM roulette_entries WHERE id = $1)
+		        AND status = 'active')`,
 		entryID,
 	).Scan(&suggestions, &members)
 	return
@@ -393,7 +417,7 @@ func scanDebt(row pgx.Row) (*model.Debt, error) {
 	err := row.Scan(
 		&d.ID, &d.RouletteEntryID, &d.GroupID, &d.DebtorID, &d.WeekStart,
 		&d.WinningSuggestionID, &d.PunishmentText, &d.PunishmentEmoji,
-		&d.IsCollective, &d.ExpiresAt, &d.CreatedAt,
+		&d.Scope, &d.Status, &d.CompletedAt, &d.ExpiresAt, &d.CreatedAt,
 	)
 	return d, err
 }
@@ -406,11 +430,11 @@ func CreateDebt(ctx context.Context, dbtx DBTX, entryID, groupID, debtorID, week
 		`INSERT INTO debts
 		     (roulette_entry_id, group_id, debtor_id, week_start,
 		      winning_suggestion_id, punishment_text, punishment_emoji,
-		      is_collective, expires_at)
-		 VALUES ($1, $2, $3, $4::date, $5, $6, $7, false, $4::date + INTERVAL '14 days')
+		      scope, expires_at)
+		 VALUES ($1, $2, $3, $4::date, $5, $6, $7, 'individual', $4::date + INTERVAL '14 days')
 		 RETURNING id, roulette_entry_id, group_id, debtor_id, week_start,
 		           winning_suggestion_id, punishment_text, punishment_emoji,
-		           is_collective, expires_at, created_at`,
+		           scope, status, completed_at, expires_at, created_at`,
 		entryID, groupID, debtorID, weekStart, suggestionID, text, emoji,
 	))
 }
@@ -421,16 +445,16 @@ func CreateCollectiveDebts(ctx context.Context, dbtx DBTX, entryID, groupID, wee
 	rows, err := dbtx.Query(ctx,
 		`INSERT INTO debts
 		     (roulette_entry_id, group_id, debtor_id, week_start,
-		      winning_suggestion_id, punishment_text, is_collective, expires_at)
+		      winning_suggestion_id, punishment_text, scope, expires_at)
 		 SELECT $1, $2, user_id, $3::date,
-		        NULL, 'Nadie propuso una penitencia — todos pagan.', true,
+		        NULL, 'Nadie propuso una penitencia — todos pagan.', 'collective',
 		        $3::date + INTERVAL '14 days'
-		 FROM group_members
-		 WHERE group_id = $2
+		 FROM memberships
+		 WHERE group_id = $2 AND status = 'active'
 		 ON CONFLICT (roulette_entry_id, debtor_id) DO NOTHING
 		 RETURNING id, roulette_entry_id, group_id, debtor_id, week_start,
 		           winning_suggestion_id, punishment_text, punishment_emoji,
-		           is_collective, expires_at, created_at`,
+		           scope, status, completed_at, expires_at, created_at`,
 		entryID, groupID, weekStart,
 	)
 	if err != nil {
@@ -444,7 +468,7 @@ func CreateCollectiveDebts(ctx context.Context, dbtx DBTX, entryID, groupID, wee
 		if err := rows.Scan(
 			&d.ID, &d.RouletteEntryID, &d.GroupID, &d.DebtorID, &d.WeekStart,
 			&d.WinningSuggestionID, &d.PunishmentText, &d.PunishmentEmoji,
-			&d.IsCollective, &d.ExpiresAt, &d.CreatedAt,
+			&d.Scope, &d.Status, &d.CompletedAt, &d.ExpiresAt, &d.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -458,9 +482,9 @@ func GetActiveDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]
 	rows, err := pool.Query(ctx,
 		`SELECT id, roulette_entry_id, group_id, debtor_id, week_start,
 		        winning_suggestion_id, punishment_text, punishment_emoji,
-		        is_collective, expires_at, created_at
+		        scope, status, completed_at, expires_at, created_at
 		 FROM debts
-		 WHERE group_id = $1 AND expires_at > CURRENT_DATE
+		 WHERE group_id = $1 AND status = 'pending' AND expires_at > CURRENT_DATE
 		 ORDER BY created_at DESC`,
 		groupID,
 	)
@@ -475,7 +499,7 @@ func GetActiveDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]
 		if err := rows.Scan(
 			&d.ID, &d.RouletteEntryID, &d.GroupID, &d.DebtorID, &d.WeekStart,
 			&d.WinningSuggestionID, &d.PunishmentText, &d.PunishmentEmoji,
-			&d.IsCollective, &d.ExpiresAt, &d.CreatedAt,
+			&d.Scope, &d.Status, &d.CompletedAt, &d.ExpiresAt, &d.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

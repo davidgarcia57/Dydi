@@ -46,7 +46,11 @@ HABITS_SERVICE_URL=http://...  # notified when a proposal is approved
 ```
 
 ## Database Tables Owned
-`groups` · `group_members` · `proposals` · `proposal_votes`
+`groups` · `memberships` · `proposals` · `proposal_eligible_voters` · `proposal_votes`
+
+`memberships` is the join table between users and groups (named as an entity
+because it carries role/status/joined_at/left_at). Members are not deleted on
+leave/kick — their `status` is set to `left`/`kicked` so history stays valid.
 
 Other services must NOT write to these tables directly.
 Cross-service reads are acceptable.
@@ -63,8 +67,11 @@ Member opens proposal (type: add_habit | remove_habit, habit_id)
       → habits-service assigns/unassigns the habit for all group members
 ```
 
-**Quorum rule:** simple majority (> 50% of current members). The proposer's
-vote counts as an implicit yes. A proposal with no votes after 7 days expires.
+**Quorum rule:** simple majority (≥ 50%) of the **frozen electorate** — the set
+of active members captured into `proposal_eligible_voters` when the proposal was
+opened. This keeps the threshold stable even if members join or leave mid-vote.
+Only that electorate may vote (enforced by FK). A proposal with no votes after 7
+days expires.
 
 ## Internal Package Structure
 

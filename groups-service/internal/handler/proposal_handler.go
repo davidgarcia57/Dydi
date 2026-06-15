@@ -135,13 +135,14 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	member, err := db.IsMember(r.Context(), h.pool, proposal.GroupID, userID)
+	// Only the frozen electorate (active members when the proposal opened) may vote.
+	eligible, err := db.IsEligibleVoter(r.Context(), h.pool, proposalID, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
-	if !member {
-		writeError(w, http.StatusForbidden, "not a member of this group")
+	if !eligible {
+		writeError(w, http.StatusForbidden, "you are not part of this proposal's electorate")
 		return
 	}
 
@@ -174,10 +175,10 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Quorum: yes_votes * 2 >= member_count (≥50% of all current members).
+	// Quorum: yes_votes * 2 >= member_count (≥50% of the frozen electorate).
 	if members > 0 && approvals*2 >= members {
 		go h.executeProposal(proposal)
-		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalApproved)
+		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalApproved, &userID)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -191,16 +192,17 @@ func (h *ProposalHandler) executeProposal(p *model.Proposal) {
 
 	switch p.Type {
 	case model.ProposalAddHabit:
-		h.callHabitsService(ctx, p.GroupID, *p.HabitID, "add")
+		// proposer becomes group_habits.added_by (must be an active member).
+		h.callHabitsService(ctx, p.GroupID, *p.HabitID, "add", p.ProposerID)
 
 	case model.ProposalRemoveHabit:
-		h.callHabitsService(ctx, p.GroupID, *p.HabitID, "remove")
+		h.callHabitsService(ctx, p.GroupID, *p.HabitID, "remove", p.ProposerID)
 
 	case model.ProposalKickMember:
 		if p.TargetUserID == nil {
 			return
 		}
-		db.RemoveMember(ctx, h.pool, p.GroupID, *p.TargetUserID) //nolint:errcheck
+		db.SetMembershipStatus(ctx, h.pool, p.GroupID, *p.TargetUserID, "kicked") //nolint:errcheck
 
 	case model.ProposalDeleteGroup:
 		h.pool.Exec(ctx, `DELETE FROM groups WHERE id = $1`, p.GroupID) //nolint:errcheck
@@ -209,8 +211,9 @@ func (h *ProposalHandler) executeProposal(p *model.Proposal) {
 
 // callHabitsService notifies habits-service to bulk-assign or bulk-remove a habit.
 // Runs inside executeProposal's goroutine; a habits-service outage must not
-// block or fail the vote response.
-func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitID, action string) {
+// block or fail the vote response. addedBy is the proposer, recorded as the
+// group_habits.added_by on add (ignored on remove).
+func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitID, action, addedBy string) {
 	if h.habitsServiceURL == "" {
 		return
 	}
@@ -219,6 +222,7 @@ func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitI
 		"group_id": groupID,
 		"habit_id": habitID,
 		"action":   action,
+		"added_by": addedBy,
 	})
 	if err != nil {
 		return

@@ -72,28 +72,31 @@ type PunishmentSuggestion struct {
 
 // Debt is created after a spin or as a collective punishment.
 //
-// Normal flow (IsCollective = false):
+// Individual (Scope = "individual"):
 //   - One debt for the offender.
 //   - WinningSuggestionID is set to the selected suggestion.
 //
-// Collective punishment (IsCollective = true):
+// Collective (Scope = "collective"):
 //   - Triggered when suggestion_deadline passes with zero suggestions.
-//   - One debt per group member (including the offender).
+//   - One debt per active member (including the offender).
 //   - WinningSuggestionID is nil; PunishmentText is a default message.
 //
-// Debts auto-expire at week_start + 14 days. There is no manual resolved state.
+// Debts auto-expire at week_start + 14 days (expires_at). Status tracks the
+// lifecycle: pending → completed / expired / forgiven.
 type Debt struct {
-	ID                   string    `json:"id"`
-	RouletteEntryID      string    `json:"roulette_entry_id"`
-	GroupID              string    `json:"group_id"`
-	DebtorID             string    `json:"debtor_id"`
-	WeekStart            time.Time `json:"week_start"`
-	WinningSuggestionID  *string   `json:"winning_suggestion_id,omitempty"`
-	PunishmentText       string    `json:"punishment_text"`
-	PunishmentEmoji      *string   `json:"punishment_emoji,omitempty"`
-	IsCollective         bool      `json:"is_collective"`
-	ExpiresAt            time.Time `json:"expires_at"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                  string     `json:"id"`
+	RouletteEntryID     string     `json:"roulette_entry_id"`
+	GroupID             string     `json:"group_id"`
+	DebtorID            string     `json:"debtor_id"`
+	WeekStart           time.Time  `json:"week_start"`
+	WinningSuggestionID *string    `json:"winning_suggestion_id,omitempty"`
+	PunishmentText      string     `json:"punishment_text"`
+	PunishmentEmoji     *string    `json:"punishment_emoji,omitempty"`
+	Scope               string     `json:"scope"`  // "individual" | "collective"
+	Status              string     `json:"status"` // "pending" | "completed" | "expired" | "forgiven"
+	CompletedAt         *time.Time `json:"completed_at,omitempty"`
+	ExpiresAt           time.Time  `json:"expires_at"`
+	CreatedAt           time.Time  `json:"created_at"`
 }
 
 type EligibleMember struct {

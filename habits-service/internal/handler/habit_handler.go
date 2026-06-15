@@ -148,7 +148,8 @@ func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		GroupID string `json:"group_id"`
 		HabitID string `json:"habit_id"`
-		Action  string `json:"action"` // "add" | "remove"
+		Action  string `json:"action"`   // "add" | "remove"
+		AddedBy string `json:"added_by"` // proposer; recorded as group_habits.added_by on add
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.GroupID == "" || body.HabitID == "" {
 		writeError(w, http.StatusBadRequest, "group_id, habit_id and action are required")
@@ -157,7 +158,11 @@ func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
 
 	switch body.Action {
 	case "add":
-		if err := db.BulkAssignHabit(r.Context(), h.pool, body.GroupID, body.HabitID); err != nil {
+		if body.AddedBy == "" {
+			writeError(w, http.StatusBadRequest, "added_by is required for add")
+			return
+		}
+		if err := db.BulkAssignHabit(r.Context(), h.pool, body.GroupID, body.HabitID, body.AddedBy); err != nil {
 			writeError(w, http.StatusInternalServerError, "could not assign habit")
 			return
 		}

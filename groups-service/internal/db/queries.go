@@ -24,12 +24,12 @@ func GenerateInviteCode() (string, error) {
 	return string(b), nil
 }
 
-func CreateGroup(ctx context.Context, pool *pgxpool.Pool, name, inviteCode string) (*model.Group, error) {
+func CreateGroup(ctx context.Context, pool *pgxpool.Pool, name, inviteCode, createdBy string) (*model.Group, error) {
 	g := &model.Group{}
 	err := pool.QueryRow(ctx,
-		`INSERT INTO groups (name, invite_code) VALUES ($1, $2)
+		`INSERT INTO groups (name, invite_code, created_by) VALUES ($1, $2, $3)
 		 RETURNING id, name, invite_code, created_at`,
-		name, inviteCode,
+		name, inviteCode, createdBy,
 	).Scan(&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt)
 	return g, err
 }
@@ -55,9 +55,9 @@ func GetGroupByInviteCode(ctx context.Context, pool *pgxpool.Pool, code string) 
 func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Member, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT u.id, u.display_name, u.avatar_url, gm.joined_at
-		 FROM group_members gm
+		 FROM memberships gm
 		 JOIN users u ON u.id = gm.user_id
-		 WHERE gm.group_id = $1
+		 WHERE gm.group_id = $1 AND gm.status = 'active'
 		 ORDER BY gm.joined_at ASC`,
 		groupID,
 	)
@@ -80,7 +80,7 @@ func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]mode
 func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int, error) {
 	var count int
 	err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM group_members WHERE group_id = $1`,
+		`SELECT COUNT(*) FROM memberships WHERE group_id = $1 AND status = 'active'`,
 		groupID,
 	).Scan(&count)
 	return count, err
@@ -89,24 +89,36 @@ func CountMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) (int,
 func IsMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,
-		`SELECT EXISTS(SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)`,
+		`SELECT EXISTS(SELECT 1 FROM memberships
+		               WHERE group_id = $1 AND user_id = $2 AND status = 'active')`,
 		groupID, userID,
 	).Scan(&exists)
 	return exists, err
 }
 
-func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
+// AddMember inserts a membership (or reactivates a previously left/kicked one).
+// role is 'owner' for the group creator and 'member' for everyone else.
+func AddMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID, role string) error {
 	_, err := pool.Exec(ctx,
-		`INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)`,
-		groupID, userID,
+		`INSERT INTO memberships (group_id, user_id, role, status)
+		 VALUES ($1, $2, $3, 'active')
+		 ON CONFLICT (group_id, user_id)
+		 DO UPDATE SET status = 'active', left_at = NULL`,
+		groupID, userID, role,
 	)
 	return err
 }
 
-func RemoveMember(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) error {
+// SetMembershipStatus marks a membership as 'left' (voluntary) or 'kicked'
+// (by proposal) instead of deleting the row, so the member's history
+// (votes, suggestions, debts) stays referentially valid.
+func SetMembershipStatus(ctx context.Context, pool *pgxpool.Pool, groupID, userID, status string) error {
 	_, err := pool.Exec(ctx,
-		`DELETE FROM group_members WHERE group_id = $1 AND user_id = $2`,
-		groupID, userID,
+		`UPDATE memberships
+		 SET status = $3,
+		     left_at = CASE WHEN $3 = 'active' THEN NULL ELSE NOW() END
+		 WHERE group_id = $1 AND user_id = $2`,
+		groupID, userID, status,
 	)
 	return err
 }
@@ -118,8 +130,8 @@ func GetGroupsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) (
 		`SELECT g.id, g.name, g.invite_code, g.created_at,
 		        u.id, u.display_name, u.avatar_url, gm2.joined_at
 		 FROM groups g
-		 JOIN group_members gm1 ON gm1.group_id = g.id AND gm1.user_id = $1
-		 JOIN group_members gm2 ON gm2.group_id = g.id
+		 JOIN memberships gm1 ON gm1.group_id = g.id AND gm1.user_id = $1 AND gm1.status = 'active'
+		 JOIN memberships gm2 ON gm2.group_id = g.id AND gm2.status = 'active'
 		 JOIN users u ON u.id = gm2.user_id
 		 ORDER BY g.created_at ASC, gm2.joined_at ASC`,
 		userID,

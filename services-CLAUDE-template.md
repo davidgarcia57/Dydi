@@ -151,7 +151,7 @@ HABITS_SERVICE_URL=http://...   # notified when a proposal is approved
 ```
 
 ## Database Tables Owned
-`groups` · `group_members` · `proposals` · `proposal_votes`
+`groups` · `memberships` · `proposals` · `proposal_eligible_voters` · `proposal_votes`
 
 ## Service-Specific Notes
 - MAX_GROUP_SIZE=8 is enforced at the service layer before any DB write.
@@ -173,7 +173,7 @@ This is the core data service of the app.
 - Send real-time events directly — after a spin it fires a goroutine that
   POSTs to realtime-service `/internal/broadcast`; if realtime is down the
   spin still succeeds
-- Handle group membership validation — it reads `group_members` directly
+- Handle group membership validation — it reads `memberships` directly
   (cross-service read, not write)
 - Validate JWT — api-gateway does that; trust the `X-User-ID` header
 - Own proposal logic — proposals live in groups-service. This service

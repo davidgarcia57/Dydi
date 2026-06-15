@@ -19,19 +19,66 @@ func scanProposal(row pgx.Row) (*model.Proposal, error) {
 	return p, err
 }
 
-// CreateProposal inserts a new proposal and returns it with current vote/member counts.
-// habitID and targetUserID are nil for proposal types that don't need them.
+// CreateProposal inserts a new proposal and freezes its electorate (the set of
+// active members at this moment) into proposal_eligible_voters, so the majority
+// threshold cannot drift as people join or leave mid-vote. Runs in a transaction
+// so the proposal and its electorate are created atomically. member_count is the
+// frozen electorate size.
 func CreateProposal(ctx context.Context, pool *pgxpool.Pool, groupID, proposerID string, pType model.ProposalType, habitID, targetUserID *string) (*model.Proposal, error) {
-	return scanProposal(pool.QueryRow(ctx,
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var id string
+	if err := tx.QueryRow(ctx,
 		`INSERT INTO proposals (group_id, proposer_id, type, habit_id, target_user_id)
-		 VALUES ($1, $2, $3, $4, $5)
-		 RETURNING
-		     id, group_id, proposer_id, type, habit_id, target_user_id,
-		     status, created_at, expires_at,
-		     0 AS vote_count,
-		     (SELECT COUNT(*) FROM group_members WHERE group_id = $1) AS member_count`,
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
 		groupID, proposerID, pType, habitID, targetUserID,
+	).Scan(&id); err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO proposal_eligible_voters (proposal_id, group_id, user_id)
+		 SELECT $1, $2, user_id FROM memberships
+		 WHERE group_id = $2 AND status = 'active'`,
+		id, groupID,
+	); err != nil {
+		return nil, err
+	}
+
+	p, err := scanProposal(tx.QueryRow(ctx,
+		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.habit_id, p.target_user_id,
+		        p.status, p.created_at, p.expires_at,
+		        COUNT(pv.voter_id) AS vote_count,
+		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count
+		 FROM proposals p
+		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
+		 WHERE p.id = $1
+		 GROUP BY p.id`,
+		id,
 	))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// IsEligibleVoter reports whether a user belongs to a proposal's frozen electorate.
+func IsEligibleVoter(ctx context.Context, pool *pgxpool.Pool, proposalID, userID string) (bool, error) {
+	var exists bool
+	err := pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM proposal_eligible_voters
+		               WHERE proposal_id = $1 AND user_id = $2)`,
+		proposalID, userID,
+	).Scan(&exists)
+	return exists, err
 }
 
 func GetProposal(ctx context.Context, pool *pgxpool.Pool, proposalID string) (*model.Proposal, error) {
@@ -39,7 +86,7 @@ func GetProposal(ctx context.Context, pool *pgxpool.Pool, proposalID string) (*m
 		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.habit_id, p.target_user_id,
 		        p.status, p.created_at, p.expires_at,
 		        COUNT(pv.voter_id) AS vote_count,
-		        (SELECT COUNT(*) FROM group_members WHERE group_id = p.group_id) AS member_count
+		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count
 		 FROM proposals p
 		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
 		 WHERE p.id = $1
@@ -53,7 +100,7 @@ func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID string) 
 		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.habit_id, p.target_user_id,
 		        p.status, p.created_at, p.expires_at,
 		        COUNT(pv.voter_id) AS vote_count,
-		        (SELECT COUNT(*) FROM group_members WHERE group_id = p.group_id) AS member_count
+		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count
 		 FROM proposals p
 		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
 		 WHERE p.group_id = $1 AND p.status = 'open' AND p.expires_at > NOW()
@@ -90,7 +137,8 @@ func HasVoted(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID strin
 }
 
 // CastVote inserts a vote. group_id is looked up from the proposal so the
-// composite FK to group_members is satisfied.
+// composite FK to memberships is satisfied. The (proposal_id, voter_id) FK to
+// proposal_eligible_voters guarantees only the frozen electorate can vote.
 func CastVote(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID string, approved bool) error {
 	_, err := pool.Exec(ctx,
 		`INSERT INTO proposal_votes (proposal_id, group_id, voter_id, approved)
@@ -100,23 +148,29 @@ func CastVote(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID strin
 	return err
 }
 
-// CountApprovalVotes returns the current yes-vote count and current member count
-// for the proposal's group. Used to check quorum: yes_votes * 2 >= member_count.
+// CountApprovalVotes returns the current yes-vote count and the frozen electorate
+// size for the proposal. Used to check quorum: yes_votes * 2 >= member_count.
 func CountApprovalVotes(ctx context.Context, pool *pgxpool.Pool, proposalID string) (approvals, members int, err error) {
 	err = pool.QueryRow(ctx,
 		`SELECT
 		     (SELECT COUNT(*) FROM proposal_votes WHERE proposal_id = $1 AND approved = TRUE),
-		     (SELECT COUNT(*) FROM group_members
-		      WHERE group_id = (SELECT group_id FROM proposals WHERE id = $1))`,
+		     (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = $1)`,
 		proposalID,
 	).Scan(&approvals, &members)
 	return
 }
 
-func SetProposalStatus(ctx context.Context, pool *pgxpool.Pool, proposalID string, status model.ProposalStatus) error {
+// SetProposalStatus updates a proposal's status. When the status leaves 'open',
+// resolved_at is stamped (required by the schema's resolved-state CHECK) and
+// resolved_by records who triggered it (nil for system/expiry resolutions).
+func SetProposalStatus(ctx context.Context, pool *pgxpool.Pool, proposalID string, status model.ProposalStatus, resolvedBy *string) error {
 	_, err := pool.Exec(ctx,
-		`UPDATE proposals SET status = $1 WHERE id = $2`,
-		status, proposalID,
+		`UPDATE proposals
+		 SET status = $1,
+		     resolved_at = CASE WHEN $1 = 'open' THEN NULL ELSE NOW() END,
+		     resolved_by = CASE WHEN $1 = 'open' THEN NULL ELSE $3 END
+		 WHERE id = $2`,
+		status, proposalID, resolvedBy,
 	)
 	return err
 }

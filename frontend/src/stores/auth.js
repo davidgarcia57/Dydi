@@ -39,6 +39,14 @@ export const useAuthStore = defineStore('auth', () => {
       options: { data: { display_name: displayName } },
     })
     if (error) throw error
+
+    // Anti-enumeración de Supabase: cuando el correo YA está registrado, signUp
+    // no devuelve error sino un usuario "fantasma" con identities vacío.
+    // Lo detectamos para no permitir un registro duplicado.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('EMAIL_TAKEN')
+    }
+
     session.value = data.session
   }
 

@@ -186,7 +186,7 @@ onUnmounted(() => socketDisconnect?.())
               <span class="font-semibold text-sm text-ink truncate">
                 {{ squadRows.find(r => r.user_id === debt.debtor_id)?.display_name ?? 'Miembro' }}
               </span>
-              <span v-if="debt.is_collective" class="rounded-pill bg-coral/20 text-coral-deep text-[10px] font-bold px-2 py-0.5">
+              <span v-if="debt.scope === 'collective'" class="rounded-pill bg-coral/20 text-coral-deep text-[10px] font-bold px-2 py-0.5">
                 colectiva
               </span>
             </div>
