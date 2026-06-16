@@ -168,6 +168,34 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID, d
 	return result, rows.Err()
 }
 
+// GetCheckinHistory returns every (member, habit, date) check-in for a group
+// within [from, to]. The frontend groups these into per-member 7-day strips.
+func GetCheckinHistory(ctx context.Context, pool *pgxpool.Pool, groupID, from, to string) ([]model.CheckinHistoryDay, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT uh.user_id, uh.habit_id, to_char(c.checked_on, 'YYYY-MM-DD')
+		 FROM memberships gm
+		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
+		 JOIN checkins   c  ON c.user_habit_id = uh.id
+		 WHERE gm.group_id = $1 AND gm.status = 'active'
+		   AND c.checked_on >= $2::date AND c.checked_on <= $3::date`,
+		groupID, from, to,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	history := make([]model.CheckinHistoryDay, 0)
+	for rows.Next() {
+		var d model.CheckinHistoryDay
+		if err := rows.Scan(&d.UserID, &d.HabitID, &d.CheckedOn); err != nil {
+			return nil, err
+		}
+		history = append(history, d)
+	}
+	return history, rows.Err()
+}
+
 // ─── Streaks ─────────────────────────────────────────────────────────────────
 
 func GetStreaksForUser(ctx context.Context, pool *pgxpool.Pool, userID string) ([]model.Streak, error) {
@@ -335,6 +363,17 @@ func GetRouletteEntry(ctx context.Context, pool *pgxpool.Pool, entryID string) (
 	return scanEntry(pool.QueryRow(ctx,
 		`SELECT id, group_id, debtor_id, week_start, suggestion_deadline, spun_at, created_at
 		 FROM roulette_entries WHERE id = $1`,
+		entryID,
+	))
+}
+
+// GetRouletteEntryForUpdate locks the entry row (SELECT ... FOR UPDATE) inside a
+// transaction. A concurrent second spin blocks here until the first commits,
+// then sees spun_at set — preventing a double spin / double debt under a race.
+func GetRouletteEntryForUpdate(ctx context.Context, dbtx DBTX, entryID string) (*model.RouletteEntry, error) {
+	return scanEntry(dbtx.QueryRow(ctx,
+		`SELECT id, group_id, debtor_id, week_start, suggestion_deadline, spun_at, created_at
+		 FROM roulette_entries WHERE id = $1 FOR UPDATE`,
 		entryID,
 	))
 }

@@ -125,16 +125,25 @@ function avatarBg(name = '') {
 // L M M J V S D — Monday-first
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 
+// Monday-first index (0..6) → the YYYY-MM-DD date for that day of the current week.
+function dateForIdx(i, todayIdx) {
+  const d = new Date()
+  d.setDate(d.getDate() - (todayIdx - i))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function dayStrip(checkin) {
   const dow = new Date().getDay()
   // Convert Sun=0…Sat=6 → Mon=0…Sun=6
   const todayIdx = dow === 0 ? 6 : dow - 1
+  const dates = checkin ? habits.weekHistory[`${checkin.user_id}:${checkin.habit_id}`] : null
 
   return DAY_LABELS.map((label, i) => {
-    // TODO: replace `i < todayIdx → 'done'` with real 7-day history from API
-    if (i < todayIdx) return { label, status: 'done' }
+    if (i > todayIdx) return { label, status: 'future' }
     if (i === todayIdx) return { label, status: checkin?.status ?? 'pending' }
-    return { label, status: 'future' }
+    // Past day: real history — a check-in that date means done, otherwise missed.
+    const done = dates ? dates.has(dateForIdx(i, todayIdx)) : false
+    return { label, status: done ? 'done' : 'missed' }
   })
 }
 
@@ -163,6 +172,7 @@ onMounted(async () => {
       return
     }
     await habits.loadToday(group.group.id)
+    await habits.loadWeekHistory(group.group.id)
     const memberIDs = [...new Set(habits.todayCheckins.map(c => c.user_id))]
     await Promise.all(memberIDs.map(id => habits.loadStreaks(id)))
     const { disconnect } = useGroupSocket(group.group.id)

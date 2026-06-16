@@ -62,12 +62,18 @@ export const useGroupStore = defineStore('group', () => {
     onlineMembers.value = new Set()
   }
 
+  // Reassign the ref (not mutate in place) so Vue's reactivity fires and the
+  // squad/today views re-render when presence changes over WebSocket.
   function setMemberOnline(userID) {
-    onlineMembers.value.add(userID)
+    const next = new Set(onlineMembers.value)
+    next.add(userID)
+    onlineMembers.value = next
   }
 
   function setMemberOffline(userID) {
-    onlineMembers.value.delete(userID)
+    const next = new Set(onlineMembers.value)
+    next.delete(userID)
+    onlineMembers.value = next
   }
 
   return {

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dydi/habits-service/internal/db"
@@ -105,6 +106,9 @@ func (h *HabitHandler) notifyRealtime(groupID, userID, eventType string, data an
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+		req.Header.Set("X-Internal-Token", tok)
+	}
 	http.DefaultClient.Do(req) //nolint:errcheck
 }
 
@@ -130,6 +134,41 @@ func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, checkins)
 }
 
+// GetHistory returns check-in history for a group within [from, to] so the
+// frontend can render real 7-day strips. Caller must be a member of the group.
+func (h *HabitHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	groupID := chi.URLParam(r, "groupID")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+	if from == "" || to == "" {
+		writeError(w, http.StatusBadRequest, "from and to query params are required")
+		return
+	}
+
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
+	history, err := db.GetCheckinHistory(r.Context(), h.pool, groupID, from, to)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, history)
+}
+
 func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 	userID := chi.URLParam(r, "userID")
 
@@ -145,6 +184,12 @@ func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 // is approved. It bulk-assigns or bulk-removes a habit for all group members.
 // Not exposed through api-gateway.
 func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
+	// Service-to-service auth — this endpoint is internet-reachable on Render.
+	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" && r.Header.Get("X-Internal-Token") != tok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
 	var body struct {
 		GroupID string `json:"group_id"`
 		HabitID string `json:"habit_id"`

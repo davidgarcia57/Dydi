@@ -23,6 +23,18 @@ var (
 		Name: "realtime_events_delivered_total",
 		Help: "Total events successfully written to client channels.",
 	})
+	// coldStartSeconds is the time from process start to the first WebSocket
+	// connection — the paper's "WebSocket cold start" metric, made scrapable.
+	coldStartSeconds = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "realtime_cold_start_seconds",
+		Help: "Seconds from process start to the first client connection.",
+	})
+	// eventsDroppedTotal counts events dropped because a client's send buffer was
+	// full (slow consumer) — feeds the paper's event-delivery-consistency metric.
+	eventsDroppedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "realtime_events_dropped_total",
+		Help: "Total events dropped due to a full client send buffer.",
+	})
 )
 
 type HubUseCase struct {
@@ -53,7 +65,9 @@ func (h *HubUseCase) Run() {
 			h.mu.Lock()
 			if h.firstConnectedAt.IsZero() {
 				h.firstConnectedAt = time.Now()
-				log.Printf("realtime_cold_start_ms=%d", h.firstConnectedAt.Sub(h.startTime).Milliseconds())
+				cold := h.firstConnectedAt.Sub(h.startTime)
+				coldStartSeconds.Set(cold.Seconds())
+				log.Printf("realtime_cold_start_ms=%d", cold.Milliseconds())
 			}
 			if h.rooms[c.GroupID] == nil {
 				h.rooms[c.GroupID] = make(map[*domain.Client]struct{})
@@ -87,6 +101,7 @@ func (h *HubUseCase) Run() {
 				case c.Send <- ev:
 					eventsDeliveredTotal.Inc()
 				default:
+					eventsDroppedTotal.Inc()
 					go h.Unregister(c)
 				}
 			}
@@ -114,7 +129,15 @@ func (h *HubUseCase) Shutdown() {
 
 func (h *HubUseCase) Register(c *domain.Client)   { h.register <- c }
 func (h *HubUseCase) Unregister(c *domain.Client) { h.unregister <- c }
-func (h *HubUseCase) Broadcast(ev domain.Event)   { h.broadcast <- ev }
+
+// Broadcast stamps the emit time (so clients can measure delivery latency) and
+// enqueues the event for fan-out.
+func (h *HubUseCase) Broadcast(ev domain.Event) {
+	if ev.EmittedAt.IsZero() {
+		ev.EmittedAt = time.Now()
+	}
+	h.broadcast <- ev
+}
 
 func (h *HubUseCase) ConnectionCount() int {
 	h.mu.RLock()

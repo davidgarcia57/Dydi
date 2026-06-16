@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/dydi/groups-service/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -18,23 +23,47 @@ func main() {
 	}
 	defer pool.Close()
 
-	r := setupRouter(pool)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8082"
 	}
-	http.ListenAndServe(":"+port, r)
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           setupRouter(pool),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		log.Printf("groups-service listening on %s", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	<-quit
+	log.Println("shutdown signal received")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("graceful shutdown error: %v", err)
+	}
+	log.Println("groups-service stopped")
 }
 
 func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(observability)
 	r.Use(middleware.Recoverer)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+
+	r.Handle("/metrics", promhttp.Handler())
 
 	u := handler.NewUserHandler(pool)
 	r.Post("/users/sync", u.SyncUser)

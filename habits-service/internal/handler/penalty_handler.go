@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math/big"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dydi/habits-service/internal/db"
@@ -244,6 +245,18 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
 
+	// Re-check spun_at while holding a row lock so two concurrent spins can't
+	// both create a debt. The second spin blocks until the first commits.
+	locked, err := db.GetRouletteEntryForUpdate(r.Context(), tx, entryID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if locked.SpunAt != nil {
+		writeError(w, http.StatusConflict, "already spun for this entry")
+		return
+	}
+
 	weekStart := entry.WeekStart.Format("2006-01-02")
 
 	if len(suggestions) == 0 {
@@ -344,5 +357,8 @@ func (h *PenaltyHandler) notifyRealtime(groupID, eventType string, data any) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+		req.Header.Set("X-Internal-Token", tok)
+	}
 	http.DefaultClient.Do(req) //nolint:errcheck
 }

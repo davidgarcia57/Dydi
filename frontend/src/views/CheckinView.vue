@@ -10,7 +10,7 @@ const auth   = useAuthStore()
 const group  = useGroupStore()
 const habits = useHabitsStore()
 
-// 'loading' | 'no-habit' | 'select' | 'confirm' | 'success' | 'done'
+// 'loading' | 'error' | 'no-habit' | 'select' | 'confirm' | 'success' | 'done'
 const step       = ref('loading')
 const selected   = ref(null)
 const note       = ref('')
@@ -32,15 +32,27 @@ function formatTime() {
 const myHabits  = computed(() => habits.todayCheckins.filter(c => c.user_id === auth.user?.id))
 const myPending = computed(() => myHabits.value.filter(c => c.status === 'pending'))
 
-onMounted(async () => {
-  clockTick = setInterval(() => { currentTime.value = formatTime() }, 10_000)
-  await group.autoLoad()
-  if (group.group?.id && habits.todayCheckins.length === 0) {
-    await habits.loadToday(group.group.id)
+async function load() {
+  step.value = 'loading'
+  errMsg.value = ''
+  try {
+    const found = await group.autoLoad()
+    if (found && group.group?.id) {
+      // Always refresh — relying on cached todayCheckins can show a stale day.
+      await habits.loadToday(group.group.id)
+    }
+    await habits.loadStreaks(auth.user?.id)
+    prevStreak.value = habits.streaks[auth.user?.id] ?? 0
+    resolve()
+  } catch (e) {
+    errMsg.value = e?.message || 'No pudimos cargar tus hábitos.'
+    step.value = 'error'
   }
-  await habits.loadStreaks(auth.user?.id)
-  prevStreak.value = habits.streaks[auth.user?.id] ?? 0
-  resolve()
+}
+
+onMounted(() => {
+  clockTick = setInterval(() => { currentTime.value = formatTime() }, 10_000)
+  load()
 })
 
 onUnmounted(() => clearInterval(clockTick))
@@ -88,6 +100,20 @@ async function submit() {
     <div v-if="step === 'loading'"
       class="flex-1 flex items-center justify-center">
       <div class="w-8 h-8 rounded-full border-2 border-sage-deep border-t-transparent animate-spin" />
+    </div>
+
+    <!-- ── Error ──────────────────────────────────────────────────────────── -->
+    <div v-else-if="step === 'error'"
+      class="flex-1 flex flex-col items-center justify-center px-8 text-center">
+      <p class="text-eyebrow text-coral mb-2">ALGO FALLÓ</p>
+      <h1 class="font-serif text-2xl font-semibold text-ink mb-2">
+        No pudimos cargar tus hábitos
+      </h1>
+      <p class="text-sm text-ink-soft mb-8">{{ errMsg }}</p>
+      <button class="rounded-pill bg-sage-deep text-paper px-8 py-3.5 font-bold text-sm"
+        @click="load">
+        Reintentar
+      </button>
     </div>
 
     <!-- ── No habit ───────────────────────────────────────────────────────── -->

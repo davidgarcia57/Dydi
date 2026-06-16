@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 const (
 	EventCheckin        = "checkin"
 	EventStreakUpdate   = "streak_update"
@@ -15,4 +17,7 @@ type Event struct {
 	GroupID string      `json:"groupID"`
 	UserID  string      `json:"userID"`
 	Payload interface{} `json:"payload"`
+	// EmittedAt is stamped by the hub when the event is enqueued. The client can
+	// compute delivery latency as (receiveTime - emittedAt) for the paper.
+	EmittedAt time.Time `json:"emittedAt"`
 }

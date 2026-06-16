@@ -28,23 +28,35 @@ export function useGroupSocket(groupID) {
   let ws             = null
   let reconnectTimer = null
   let closed         = false
+  let attempts       = 0
+  const MAX_ATTEMPTS = 10
+
+  function scheduleReconnect() {
+    if (closed || attempts >= MAX_ATTEMPTS) return
+    const wait = Math.min(1000 * 2 ** attempts, 30_000) // exponential backoff, capped
+    attempts++
+    reconnectTimer = setTimeout(connect, wait)
+  }
 
   function connect() {
     if (closed) return
     ws = new WebSocket(url)
 
-    ws.onopen = () => clearTimeout(reconnectTimer)
+    ws.onopen = () => { attempts = 0; clearTimeout(reconnectTimer) }
 
     ws.onmessage = ({ data }) => {
       try {
         const msg = JSON.parse(data)
+        // Delivery latency for the paper: receive time minus server emit time.
+        if (msg.emittedAt) {
+          const latency = Date.now() - new Date(msg.emittedAt).getTime()
+          if (latency >= 0) console.debug(`[dydi] ws ${msg.type} delivery ${latency}ms`)
+        }
         handlers[msg.type]?.(msg)
       } catch {}
     }
 
-    ws.onclose = () => {
-      if (!closed) reconnectTimer = setTimeout(connect, 3000)
-    }
+    ws.onclose = () => { if (!closed) scheduleReconnect() }
 
     ws.onerror = () => ws.close()
   }

@@ -41,11 +41,16 @@ func Auth(next http.Handler) http.Handler {
 		header := r.Header.Get("Authorization")
 		if strings.HasPrefix(header, "Bearer ") {
 			tokenStr = strings.TrimPrefix(header, "Bearer ")
-		} else {
+		} else if strings.HasPrefix(r.URL.Path, "/ws") {
+			// Browsers can't set headers on a WebSocket handshake, so the token
+			// is only accepted via query string on the /ws route — never on REST
+			// routes, where it would leak into access logs and history.
 			tokenStr = r.URL.Query().Get("token")
 		}
 
-		token, err := jwt.Parse(tokenStr, signingKey, jwt.WithValidMethods([]string{"HS256", "ES256"}))
+		// Supabase signs with ES256 (verified via JWKS). Restricting to ES256
+		// closes the algorithm-confusion surface that HS256 would open.
+		token, err := jwt.Parse(tokenStr, signingKey, jwt.WithValidMethods([]string{"ES256"}))
 		if err != nil || !token.Valid {
 			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
 			return

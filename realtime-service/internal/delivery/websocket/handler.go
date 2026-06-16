@@ -87,6 +87,13 @@ func WebSocketHandler(h *usecase.HubUseCase) http.HandlerFunc {
 
 func BroadcastHandler(h *usecase.HubUseCase) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Service-to-service auth: this endpoint is internet-reachable on Render,
+		// so without a shared secret anyone could inject fake realtime events.
+		if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" && r.Header.Get("X-Internal-Token") != tok {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+
 		var ev domain.Event
 		if err := json.NewDecoder(r.Body).Decode(&ev); err != nil {
 			http.Error(w, `{"error":"invalid body"}`, http.StatusBadRequest)

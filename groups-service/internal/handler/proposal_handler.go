@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/dydi/groups-service/internal/db"
@@ -22,6 +23,12 @@ type ProposalHandler struct {
 
 func NewProposalHandler(pool *pgxpool.Pool, habitsServiceURL string) *ProposalHandler {
 	return &ProposalHandler{pool: pool, habitsServiceURL: habitsServiceURL}
+}
+
+// quorumReached reports whether yes-votes reach a simple majority (≥50%) of the
+// frozen electorate. Pure function so the threshold is unit-testable in isolation.
+func quorumReached(approvals, members int) bool {
+	return members > 0 && approvals*2 >= members
 }
 
 func (h *ProposalHandler) CreateProposal(w http.ResponseWriter, r *http.Request) {
@@ -176,7 +183,7 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Quorum: yes_votes * 2 >= member_count (≥50% of the frozen electorate).
-	if members > 0 && approvals*2 >= members {
+	if quorumReached(approvals, members) {
 		go h.executeProposal(proposal)
 		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalApproved, &userID)
 	}
@@ -187,7 +194,9 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 // executeProposal applies the side-effects of an approved proposal in a goroutine.
 // Errors are logged but do not affect the vote response — the vote is already committed.
 func (h *ProposalHandler) executeProposal(p *model.Proposal) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// Generous timeout: callHabitsService retries with backoff to survive a
+	// habits-service cold start on Render free tier.
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	switch p.Type {
@@ -228,11 +237,38 @@ func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitI
 		return
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		h.habitsServiceURL+"/internal/proposals/apply", bytes.NewReader(body))
-	if err != nil {
-		return
+	// The vote is already committed, so the apply must be best-effort durable:
+	// retry with exponential backoff to ride out a brief outage / cold start.
+	// (A proper outbox + reconcile job would make this fully exactly-once.)
+	backoff := time.Second
+	for attempt := 0; attempt < 5; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(backoff):
+			}
+			if backoff < 16*time.Second {
+				backoff *= 2
+			}
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			h.habitsServiceURL+"/internal/proposals/apply", bytes.NewReader(body))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+			req.Header.Set("X-Internal-Token", tok)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode < 500 {
+				return // 2xx applied, or 4xx that won't succeed on retry
+			}
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
-	http.DefaultClient.Do(req) //nolint:errcheck
 }

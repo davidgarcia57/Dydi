@@ -4,40 +4,54 @@ const BASE = import.meta.env.VITE_API_URL
 
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
-export async function api(path, options = {}, retries = 5) {
+const MAX_RETRIES = 3
+const PER_ATTEMPT_TIMEOUT = 30_000 // ms — a single attempt never hangs forever
+
+export async function api(path, options = {}, retries = MAX_RETRIES) {
   const auth = useAuthStore()
   let lastErr = null
 
   for (let i = 0; i < retries; i++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT)
     try {
       const res = await fetch(`${BASE}${path}`, {
         ...options,
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${auth.token}`,
           ...options.headers,
         },
       })
+
       const text = await res.text()
-      const body = text ? JSON.parse(text) : null
-      
-      // Render free tier puede devolver 502/503/504 durante el cold start
+      let body = null
+      try {
+        body = text ? JSON.parse(text) : null
+      } catch {
+        body = { message: text } // tolerate non-JSON bodies instead of throwing
+      }
+
       if (!res.ok) {
-        if (res.status >= 502 && res.status <= 504) {
-          throw { status: res.status, ...body }
+        const err = { status: res.status, ...(body || {}) }
+        // Only Render free-tier cold-start 5xx are worth retrying; 4xx won't change.
+        if (res.status >= 502 && res.status <= 504 && i < retries - 1) {
+          lastErr = err
+          await delay(Math.min(1000 * 2 ** i, 8000))
+          continue
         }
-        throw body ?? { message: `HTTP ${res.status}` }
+        throw err
       }
       return body
     } catch (err) {
+      // Retry only transient transport failures (network down / our timeout abort).
+      const transient = err instanceof TypeError || err?.name === 'AbortError'
+      if (!transient || i === retries - 1) throw err
       lastErr = err
-      const isNetworkOr50x = err instanceof TypeError || (err.status >= 502 && err.status <= 504)
-      if (!isNetworkOr50x || i === retries - 1) {
-        throw err
-      }
-      // Exponential backoff: 1s, 2s, 4s, 8s, max 10s
-      const wait = Math.min(1000 * Math.pow(2, i), 10000)
-      await delay(wait)
+      await delay(Math.min(1000 * 2 ** i, 8000))
+    } finally {
+      clearTimeout(timer)
     }
   }
   throw lastErr

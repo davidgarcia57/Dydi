@@ -25,6 +25,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       MAX_GROUP_SIZE: 8
       HABITS_SERVICE_URL: http://habits-service:8083
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
 
   habits-service:
     build: ./habits-service
@@ -35,6 +36,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       REALTIME_SERVICE_URL: http://realtime-service:8084
       PUNISHMENT_CATALOG_PATH: ./punishments.json
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
 
   realtime-service:
     build: ./realtime-service
@@ -45,6 +47,7 @@ services:
       MAX_CONNECTIONS_PER_GROUP: 8
       PING_INTERVAL_SECONDS: 30
       WRITE_WAIT_SECONDS: 10
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
 
   frontend:
     image: node:20-alpine
