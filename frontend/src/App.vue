@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ServerWakeup from '@/components/ui/ServerWakeup.vue'
+import ToastHost from '@/components/ui/ToastHost.vue'
 
 const route = useRoute()
 const isPublic = computed(
@@ -65,6 +66,7 @@ function isActive(path) {
 <template>
   <div class="min-h-screen bg-cream">
     <ServerWakeup />
+    <ToastHost />
     <main :class="isPublic ? '' : 'pb-20'">
       <RouterView />
     </main>
@@ -81,13 +83,16 @@ function isActive(path) {
           class="flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors"
           :class="isActive(tab.path) ? 'text-sage-deep' : 'text-ink-faint'"
         >
+          <!-- eslint-disable vue/no-v-html -- íconos SVG estáticos y de confianza (sin datos de usuario) -->
           <svg
             class="w-6 h-6"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
+            aria-hidden="true"
             v-html="tab.icon"
           />
+          <!-- eslint-enable vue/no-v-html -->
           <span class="text-[10px] font-semibold tracking-wide">{{ tab.label }}</span>
         </RouterLink>
       </div>

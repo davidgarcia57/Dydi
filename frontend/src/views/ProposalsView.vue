@@ -170,7 +170,7 @@ onMounted(async () => {
               >
                 <div
                   class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
-                  :style="{ backgroundColor: habit.color || '#A8C39A' }"
+                  :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
                   {{ habit.name.charAt(0).toUpperCase() }}
                 </div>
@@ -216,7 +216,7 @@ onMounted(async () => {
               >
                 <div
                   class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold opacity-60"
-                  :style="{ backgroundColor: habit.color || '#A8C39A' }"
+                  :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
                   {{ habit.name.charAt(0).toUpperCase() }}
                 </div>

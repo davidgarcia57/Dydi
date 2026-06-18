@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import BaseButton from '@/components/ui/BaseButton.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -29,6 +30,11 @@ const toggleLabel = computed(() => (isRegister.value ? 'Inicia sesión' : 'Crea 
 function resetFeedback() {
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+function setMode(next) {
+  mode.value = next
+  resetFeedback()
 }
 
 function switchMode() {
@@ -78,79 +84,102 @@ async function submit() {
     loading.value = false
   }
 }
+
+const fieldInput =
+  'w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-[0.9375rem] text-ink ' +
+  'placeholder-ink-faint outline-none transition-colors ' +
+  'focus:border-sage-deep focus:bg-paper focus:ring-[3px] focus:ring-sage-deep/20'
 </script>
 
 <template>
-  <div class="login-root">
+  <div class="flex min-h-screen bg-cream text-ink">
     <!-- ── Hero (solo desktop) ──────────────────────────────────────────── -->
-    <aside class="hero-side">
-      <span class="logo">DYDI</span>
+    <aside
+      class="hidden lg:flex lg:w-[55%] lg:flex-col lg:justify-between lg:px-14 lg:py-12 animate-fade-in"
+    >
+      <span class="font-serif text-2xl font-semibold text-terracotta tracking-[0.05em]">DYDI</span>
 
-      <div class="hero-body">
-        <span class="badge">Accountability social sin ponerse solemnes</span>
+      <div class="animate-fade-up [animation-delay:100ms]">
+        <span
+          class="inline-flex items-center bg-wash text-sage-deep text-[11px] font-bold uppercase tracking-eyebrow px-3.5 py-1.5 rounded-pill mb-7"
+        >
+          Accountability social sin ponerse solemnes
+        </span>
 
-        <h1 class="hero-heading">Cumple tus hábitos o enfréntate a la ruleta del grupo.</h1>
+        <h1
+          class="font-serif font-semibold text-ink leading-[1.15] mb-5 max-w-[22ch] text-[clamp(2.2rem,3.5vw,3.25rem)]"
+        >
+          Cumple tus hábitos o enfréntate a la ruleta del grupo.
+        </h1>
 
-        <p class="hero-sub">
+        <p class="text-base leading-[1.7] text-ink-soft max-w-[38ch] mb-10">
           Arma tu squad, registra tus check-ins diarios y deja que las consecuencias se vuelvan
           parte del juego.
         </p>
 
-        <div class="stats">
-          <div class="stat-card">
-            <p class="stat-num terracotta">08</p>
-            <p class="stat-label">personas por grupo</p>
+        <div class="grid grid-cols-3 gap-3 animate-fade-up [animation-delay:250ms]">
+          <div class="bg-surface rounded-card p-4">
+            <p class="font-serif text-3xl font-semibold leading-none text-terracotta">08</p>
+            <p class="text-xs text-ink-soft mt-1.5">personas por grupo</p>
           </div>
-          <div class="stat-card">
-            <p class="stat-num sage">24h</p>
-            <p class="stat-label">para votar propuestas</p>
+          <div class="bg-surface rounded-card p-4">
+            <p class="font-serif text-3xl font-semibold leading-none text-sage-deep">24h</p>
+            <p class="text-xs text-ink-soft mt-1.5">para votar propuestas</p>
           </div>
-          <div class="stat-card">
-            <p class="stat-num amber">1</p>
-            <p class="stat-label">ruleta semanal</p>
+          <div class="bg-surface rounded-card p-4">
+            <p class="font-serif text-3xl font-semibold leading-none text-amber-deep">1</p>
+            <p class="text-xs text-ink-soft mt-1.5">ruleta semanal</p>
           </div>
         </div>
       </div>
 
-      <p class="hero-footer">© 2025 Dydi · UTD Integradora</p>
+      <p class="text-[0.7rem] text-ink-faint">© 2025 Dydi · UTD Integradora</p>
     </aside>
 
     <!-- ── Form side ────────────────────────────────────────────────────── -->
-    <main class="form-side">
+    <main
+      class="flex-1 flex flex-col items-center justify-center px-5 py-6 min-h-screen lg:p-10 lg:min-h-0"
+    >
       <!-- Logo solo en mobile -->
-      <div class="mobile-logo">
-        <span class="logo">DYDI</span>
-        <p class="mobile-tagline">Hábitos con consecuencias</p>
+      <div class="text-center mb-8 animate-fade-up lg:hidden">
+        <span class="font-serif text-2xl font-semibold text-terracotta tracking-[0.05em]"
+          >DYDI</span
+        >
+        <p class="text-sm text-ink-soft mt-1">Hábitos con consecuencias</p>
       </div>
 
       <!-- Card -->
-      <div class="card">
+      <div
+        class="w-full max-w-[22rem] bg-paper rounded-card shadow-card px-6 py-7 animate-fade-up [animation-delay:150ms]"
+      >
         <!-- Tab switcher -->
-        <div class="tabs" role="tablist">
+        <div class="flex bg-hairline rounded-pill p-1 mb-6" role="tablist">
           <button
             type="button"
             role="tab"
-            class="tab"
-            :class="{ 'tab--active': !isRegister }"
-            @click="mode = 'login'; resetFeedback()"
+            :aria-selected="!isRegister"
+            class="flex-1 py-2.5 rounded-pill text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50"
+            :class="!isRegister ? 'bg-paper text-ink shadow-flat' : 'text-ink-soft'"
+            @click="setMode('login')"
           >
             Entrar
           </button>
           <button
             type="button"
             role="tab"
-            class="tab"
-            :class="{ 'tab--active': isRegister }"
-            @click="mode = 'register'; resetFeedback()"
+            :aria-selected="isRegister"
+            class="flex-1 py-2.5 rounded-pill text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50"
+            :class="isRegister ? 'bg-paper text-ink shadow-flat' : 'text-ink-soft'"
+            @click="setMode('register')"
           >
             Registro
           </button>
         </div>
 
         <!-- Header del form -->
-        <div class="form-header">
-          <h2 class="form-title">{{ title }}</h2>
-          <p class="form-sub">
+        <div class="mb-5">
+          <h2 class="font-serif text-2xl font-semibold text-ink leading-tight">{{ title }}</h2>
+          <p class="text-[0.8125rem] text-ink-soft mt-1">
             {{
               isRegister
                 ? 'Únete a tu grupo y empieza el reto.'
@@ -160,35 +189,35 @@ async function submit() {
         </div>
 
         <!-- Form -->
-        <form class="form" @submit.prevent="submit">
-          <div v-if="isRegister" class="field">
-            <label for="displayName" class="field-label">Nombre</label>
+        <form class="flex flex-col gap-4" @submit.prevent="submit">
+          <div v-if="isRegister" class="flex flex-col gap-1.5">
+            <label for="displayName" class="text-[0.8125rem] font-semibold text-ink">Nombre</label>
             <input
               id="displayName"
               v-model="form.displayName"
               type="text"
               autocomplete="name"
               required
-              class="field-input"
+              :class="fieldInput"
               placeholder="Tu nombre o apodo"
             />
           </div>
 
-          <div class="field">
-            <label for="email" class="field-label">Correo</label>
+          <div class="flex flex-col gap-1.5">
+            <label for="email" class="text-[0.8125rem] font-semibold text-ink">Correo</label>
             <input
               id="email"
               v-model="form.email"
               type="email"
               autocomplete="email"
               required
-              class="field-input"
+              :class="fieldInput"
               placeholder="tu@correo.com"
             />
           </div>
 
-          <div class="field">
-            <label for="password" class="field-label">Contraseña</label>
+          <div class="flex flex-col gap-1.5">
+            <label for="password" class="text-[0.8125rem] font-semibold text-ink">Contraseña</label>
             <input
               id="password"
               v-model="form.password"
@@ -196,13 +225,15 @@ async function submit() {
               autocomplete="current-password"
               minlength="6"
               required
-              class="field-input"
+              :class="fieldInput"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
 
-          <div v-if="isRegister" class="field">
-            <label for="confirmPassword" class="field-label">Confirmar contraseña</label>
+          <div v-if="isRegister" class="flex flex-col gap-1.5">
+            <label for="confirmPassword" class="text-[0.8125rem] font-semibold text-ink">
+              Confirmar contraseña
+            </label>
             <input
               id="confirmPassword"
               v-model="form.confirmPassword"
@@ -210,27 +241,39 @@ async function submit() {
               autocomplete="new-password"
               minlength="6"
               required
-              class="field-input"
+              :class="fieldInput"
               placeholder="Repítela una vez"
             />
           </div>
 
-          <p v-if="errorMessage" class="feedback feedback--error" role="alert">
+          <p
+            v-if="errorMessage"
+            class="text-[0.8125rem] font-medium px-4 py-3 rounded-xl bg-coral-soft border border-coral/40 text-coral-deep animate-fade-up"
+            role="alert"
+          >
             {{ errorMessage }}
           </p>
-          <p v-if="successMessage" class="feedback feedback--success" role="status">
+          <p
+            v-if="successMessage"
+            class="text-[0.8125rem] font-medium px-4 py-3 rounded-xl bg-sage-soft border border-sage/40 text-sage-deep animate-fade-up"
+            role="status"
+          >
             {{ successMessage }}
           </p>
 
-          <button type="submit" class="submit-btn" :disabled="loading">
+          <BaseButton type="submit" block size="lg" :loading="loading" class="mt-1">
             {{ submitLabel }}
-          </button>
+          </BaseButton>
         </form>
 
         <!-- Switch mode -->
-        <p class="switch-mode">
+        <p class="text-center text-[0.8125rem] text-ink-soft mt-4">
           {{ isRegister ? '¿Ya tienes cuenta?' : '¿Eres nuevo?' }}
-          <button type="button" class="switch-link" @click="switchMode">
+          <button
+            type="button"
+            class="font-bold text-sage-deep hover:text-terracotta transition-colors ml-0.5 focus-visible:outline-none focus-visible:underline"
+            @click="switchMode"
+          >
             {{ toggleLabel }}
           </button>
         </p>
@@ -238,346 +281,3 @@ async function submit() {
     </main>
   </div>
 </template>
-
-<style scoped>
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.login-root {
-  display: flex;
-  min-height: 100vh;
-  background: #f4eee3;
-  font-family: 'Hanken Grotesk', system-ui, sans-serif;
-  color: #2a251f;
-}
-
-/* ── Hero side ──────────────────────────────────────────────────────── */
-.hero-side {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .hero-side {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    width: 55%;
-    padding: 3rem 3.5rem;
-    animation: fadeIn 0.6s ease both;
-  }
-}
-
-.logo {
-  font-family: 'Newsreader', Georgia, serif;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #c26f4d;
-  letter-spacing: 0.05em;
-}
-
-.hero-body {
-  animation: fadeUp 0.6s 0.1s ease both;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  background: #dfebe8;
-  color: #7ca39d;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  margin-bottom: 1.75rem;
-}
-
-.hero-heading {
-  font-family: 'Newsreader', Georgia, serif;
-  font-size: clamp(2.2rem, 3.5vw, 3.25rem);
-  font-weight: 600;
-  line-height: 1.15;
-  color: #2a251f;
-  margin-bottom: 1.25rem;
-  max-width: 22ch;
-}
-
-.hero-sub {
-  font-size: 1rem;
-  line-height: 1.7;
-  color: #6f6557;
-  max-width: 38ch;
-  margin-bottom: 2.5rem;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-  animation: fadeUp 0.6s 0.25s ease both;
-}
-
-.stat-card {
-  background: #fcf9f3;
-  border-radius: 22px;
-  padding: 1.1rem;
-}
-
-.stat-num {
-  font-family: 'Newsreader', Georgia, serif;
-  font-size: 2rem;
-  font-weight: 600;
-  line-height: 1;
-}
-.stat-num.terracotta {
-  color: #c26f4d;
-}
-.stat-num.sage {
-  color: #7ca39d;
-}
-.stat-num.amber {
-  color: #e9c281;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #6f6557;
-  margin-top: 0.35rem;
-}
-
-.hero-footer {
-  font-size: 0.7rem;
-  color: #a89c89;
-}
-
-/* ── Form side ──────────────────────────────────────────────────────── */
-.form-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem 1.25rem;
-  min-height: 100vh;
-}
-
-@media (min-width: 1024px) {
-  .form-side {
-    padding: 2.5rem;
-    min-height: auto;
-  }
-}
-
-.mobile-logo {
-  text-align: center;
-  margin-bottom: 2rem;
-  animation: fadeUp 0.5s ease both;
-}
-@media (min-width: 1024px) {
-  .mobile-logo {
-    display: none;
-  }
-}
-
-.mobile-tagline {
-  font-size: 0.8rem;
-  color: #6f6557;
-  margin-top: 0.25rem;
-}
-
-/* ── Card ───────────────────────────────────────────────────────────── */
-.card {
-  width: 100%;
-  max-width: 22rem;
-  background: #ffffff;
-  border-radius: 22px;
-  box-shadow: 0 4px 32px 0 rgba(42, 37, 31, 0.1);
-  padding: 1.75rem 1.5rem;
-  animation: fadeUp 0.5s 0.15s ease both;
-}
-
-/* ── Tabs ───────────────────────────────────────────────────────────── */
-.tabs {
-  display: flex;
-  background: #e7decd;
-  border-radius: 999px;
-  padding: 0.2rem;
-  margin-bottom: 1.5rem;
-}
-
-.tab {
-  flex: 1;
-  padding: 0.6rem;
-  border-radius: 999px;
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: #6f6557;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tab--active {
-  background: #ffffff;
-  color: #2a251f;
-  box-shadow: 0 1px 4px 0 rgba(42, 37, 31, 0.1);
-}
-
-/* ── Form header ────────────────────────────────────────────────────── */
-.form-header {
-  margin-bottom: 1.25rem;
-}
-
-.form-title {
-  font-family: 'Newsreader', Georgia, serif;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2a251f;
-  line-height: 1.2;
-}
-
-.form-sub {
-  font-size: 0.8125rem;
-  color: #6f6557;
-  margin-top: 0.25rem;
-}
-
-/* ── Fields ─────────────────────────────────────────────────────────── */
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.field-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #2a251f;
-}
-
-.field-input {
-  width: 100%;
-  background: #fcf9f3;
-  border: 1.5px solid #c8bca8;
-  border-radius: 12px;
-  padding: 0.75rem 1rem;
-  font-family: 'Hanken Grotesk', system-ui, sans-serif;
-  font-size: 0.9375rem;
-  color: #2a251f;
-  outline: none;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-  -webkit-appearance: none;
-  box-sizing: border-box;
-}
-
-.field-input::placeholder {
-  color: #a89c89;
-}
-
-.field-input:focus {
-  border-color: #7ca39d;
-  box-shadow: 0 0 0 3px rgba(124, 163, 157, 0.18);
-  background: #ffffff;
-}
-
-/* ── Feedback ───────────────────────────────────────────────────────── */
-.feedback {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  animation: fadeUp 0.3s ease both;
-}
-
-.feedback--error {
-  background: rgba(237, 164, 143, 0.15);
-  border: 1px solid rgba(237, 164, 143, 0.45);
-  color: #b85a3d;
-}
-
-.feedback--success {
-  background: rgba(168, 195, 154, 0.15);
-  border: 1px solid rgba(168, 195, 154, 0.45);
-  color: #5a8a6f;
-}
-
-/* ── Submit ─────────────────────────────────────────────────────────── */
-.submit-btn {
-  width: 100%;
-  background: #7ca39d;
-  color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  padding: 0.9rem;
-  font-family: 'Hanken Grotesk', system-ui, sans-serif;
-  font-size: 0.9375rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    opacity 0.2s ease,
-    transform 0.15s ease;
-  margin-top: 0.25rem;
-}
-
-.submit-btn:hover:not(:disabled) {
-  opacity: 0.88;
-}
-.submit-btn:active:not(:disabled) {
-  transform: scale(0.97);
-}
-.submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ── Switch mode ────────────────────────────────────────────────────── */
-.switch-mode {
-  text-align: center;
-  font-size: 0.8125rem;
-  color: #6f6557;
-  margin-top: 1rem;
-}
-
-.switch-link {
-  font-weight: 700;
-  color: #7ca39d;
-  background: none;
-  border: none;
-  cursor: pointer;
-  margin-left: 0.2rem;
-  transition: color 0.2s ease;
-  padding: 0;
-  font-size: inherit;
-  font-family: inherit;
-}
-
-.switch-link:hover {
-  color: #c26f4d;
-}
-</style>

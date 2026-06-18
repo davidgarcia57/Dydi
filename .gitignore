@@ -17,8 +17,9 @@ frontend/.vite/
 # salida de vitest --coverage
 coverage/
 
-# Tooling / caché local (Docker monta GOCACHE aquí al verificar)
+# Tooling / caché local (Docker monta estos al verificar Go)
 .gocache/
+.gomodcache/
 
 # Docker / logs
 *.log

@@ -193,7 +193,8 @@ async function submit() {
       <!-- Header -->
       <div class="px-6 pt-12 pb-6">
         <button
-          class="w-9 h-9 rounded-full bg-surface border border-hairline flex items-center justify-center mb-8"
+          aria-label="Cerrar"
+          class="w-9 h-9 rounded-full bg-surface border border-hairline flex items-center justify-center mb-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50"
           @click="router.back()"
         >
           <svg class="w-4 h-4 text-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -218,7 +219,7 @@ async function submit() {
         >
           <div
             class="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-paper"
-            :style="{ backgroundColor: h.color || '#A8C39A' }"
+            :style="{ backgroundColor: h.color || 'var(--color-sage)' }"
           >
             {{ h.habit_name?.charAt(0).toUpperCase() }}
           </div>
@@ -250,7 +251,8 @@ async function submit() {
       <!-- Top bar -->
       <div class="flex items-center justify-between px-6 pt-12 mb-10">
         <button
-          class="w-9 h-9 rounded-full bg-surface border border-hairline flex items-center justify-center"
+          aria-label="Volver"
+          class="w-9 h-9 rounded-full bg-surface border border-hairline flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50"
           @click="myPending.length > 1 ? (step = 'select') : router.back()"
         >
           <svg class="w-4 h-4 text-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -312,7 +314,8 @@ async function submit() {
       <div class="flex-1 flex flex-col items-center justify-center px-8">
         <button
           :disabled="submitting"
-          class="w-24 h-24 rounded-full bg-sage-deep shadow-card flex items-center justify-center mb-6 active:scale-95 transition-all duration-150 disabled:opacity-60 relative overflow-hidden"
+          aria-label="Registrar check-in"
+          class="w-24 h-24 rounded-full bg-sage-deep shadow-card flex items-center justify-center mb-6 active:scale-95 transition-all duration-150 disabled:opacity-60 relative overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
           @click="submit"
         >
           <svg
@@ -373,10 +376,7 @@ async function submit() {
         <div
           class="absolute inset-0 w-32 h-32 rounded-full bg-sage-soft flex items-center justify-center"
         >
-          <div
-            class="w-22 h-22 rounded-full bg-sage-deep flex items-center justify-center"
-            style="width: 5.5rem; height: 5.5rem"
-          >
+          <div class="w-22 h-22 rounded-full bg-sage-deep flex items-center justify-center">
             <svg class="w-10 h-10 text-paper" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 stroke-linecap="round"

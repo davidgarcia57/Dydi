@@ -14,6 +14,13 @@ const loading = ref(false)
 const errMsg = ref('')
 const createdGroup = ref(null)
 
+// Volver a la pantalla inicial limpiando el error. En método (no inline) porque
+// un handler con dos sentencias se rompe al formatear con Prettier.
+function goHome() {
+  step.value = 'home'
+  errMsg.value = ''
+}
+
 async function submitCreate() {
   if (!groupName.value.trim() || loading.value) return
   loading.value = true
@@ -92,10 +99,7 @@ const copied = ref(false)
     <!-- ── Crear grupo ─────────────────────────────────────────────────────── -->
     <template v-else-if="step === 'create'">
       <div class="w-full max-w-sm">
-        <button
-          class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="step = 'home'; errMsg = ''"
-        >
+        <button class="flex items-center gap-1 text-sm text-ink-soft mb-8" @click="goHome">
           ← Volver
         </button>
 
@@ -185,10 +189,7 @@ const copied = ref(false)
     <!-- ── Unirse con código ───────────────────────────────────────────────── -->
     <template v-else-if="step === 'join'">
       <div class="w-full max-w-sm">
-        <button
-          class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="step = 'home'; errMsg = ''"
-        >
+        <button class="flex items-center gap-1 text-sm text-ink-soft mb-8" @click="goHome">
           ← Volver
         </button>
 

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
+import { showToast } from '@/composables/useToast'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -23,8 +24,8 @@ async function shareInvite() {
       })
     } catch (e) {}
   } else {
-    navigator.clipboard.writeText(group.group.invite_code)
-    alert('Código de invitación copiado al portapapeles: ' + group.group.invite_code)
+    await navigator.clipboard.writeText(group.group.invite_code)
+    showToast(`Código copiado: ${group.group.invite_code}`)
   }
 }
 
@@ -208,8 +209,8 @@ onUnmounted(() => {
       <span class="font-serif text-xl font-semibold text-terracotta tracking-wide">DYDI</span>
 
       <button
-        @click="shareInvite"
         class="flex items-center gap-1.5 text-sm font-bold text-ink rounded-pill border border-hairline px-3 py-1.5 bg-surface active:opacity-70 transition-opacity"
+        @click="shareInvite"
       >
         {{ group.group?.name ?? 'Mi grupo' }}
         <svg
