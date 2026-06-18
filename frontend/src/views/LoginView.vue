@@ -132,10 +132,7 @@ async function submit() {
             role="tab"
             class="tab"
             :class="{ 'tab--active': !isRegister }"
-            @click="
-              mode = 'login'
-              resetFeedback()
-            "
+            @click="mode = 'login'; resetFeedback()"
           >
             Entrar
           </button>
@@ -144,10 +141,7 @@ async function submit() {
             role="tab"
             class="tab"
             :class="{ 'tab--active': isRegister }"
-            @click="
-              mode = 'register'
-              resetFeedback()
-            "
+            @click="mode = 'register'; resetFeedback()"
           >
             Registro
           </button>
