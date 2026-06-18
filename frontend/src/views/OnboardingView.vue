@@ -94,10 +94,7 @@ const copied = ref(false)
       <div class="w-full max-w-sm">
         <button
           class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="
-            step = 'home'
-            errMsg = ''
-          "
+          @click="step = 'home'; errMsg = ''"
         >
           ← Volver
         </button>
@@ -190,10 +187,7 @@ const copied = ref(false)
       <div class="w-full max-w-sm">
         <button
           class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="
-            step = 'home'
-            errMsg = ''
-          "
+          @click="step = 'home'; errMsg = ''"
         >
           ← Volver
         </button>
