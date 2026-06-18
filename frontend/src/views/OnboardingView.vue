@@ -4,14 +4,14 @@ import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
 
 const router = useRouter()
-const group  = useGroupStore()
+const group = useGroupStore()
 
 // 'home' | 'create' | 'join' | 'created'
-const step       = ref('home')
-const groupName  = ref('')
-const joinCode   = ref('')
-const loading    = ref(false)
-const errMsg     = ref('')
+const step = ref('home')
+const groupName = ref('')
+const joinCode = ref('')
+const loading = ref(false)
+const errMsg = ref('')
 const createdGroup = ref(null)
 
 async function submitCreate() {
@@ -55,7 +55,9 @@ function copyInviteCode() {
   const code = `${createdGroup.value.id}:${createdGroup.value.invite_code}`
   navigator.clipboard?.writeText(code)
   copied.value = true
-  setTimeout(() => { copied.value = false }, 2000)
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
 }
 
 const copied = ref(false)
@@ -63,27 +65,22 @@ const copied = ref(false)
 
 <template>
   <div class="min-h-screen bg-cream flex flex-col items-center justify-center px-6 py-12">
-
     <!-- ── Home: elige acción ─────────────────────────────────────────────── -->
     <template v-if="step === 'home'">
       <div class="w-full max-w-sm text-center">
         <p class="font-serif text-4xl font-semibold text-terracotta mb-2">DYDI</p>
         <h1 class="font-serif text-2xl font-semibold text-ink mb-2">Bienvenido</h1>
-        <p class="text-sm text-ink-soft mb-10">
-          Únete a tu squad o crea uno nuevo para empezar.
-        </p>
+        <p class="text-sm text-ink-soft mb-10">Únete a tu squad o crea uno nuevo para empezar.</p>
 
         <div class="space-y-3">
           <button
-            class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm
-                   active:opacity-80 transition-opacity"
+            class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm active:opacity-80 transition-opacity"
             @click="step = 'create'"
           >
             Crear grupo →
           </button>
           <button
-            class="w-full rounded-pill border border-hairline bg-paper text-ink py-4
-                   font-bold text-sm active:opacity-80 transition-opacity"
+            class="w-full rounded-pill border border-hairline bg-paper text-ink py-4 font-bold text-sm active:opacity-80 transition-opacity"
             @click="step = 'join'"
           >
             Unirme con código
@@ -95,8 +92,13 @@ const copied = ref(false)
     <!-- ── Crear grupo ─────────────────────────────────────────────────────── -->
     <template v-else-if="step === 'create'">
       <div class="w-full max-w-sm">
-        <button class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="step = 'home'; errMsg = ''">
+        <button
+          class="flex items-center gap-1 text-sm text-ink-soft mb-8"
+          @click="
+            step = 'home'
+            errMsg = ''
+          "
+        >
           ← Volver
         </button>
 
@@ -111,9 +113,7 @@ const copied = ref(false)
             type="text"
             maxlength="40"
             placeholder="Los Incumplidos, El Squad, …"
-            class="w-full rounded-[14px] border border-hairline bg-paper px-4 py-3.5
-                   text-sm text-ink placeholder-ink-faint
-                   focus:outline-none focus:border-sage-deep transition-colors"
+            class="w-full rounded-[14px] border border-hairline bg-paper px-4 py-3.5 text-sm text-ink placeholder-ink-faint focus:outline-none focus:border-sage-deep transition-colors"
             @keyup.enter="submitCreate"
           />
         </label>
@@ -122,12 +122,13 @@ const copied = ref(false)
 
         <button
           :disabled="!groupName.trim() || loading"
-          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm
-                 disabled:opacity-40 transition-opacity active:opacity-80"
+          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm disabled:opacity-40 transition-opacity active:opacity-80"
           @click="submitCreate"
         >
           <span v-if="loading" class="flex items-center justify-center gap-2">
-            <span class="w-4 h-4 rounded-full border-2 border-paper border-t-transparent animate-spin" />
+            <span
+              class="w-4 h-4 rounded-full border-2 border-paper border-t-transparent animate-spin"
+            />
             Creando…
           </span>
           <span v-else>Crear grupo →</span>
@@ -138,9 +139,16 @@ const copied = ref(false)
     <!-- ── Grupo creado: muestra código de invitación ─────────────────────── -->
     <template v-else-if="step === 'created'">
       <div class="w-full max-w-sm text-center">
-        <div class="w-16 h-16 rounded-full bg-sage/20 flex items-center justify-center mx-auto mb-6">
+        <div
+          class="w-16 h-16 rounded-full bg-sage/20 flex items-center justify-center mx-auto mb-6"
+        >
           <svg class="w-8 h-8 text-sage-deep" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         </div>
 
@@ -161,8 +169,7 @@ const copied = ref(false)
         </div>
 
         <button
-          class="w-full rounded-pill border border-hairline bg-surface text-ink-soft
-                 py-3 font-semibold text-sm mb-6 transition-colors"
+          class="w-full rounded-pill border border-hairline bg-surface text-ink-soft py-3 font-semibold text-sm mb-6 transition-colors"
           :class="{ 'bg-sage/10 text-sage-deep border-sage/30': copied }"
           @click="copyInviteCode"
         >
@@ -170,8 +177,7 @@ const copied = ref(false)
         </button>
 
         <button
-          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm
-                 active:opacity-80 transition-opacity"
+          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm active:opacity-80 transition-opacity"
           @click="router.replace('/today')"
         >
           Ir a Hoy →
@@ -182,8 +188,13 @@ const copied = ref(false)
     <!-- ── Unirse con código ───────────────────────────────────────────────── -->
     <template v-else-if="step === 'join'">
       <div class="w-full max-w-sm">
-        <button class="flex items-center gap-1 text-sm text-ink-soft mb-8"
-          @click="step = 'home'; errMsg = ''">
+        <button
+          class="flex items-center gap-1 text-sm text-ink-soft mb-8"
+          @click="
+            step = 'home'
+            errMsg = ''
+          "
+        >
           ← Volver
         </button>
 
@@ -192,7 +203,7 @@ const copied = ref(false)
           Pega el código que te compartieron
         </h1>
         <p class="text-xs text-ink-soft mb-8">
-          El código completo tiene el formato<br>
+          El código completo tiene el formato<br />
           <span class="font-mono">id-del-grupo:código-acceso</span>
         </p>
 
@@ -201,9 +212,7 @@ const copied = ref(false)
             v-model="joinCode"
             rows="3"
             placeholder="Pega aquí el código completo…"
-            class="w-full rounded-[14px] border border-hairline bg-paper px-4 py-3.5
-                   text-sm text-ink placeholder-ink-faint font-mono resize-none
-                   focus:outline-none focus:border-sage-deep transition-colors"
+            class="w-full rounded-[14px] border border-hairline bg-paper px-4 py-3.5 text-sm text-ink placeholder-ink-faint font-mono resize-none focus:outline-none focus:border-sage-deep transition-colors"
           />
         </label>
 
@@ -211,18 +220,18 @@ const copied = ref(false)
 
         <button
           :disabled="!joinCode.trim() || loading"
-          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm
-                 disabled:opacity-40 transition-opacity active:opacity-80"
+          class="w-full rounded-pill bg-sage-deep text-paper py-4 font-bold text-sm disabled:opacity-40 transition-opacity active:opacity-80"
           @click="submitJoin"
         >
           <span v-if="loading" class="flex items-center justify-center gap-2">
-            <span class="w-4 h-4 rounded-full border-2 border-paper border-t-transparent animate-spin" />
+            <span
+              class="w-4 h-4 rounded-full border-2 border-paper border-t-transparent animate-spin"
+            />
             Uniéndome…
           </span>
           <span v-else>Unirme al squad →</span>
         </button>
       </div>
     </template>
-
   </div>
 </template>

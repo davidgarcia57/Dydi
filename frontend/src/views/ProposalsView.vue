@@ -4,44 +4,42 @@ import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
-import { useAuthStore } from '@/stores/auth'
 
-const router    = useRouter()
-const group     = useGroupStore()
-const habits    = useHabitsStore()
-const store     = useProposalsStore()
-const auth      = useAuthStore()
+const router = useRouter()
+const group = useGroupStore()
+const habits = useHabitsStore()
+const store = useProposalsStore()
 
-const tab           = ref('catalogo')   // 'catalogo' | 'propuestas'
-const loading       = ref(true)
-const proposing     = ref(null)          // habitID currently being proposed
-const proposeErr    = ref('')
-const proposeOk     = ref(null)          // habitID of last successful proposal
-const votingID      = ref(null)          // proposalID being voted on
-const voteErr       = ref('')
+const tab = ref('catalogo') // 'catalogo' | 'propuestas'
+const loading = ref(true)
+const proposing = ref(null) // habitID currently being proposed
+const proposeErr = ref('')
+const proposeOk = ref(null) // habitID of last successful proposal
+const votingID = ref(null) // proposalID being voted on
+const voteErr = ref('')
 
 // Habits already in use by the group today (cross-ref with checkins)
 const assignedHabitIDs = computed(() => {
-  return new Set(habits.todayCheckins.map(c => c.habit_id))
+  return new Set(habits.todayCheckins.map((c) => c.habit_id))
 })
 
 const availableHabits = computed(() => {
-  return store.catalog.filter(h => !assignedHabitIDs.value.has(h.id))
+  return store.catalog.filter((h) => !assignedHabitIDs.value.has(h.id))
 })
 
 const activeHabits = computed(() => {
-  return store.catalog.filter(h => assignedHabitIDs.value.has(h.id))
+  return store.catalog.filter((h) => assignedHabitIDs.value.has(h.id))
 })
 
 const PROPOSAL_LABEL = {
-  add_habit:    'Agregar hábito',
+  add_habit: 'Agregar hábito',
   remove_habit: 'Quitar hábito',
-  kick_member:  'Expulsar miembro',
+  kick_member: 'Expulsar miembro',
   delete_group: 'Disolver grupo',
 }
 
 function habitName(habitID) {
-  return store.catalog.find(h => h.id === habitID)?.name ?? habitID
+  return store.catalog.find((h) => h.id === habitID)?.name ?? habitID
 }
 
 function voteProgress(p) {
@@ -104,7 +102,6 @@ onMounted(async () => {
 
 <template>
   <div class="max-w-md mx-auto px-4 pt-4 pb-6">
-
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <header class="mb-6">
       <div class="flex items-center justify-between">
@@ -116,7 +113,9 @@ onMounted(async () => {
 
     <!-- ── Loading ─────────────────────────────────────────────────────────── -->
     <div v-if="loading" class="flex items-center justify-center py-20">
-      <div class="w-8 h-8 rounded-full border-2 border-sage-deep border-t-transparent animate-spin" />
+      <div
+        class="w-8 h-8 rounded-full border-2 border-sage-deep border-t-transparent animate-spin"
+      />
     </div>
 
     <template v-else>
@@ -124,24 +123,21 @@ onMounted(async () => {
       <div class="flex gap-1 bg-cream-2 rounded-[14px] p-1 mb-6">
         <button
           class="flex-1 rounded-[10px] py-2 text-sm font-semibold transition-all"
-          :class="tab === 'catalogo'
-            ? 'bg-paper shadow-flat text-ink'
-            : 'text-ink-soft'"
+          :class="tab === 'catalogo' ? 'bg-paper shadow-flat text-ink' : 'text-ink-soft'"
           @click="tab = 'catalogo'"
         >
           Catálogo
         </button>
         <button
           class="flex-1 rounded-[10px] py-2 text-sm font-semibold transition-all relative"
-          :class="tab === 'propuestas'
-            ? 'bg-paper shadow-flat text-ink'
-            : 'text-ink-soft'"
+          :class="tab === 'propuestas' ? 'bg-paper shadow-flat text-ink' : 'text-ink-soft'"
           @click="tab = 'propuestas'"
         >
           Propuestas
-          <span v-if="store.proposals.length"
-            class="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-terracotta
-                   text-paper text-[9px] font-bold flex items-center justify-center">
+          <span
+            v-if="store.proposals.length"
+            class="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-terracotta text-paper text-[9px] font-bold flex items-center justify-center"
+          >
             {{ store.proposals.length }}
           </span>
         </button>
@@ -155,13 +151,14 @@ onMounted(async () => {
 
         <p v-if="proposeErr" class="text-sm text-coral mb-4 font-medium">{{ proposeErr }}</p>
 
-        <div v-if="!store.catalog.length"
-          class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft">
+        <div
+          v-if="!store.catalog.length"
+          class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft"
+        >
           No hay hábitos en el catálogo todavía.
         </div>
 
         <div v-else class="space-y-6">
-          
           <!-- HÁBITOS DISPONIBLES -->
           <div v-if="availableHabits.length > 0">
             <h3 class="text-eyebrow text-ink-soft mb-3">DISPONIBLES PARA AÑADIR</h3>
@@ -172,8 +169,7 @@ onMounted(async () => {
                 class="rounded-card bg-paper shadow-flat p-4 flex items-center gap-3"
               >
                 <div
-                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
-                         text-paper text-sm font-bold"
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
                   :style="{ backgroundColor: habit.color || '#A8C39A' }"
                 >
                   {{ habit.name.charAt(0).toUpperCase() }}
@@ -188,22 +184,20 @@ onMounted(async () => {
 
                 <button
                   v-if="proposeOk === habit.id"
-                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
-                         rounded-full px-3 py-1.5"
+                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft rounded-full px-3 py-1.5"
                 >
                   ✓ Propuesto
                 </button>
                 <button
                   v-else
                   :disabled="proposing === habit.id"
-                  class="flex-shrink-0 rounded-pill border border-hairline bg-surface
-                         text-ink-soft text-xs font-semibold px-3 py-1.5
-                         active:opacity-70 disabled:opacity-40 transition-opacity"
+                  class="flex-shrink-0 rounded-pill border border-hairline bg-surface text-ink-soft text-xs font-semibold px-3 py-1.5 active:opacity-70 disabled:opacity-40 transition-opacity"
                   @click="propose(habit, 'add_habit')"
                 >
                   <span v-if="proposing === habit.id" class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-full border border-ink-soft
-                                 border-t-transparent animate-spin" />
+                    <span
+                      class="w-3 h-3 rounded-full border border-ink-soft border-t-transparent animate-spin"
+                    />
                   </span>
                   <span v-else>+ Proponer</span>
                 </button>
@@ -221,8 +215,7 @@ onMounted(async () => {
                 class="rounded-card bg-surface border border-hairline p-4 flex items-center gap-3"
               >
                 <div
-                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
-                         text-paper text-sm font-bold opacity-60"
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold opacity-60"
                   :style="{ backgroundColor: habit.color || '#A8C39A' }"
                 >
                   {{ habit.name.charAt(0).toUpperCase() }}
@@ -230,49 +223,47 @@ onMounted(async () => {
 
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-sm text-ink truncate">{{ habit.name }}</p>
-                  <span class="inline-block mt-1 text-[10px] font-semibold text-sage-deep
-                         bg-sage-soft rounded-full px-2 py-0.5">
+                  <span
+                    class="inline-block mt-1 text-[10px] font-semibold text-sage-deep bg-sage-soft rounded-full px-2 py-0.5"
+                  >
                     Ya en el grupo
                   </span>
                 </div>
 
                 <button
                   v-if="proposeOk === habit.id"
-                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft
-                         rounded-full px-3 py-1.5"
+                  class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft rounded-full px-3 py-1.5"
                 >
                   ✓ Propuesto
                 </button>
                 <button
                   v-else
                   :disabled="proposing === habit.id"
-                  class="flex-shrink-0 rounded-pill border border-coral/30 bg-coral-soft/50
-                         text-coral-deep text-xs font-semibold px-3 py-1.5
-                         active:opacity-70 disabled:opacity-40 transition-opacity"
+                  class="flex-shrink-0 rounded-pill border border-coral/30 bg-coral-soft/50 text-coral-deep text-xs font-semibold px-3 py-1.5 active:opacity-70 disabled:opacity-40 transition-opacity"
                   @click="propose(habit, 'remove_habit')"
                 >
                   <span v-if="proposing === habit.id" class="flex items-center gap-1">
-                    <span class="w-3 h-3 rounded-full border border-coral-deep border-t-transparent animate-spin" />
+                    <span
+                      class="w-3 h-3 rounded-full border border-coral-deep border-t-transparent animate-spin"
+                    />
                   </span>
                   <span v-else>- Quitar</span>
                 </button>
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
       <!-- ── Propuestas activas ───────────────────────────────────────────── -->
       <div v-else-if="tab === 'propuestas'">
-
-        <div v-if="!store.proposals.length"
-          class="rounded-card bg-paper shadow-flat py-14 text-center">
+        <div
+          v-if="!store.proposals.length"
+          class="rounded-card bg-paper shadow-flat py-14 text-center"
+        >
           <p class="text-eyebrow text-ink-faint mb-2">SIN PROPUESTAS</p>
           <p class="font-serif text-xl font-semibold text-ink mb-1">Todo tranquilo</p>
-          <p class="text-sm text-ink-soft mt-1">
-            Propón un hábito desde el catálogo.
-          </p>
+          <p class="text-sm text-ink-soft mt-1">Propón un hábito desde el catálogo.</p>
         </div>
 
         <div v-else class="space-y-3">
@@ -293,8 +284,9 @@ onMounted(async () => {
                   {{ habitName(p.habit_id) }}
                 </p>
               </div>
-              <span class="rounded-full bg-amber-soft text-amber-deep text-[10px] font-bold
-                           px-2.5 py-1 flex-shrink-0">
+              <span
+                class="rounded-full bg-amber-soft text-amber-deep text-[10px] font-bold px-2.5 py-1 flex-shrink-0"
+              >
                 ABIERTA
               </span>
             </div>
@@ -317,35 +309,33 @@ onMounted(async () => {
             <div v-if="!store.voted.has(p.id)" class="flex gap-2">
               <button
                 :disabled="votingID === p.id"
-                class="flex-1 rounded-pill bg-sage-deep text-paper py-2.5 font-bold
-                       text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
+                class="flex-1 rounded-pill bg-sage-deep text-paper py-2.5 font-bold text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
                 @click="castVote(p.id, true)"
               >
                 <span v-if="votingID === p.id" class="flex items-center justify-center gap-1">
-                  <span class="w-3 h-3 rounded-full border-2 border-paper
-                               border-t-transparent animate-spin" />
+                  <span
+                    class="w-3 h-3 rounded-full border-2 border-paper border-t-transparent animate-spin"
+                  />
                 </span>
                 <span v-else>✓ Aprobar</span>
               </button>
               <button
                 :disabled="votingID === p.id"
-                class="flex-1 rounded-pill border border-hairline text-ink-soft
-                       py-2.5 font-bold text-sm disabled:opacity-40
-                       active:opacity-80 transition-opacity"
+                class="flex-1 rounded-pill border border-hairline text-ink-soft py-2.5 font-bold text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
                 @click="castVote(p.id, false)"
               >
                 ✗ Rechazar
               </button>
             </div>
-            <div v-else
-              class="rounded-pill bg-sage-soft text-sage-deep text-sm font-semibold
-                     py-2.5 text-center">
+            <div
+              v-else
+              class="rounded-pill bg-sage-soft text-sage-deep text-sm font-semibold py-2.5 text-center"
+            >
               ✓ Ya votaste
             </div>
           </div>
         </div>
       </div>
     </template>
-
   </div>
 </template>

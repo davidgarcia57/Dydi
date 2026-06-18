@@ -4,7 +4,9 @@ import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 
 const route = useRoute()
-const isPublic = computed(() => route.meta.public || route.meta.checkinFlow || route.meta.onboarding)
+const isPublic = computed(
+  () => route.meta.public || route.meta.checkinFlow || route.meta.onboarding
+)
 
 const tabs = [
   {

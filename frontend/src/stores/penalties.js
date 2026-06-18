@@ -59,18 +59,27 @@ export const usePenaltiesStore = defineStore('penalties', () => {
     }
     const added = Array.isArray(payload) ? payload : [payload]
     for (const d of added) {
-      if (!debts.value.find(x => x.id === d.id)) debts.value.unshift(d)
+      if (!debts.value.find((x) => x.id === d.id)) debts.value.unshift(d)
     }
   }
 
   function addDebt(payload) {
-    if (!debts.value.find(d => d.id === payload.id)) debts.value.unshift(payload)
+    if (!debts.value.find((d) => d.id === payload.id)) debts.value.unshift(payload)
   }
 
   return {
-    debts, eligible, activeEntry, suggestions,
-    loadDebts, loadEligible, openRoulette, loadSuggestions,
-    submitSuggestion, spin, clearEntry,
-    setRouletteResult, addDebt,
+    debts,
+    eligible,
+    activeEntry,
+    suggestions,
+    loadDebts,
+    loadEligible,
+    openRoulette,
+    loadSuggestions,
+    submitSuggestion,
+    spin,
+    clearEntry,
+    setRouletteResult,
+    addDebt,
   }
 })

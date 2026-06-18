@@ -17,6 +17,13 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// contextKey is a private type for context keys defined in this package, so
+// they never collide with keys set by other packages (staticcheck SA1029).
+type contextKey string
+
+// UserIDKey is the context key under which the authenticated user's ID is stored.
+const UserIDKey contextKey = "userID"
+
 type jwksResponse struct {
 	Keys []jwkKey `json:"keys"`
 }
@@ -63,7 +70,7 @@ func Auth(next http.Handler) http.Handler {
 		}
 
 		userID, _ := claims["sub"].(string)
-		ctx := context.WithValue(r.Context(), "userID", userID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		r.Header.Set("X-User-ID", userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -120,7 +127,7 @@ func refreshJwks(kid string) (*ecdsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
 	if res.StatusCode != http.StatusOK {
 		return nil, errors.New("could not fetch JWKS")

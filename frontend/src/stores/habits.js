@@ -12,7 +12,7 @@ function localDateISO() {
 
 export const useHabitsStore = defineStore('habits', () => {
   const todayCheckins = ref([])
-  const streaks = ref({})   // { [userID]: maxCurrentStreak }
+  const streaks = ref({}) // { [userID]: maxCurrentStreak }
   const weekHistory = ref({}) // { "userID:habitID": Set<"YYYY-MM-DD"> }
 
   async function loadToday(groupID) {
@@ -35,9 +35,7 @@ export const useHabitsStore = defineStore('habits', () => {
 
   async function loadStreaks(userID) {
     const list = await api(`/api/habits/streaks/${userID}`)
-    const best = Array.isArray(list)
-      ? list.reduce((max, s) => Math.max(max, s.current ?? 0), 0)
-      : 0
+    const best = Array.isArray(list) ? list.reduce((max, s) => Math.max(max, s.current ?? 0), 0) : 0
     streaks.value = { ...streaks.value, [userID]: best }
   }
 
@@ -53,7 +51,7 @@ export const useHabitsStore = defineStore('habits', () => {
 
   function updateCheckin(payload) {
     const idx = todayCheckins.value.findIndex(
-      c => c.user_id === payload.user_id && c.habit_id === payload.habit_id
+      (c) => c.user_id === payload.user_id && c.habit_id === payload.habit_id
     )
     if (idx >= 0) todayCheckins.value[idx] = { ...todayCheckins.value[idx], ...payload }
   }
@@ -64,5 +62,15 @@ export const useHabitsStore = defineStore('habits', () => {
     }
   }
 
-  return { todayCheckins, streaks, weekHistory, loadToday, loadWeekHistory, loadStreaks, checkin, updateCheckin, updateStreak }
+  return {
+    todayCheckins,
+    streaks,
+    weekHistory,
+    loadToday,
+    loadWeekHistory,
+    loadStreaks,
+    checkin,
+    updateCheckin,
+    updateStreak,
+  }
 })

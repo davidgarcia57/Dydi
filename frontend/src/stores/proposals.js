@@ -3,8 +3,8 @@ import { ref } from 'vue'
 import { api } from '@/api'
 
 export const useProposalsStore = defineStore('proposals', () => {
-  const catalog = ref([])     // Habit[] from /api/habits
-  const proposals = ref([])   // Proposal[] for current group
+  const catalog = ref([]) // Habit[] from /api/habits
+  const proposals = ref([]) // Proposal[] for current group
   const voted = ref(new Set()) // proposalIDs the user has already voted on (local)
 
   async function loadCatalog() {
@@ -32,7 +32,7 @@ export const useProposalsStore = defineStore('proposals', () => {
       body: JSON.stringify({ approved }),
     })
     voted.value.add(proposalID)
-    const p = proposals.value.find(x => x.id === proposalID)
+    const p = proposals.value.find((x) => x.id === proposalID)
     if (p && approved) p.vote_count = (p.vote_count ?? 0) + 1
   }
 

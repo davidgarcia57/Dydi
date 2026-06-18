@@ -10,7 +10,9 @@ export function useFormatters() {
 
   function formatDate(iso) {
     return new Date(iso).toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
     })
   }
 

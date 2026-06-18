@@ -346,11 +346,13 @@ func scanEntry(row pgx.Row) (*model.RouletteEntry, error) {
 // then returns it. deadline sets when the suggestion window closes.
 // Accepts DBTX so it can run inside a transaction.
 func GetOrCreateRouletteEntry(ctx context.Context, dbtx DBTX, groupID, debtorID, weekStart string, deadline time.Time) (*model.RouletteEntry, error) {
-	dbtx.Exec(ctx,
+	if _, err := dbtx.Exec(ctx,
 		`INSERT INTO roulette_entries (group_id, debtor_id, week_start, suggestion_deadline)
 		 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
 		groupID, debtorID, weekStart, deadline,
-	)
+	); err != nil {
+		return nil, err
+	}
 	return scanEntry(dbtx.QueryRow(ctx,
 		`SELECT id, group_id, debtor_id, week_start, suggestion_deadline, spun_at, created_at
 		 FROM roulette_entries

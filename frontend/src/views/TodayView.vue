@@ -7,8 +7,8 @@ import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 
 const router = useRouter()
-const auth   = useAuthStore()
-const group  = useGroupStore()
+const auth = useAuthStore()
+const group = useGroupStore()
 const habits = useHabitsStore()
 const loaded = ref(false)
 
@@ -21,7 +21,7 @@ async function shareInvite() {
         title: 'Únete a Dydi',
         text: text,
       })
-    } catch(e) {}
+    } catch (e) {}
   } else {
     navigator.clipboard.writeText(group.group.invite_code)
     alert('Código de invitación copiado al portapapeles: ' + group.group.invite_code)
@@ -44,11 +44,11 @@ const cycleEnd = computed(() => {
 const countdown = computed(() => {
   const diff = cycleEnd.value - now.value
   if (diff <= 0) return { days: '00', hours: '00', mins: '00' }
-  const pad = n => String(n).padStart(2, '0')
+  const pad = (n) => String(n).padStart(2, '0')
   return {
-    days:  pad(Math.floor(diff / 86_400_000)),
+    days: pad(Math.floor(diff / 86_400_000)),
     hours: pad(Math.floor((diff % 86_400_000) / 3_600_000)),
-    mins:  pad(Math.floor((diff % 3_600_000) / 60_000)),
+    mins: pad(Math.floor((diff % 3_600_000) / 60_000)),
   }
 })
 
@@ -65,13 +65,15 @@ const weekNumber = computed(() => {
 })
 
 // ── My check-in ──────────────────────────────────────────────────────────────
-const myCheckins = computed(() =>
-  habits.todayCheckins.filter(c => c.user_id === auth.user?.id)
-)
+const myCheckins = computed(() => habits.todayCheckins.filter((c) => c.user_id === auth.user?.id))
 
-const hasPending = computed(() => myCheckins.value.some(c => c.status === 'pending'))
-const allDone    = computed(() => myCheckins.value.length > 0 && myCheckins.value.every(c => c.status === 'done'))
-const anyMissed  = computed(() => myCheckins.value.some(c => c.status === 'missed') && !hasPending.value)
+const hasPending = computed(() => myCheckins.value.some((c) => c.status === 'pending'))
+const allDone = computed(
+  () => myCheckins.value.length > 0 && myCheckins.value.every((c) => c.status === 'done')
+)
+const anyMissed = computed(
+  () => myCheckins.value.some((c) => c.status === 'missed') && !hasPending.value
+)
 
 const myStreak = computed(() => habits.streaks[auth.user?.id] ?? 0)
 
@@ -82,11 +84,13 @@ const stats = computed(() => {
     if (!byUser[c.user_id]) byUser[c.user_id] = []
     byUser[c.user_id].push(c.status)
   }
-  let done = 0, pending = 0, missed = 0
+  let done = 0,
+    pending = 0,
+    missed = 0
   for (const statuses of Object.values(byUser)) {
-    if (statuses.every(s => s === 'done'))        done++
-    else if (statuses.some(s => s === 'pending')) pending++
-    else                                          missed++
+    if (statuses.every((s) => s === 'done')) done++
+    else if (statuses.some((s) => s === 'pending')) pending++
+    else missed++
   }
   return { done, pending, missed }
 })
@@ -98,24 +102,30 @@ const progressPct = computed(() => {
 
 // ── Online members ────────────────────────────────────────────────────────────
 const onlineAvatars = computed(() =>
-  group.members
-    .filter(m => group.onlineMembers.has(m.user_id))
-    .slice(0, 5)
+  group.members.filter((m) => group.onlineMembers.has(m.user_id)).slice(0, 5)
 )
 
 // ── Squad list (each member's checkin row) ────────────────────────────────────
-const squadRows = computed(() =>
-  habits.todayCheckins.filter(c => c.user_id !== auth.user?.id)
-)
+const squadRows = computed(() => habits.todayCheckins.filter((c) => c.user_id !== auth.user?.id))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
-  'bg-sage-deep', 'bg-terracotta', 'bg-sage',
-  'bg-amber',     'bg-coral',      'bg-ink-soft',
+  'bg-sage-deep',
+  'bg-terracotta',
+  'bg-sage',
+  'bg-amber',
+  'bg-coral',
+  'bg-ink-soft',
 ]
 
 function initials(name = '') {
-  return name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  return name
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 }
 
 function avatarBg(name = '') {
@@ -148,23 +158,25 @@ function dayStrip(checkin) {
 }
 
 const STATUS_STYLE = {
-  done:    { strip: 'bg-sage',         icon: '✓', iconColor: 'text-sage-deep' },
-  pending: { strip: 'bg-amber',        icon: '',  iconColor: '' },
-  missed:  { strip: 'bg-coral',        icon: '✗', iconColor: 'text-coral-deep' },
-  future:  { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
+  done: { strip: 'bg-sage', icon: '✓', iconColor: 'text-sage-deep' },
+  pending: { strip: 'bg-amber', icon: '', iconColor: '' },
+  missed: { strip: 'bg-coral', icon: '✗', iconColor: 'text-coral-deep' },
+  future: { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
 }
 
 const STATUS_PILL = {
-  done:    { cls: 'bg-sage-soft text-sage-deep',    label: '✓ hoy' },
-  pending: { cls: 'bg-amber-soft text-amber-deep',  label: 'pendiente' },
-  missed:  { cls: 'bg-coral-soft text-coral-deep',  label: '✗ hoy' },
+  done: { cls: 'bg-sage-soft text-sage-deep', label: '✓ hoy' },
+  pending: { cls: 'bg-amber-soft text-amber-deep', label: 'pendiente' },
+  missed: { cls: 'bg-coral-soft text-coral-deep', label: '✗ hoy' },
 }
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 let socketDisconnect = null
 
 onMounted(async () => {
-  ticker = setInterval(() => { now.value = new Date() }, 30_000)
+  ticker = setInterval(() => {
+    now.value = new Date()
+  }, 30_000)
   try {
     const found = await group.autoLoad()
     if (!found) {
@@ -173,8 +185,8 @@ onMounted(async () => {
     }
     await habits.loadToday(group.group.id)
     await habits.loadWeekHistory(group.group.id)
-    const memberIDs = [...new Set(habits.todayCheckins.map(c => c.user_id))]
-    await Promise.all(memberIDs.map(id => habits.loadStreaks(id)))
+    const memberIDs = [...new Set(habits.todayCheckins.map((c) => c.user_id))]
+    await Promise.all(memberIDs.map((id) => habits.loadStreaks(id)))
     const { disconnect } = useGroupSocket(group.group.id)
     socketDisconnect = disconnect
     loaded.value = true
@@ -191,25 +203,32 @@ onUnmounted(() => {
 
 <template>
   <div class="max-w-md mx-auto px-4 pt-4 pb-6">
-
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <header class="flex items-center justify-between mb-4">
       <span class="font-serif text-xl font-semibold text-terracotta tracking-wide">DYDI</span>
 
       <button
         @click="shareInvite"
-        class="flex items-center gap-1.5 text-sm font-bold text-ink rounded-pill
-               border border-hairline px-3 py-1.5 bg-surface active:opacity-70 transition-opacity"
+        class="flex items-center gap-1.5 text-sm font-bold text-ink rounded-pill border border-hairline px-3 py-1.5 bg-surface active:opacity-70 transition-opacity"
       >
         {{ group.group?.name ?? 'Mi grupo' }}
-        <svg class="w-3.5 h-3.5 text-ink-soft" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+        <svg
+          class="w-3.5 h-3.5 text-ink-soft"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2.5"
+            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+          />
         </svg>
       </button>
 
       <div
-        class="w-9 h-9 rounded-full flex items-center justify-center
-               text-paper text-sm font-bold"
+        class="w-9 h-9 rounded-full flex items-center justify-center text-paper text-sm font-bold"
         :class="avatarBg(auth.user?.user_metadata?.display_name ?? '')"
       >
         {{ initials(auth.user?.user_metadata?.display_name ?? auth.user?.email ?? '') }}
@@ -223,8 +242,7 @@ onUnmounted(() => {
         <div
           v-for="m in onlineAvatars"
           :key="m.user_id"
-          class="w-6 h-6 rounded-full border-2 border-paper flex items-center
-                 justify-center text-paper text-[9px] font-bold"
+          class="w-6 h-6 rounded-full border-2 border-paper flex items-center justify-center text-paper text-[9px] font-bold"
           :class="avatarBg(m.display_name)"
         >
           {{ initials(m.display_name) }}
@@ -248,17 +266,23 @@ onUnmounted(() => {
 
       <div class="flex items-end gap-2 mb-4">
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.days }}</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">
+            {{ countdown.days }}
+          </p>
           <p class="text-[11px] text-ink-faint mt-1">días</p>
         </div>
         <span class="font-serif text-4xl text-hairline mb-2">:</span>
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.hours }}</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">
+            {{ countdown.hours }}
+          </p>
           <p class="text-[11px] text-ink-faint mt-1">hrs</p>
         </div>
         <span class="font-serif text-4xl text-hairline mb-2">:</span>
         <div class="text-center">
-          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">{{ countdown.mins }}</p>
+          <p class="font-serif text-5xl font-semibold text-terracotta leading-none">
+            {{ countdown.mins }}
+          </p>
           <p class="text-[11px] text-ink-faint mt-1">min</p>
         </div>
       </div>
@@ -283,7 +307,9 @@ onUnmounted(() => {
       <div class="flex justify-between items-start mb-1">
         <span class="text-eyebrow">TU TURNO</span>
         <div class="text-right">
-          <p class="font-serif text-3xl font-semibold leading-none text-terracotta">{{ myStreak }}</p>
+          <p class="font-serif text-3xl font-semibold leading-none text-terracotta">
+            {{ myStreak }}
+          </p>
           <p class="text-eyebrow text-terracotta mt-0.5">RACHA</p>
         </div>
       </div>
@@ -294,14 +320,12 @@ onUnmounted(() => {
 
       <!-- Habit list (one row per assigned habit) -->
       <div v-if="myCheckins.length" class="space-y-2 mb-4">
-        <div
-          v-for="c in myCheckins"
-          :key="c.habit_id"
-          class="flex flex-wrap items-center gap-2"
-        >
+        <div v-for="c in myCheckins" :key="c.habit_id" class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-semibold text-ink">{{ c.habit_name }}</span>
-          <span v-if="c.scheduled_time"
-            class="rounded-pill bg-hairline px-2.5 py-0.5 text-xs text-ink-soft font-medium">
+          <span
+            v-if="c.scheduled_time"
+            class="rounded-pill bg-hairline px-2.5 py-0.5 text-xs text-ink-soft font-medium"
+          >
             {{ c.scheduled_time }}
           </span>
           <span
@@ -319,8 +343,7 @@ onUnmounted(() => {
       <!-- Action button -->
       <button
         v-if="hasPending || !myCheckins.length"
-        class="w-full rounded-pill bg-sage-deep text-paper py-3.5 font-bold text-sm
-               active:opacity-80 transition-opacity"
+        class="w-full rounded-pill bg-sage-deep text-paper py-3.5 font-bold text-sm active:opacity-80 transition-opacity"
         @click="router.push('/checkin')"
       >
         Hacer mi check-in →
@@ -328,23 +351,23 @@ onUnmounted(() => {
 
       <div
         v-else-if="allDone"
-        class="w-full rounded-pill bg-sage-soft text-sage-deep py-3.5 font-bold
-               text-sm text-center"
+        class="w-full rounded-pill bg-sage-soft text-sage-deep py-3.5 font-bold text-sm text-center"
       >
         ✓ &nbsp;Ya cumpliste hoy
       </div>
 
       <div
         v-else-if="anyMissed"
-        class="w-full rounded-pill bg-coral-soft text-coral-deep py-3.5 font-bold
-               text-sm text-center"
+        class="w-full rounded-pill bg-coral-soft text-coral-deep py-3.5 font-bold text-sm text-center"
       >
         Se te fue el día
       </div>
     </div>
 
     <!-- ── Summary numbers ────────────────────────────────────────────────── -->
-    <div class="rounded-card bg-paper shadow-flat grid grid-cols-3 text-center mb-6 overflow-hidden">
+    <div
+      class="rounded-card bg-paper shadow-flat grid grid-cols-3 text-center mb-6 overflow-hidden"
+    >
       <div class="py-4">
         <p class="font-serif text-3xl font-semibold text-sage-deep">{{ stats.done }}</p>
         <p class="text-xs text-ink-soft mt-0.5">cumplieron</p>
@@ -367,8 +390,10 @@ onUnmounted(() => {
       </div>
 
       <!-- Empty / loading state -->
-      <div v-if="squadRows.length === 0"
-        class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft">
+      <div
+        v-if="squadRows.length === 0"
+        class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft"
+      >
         <span v-if="!loaded">Cargando el squad…</span>
         <span v-else>Propón un hábito en la pestaña Votar para ver al squad aquí.</span>
       </div>
@@ -381,8 +406,7 @@ onUnmounted(() => {
         >
           <!-- Avatar -->
           <div
-            class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center
-                   text-paper text-sm font-bold"
+            class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
             :class="avatarBg(row.display_name ?? '')"
           >
             {{ initials(row.display_name ?? '') }}
@@ -434,6 +458,5 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
-
   </div>
 </template>

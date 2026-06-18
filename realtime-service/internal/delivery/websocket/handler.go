@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/dydi/realtime-service/internal/domain"
 	"github.com/dydi/realtime-service/internal/usecase"
-	"nhooyr.io/websocket"
-	"nhooyr.io/websocket/wsjson"
+	"github.com/go-chi/chi/v5"
 )
 
 func maxConnections() int {
@@ -112,7 +112,7 @@ func writePump(ctx context.Context, c *domain.Client, conn *websocket.Conn) {
 		select {
 		case ev, ok := <-c.Send:
 			if !ok {
-				conn.Close(websocket.StatusNormalClosure, "")
+				_ = conn.Close(websocket.StatusNormalClosure, "")
 				return
 			}
 			writeCtx, cancel := context.WithTimeout(ctx, writeWait())

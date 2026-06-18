@@ -6,25 +6,25 @@
 
 :root {
   /* Fondo & superficie */
-  --color-cream:    #F4EEE3;
-  --color-surface:  #FCF9F3;
-  --color-paper:    #FFFFFF;
-  --color-hairline: #E7DECD;
+  --color-cream: #f4eee3;
+  --color-surface: #fcf9f3;
+  --color-paper: #ffffff;
+  --color-hairline: #e7decd;
 
   /* Tinta */
-  --color-ink:       #2A251F;
-  --color-ink-soft:  #6F6557;
-  --color-ink-faint: #A89C89;
+  --color-ink: #2a251f;
+  --color-ink-soft: #6f6557;
+  --color-ink-faint: #a89c89;
 
   /* Estados semánticos */
-  --color-sage:  #A8C39A;
-  --color-amber: #E9C281;
-  --color-coral: #EDA48F;
+  --color-sage: #a8c39a;
+  --color-amber: #e9c281;
+  --color-coral: #eda48f;
 
   /* Acentos */
-  --color-sage-deep:   #7CA39D;
-  --color-terracotta:  #C26F4D;
-  --color-wash:        #DFEBE8;
+  --color-sage-deep: #7ca39d;
+  --color-terracotta: #c26f4d;
+  --color-wash: #dfebe8;
 }
 
 body {
@@ -42,7 +42,7 @@ body {
   .text-eyebrow {
     font-family: 'Hanken Grotesk', system-ui, sans-serif;
     font-weight: 700;
-    font-size: 0.6875rem;   /* 11px */
+    font-size: 0.6875rem; /* 11px */
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--color-ink-soft);

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { useFormatters } from './useFormatters'
 
 describe('useFormatters', () => {
-  const { formatStreak, formatPercent, formatDate } = useFormatters()
+  const { formatStreak, formatPercent } = useFormatters()
 
   describe('formatStreak', () => {
     it('singular para 1 día', () => {

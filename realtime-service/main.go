@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dydi/realtime-service/internal/delivery/websocket"
+	"github.com/dydi/realtime-service/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/dydi/realtime-service/internal/delivery/websocket"
-	"github.com/dydi/realtime-service/internal/usecase"
 )
 
 func main() {
@@ -65,7 +65,7 @@ func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]int{
+		_ = json.NewEncoder(w).Encode(map[string]int{
 			"active_connections": h.ConnectionCount(),
 		})
 	})

@@ -2,7 +2,7 @@ import { useAuthStore } from '@/stores/auth'
 
 const BASE = import.meta.env.VITE_API_URL
 
-const delay = ms => new Promise(res => setTimeout(res, ms))
+const delay = (ms) => new Promise((res) => setTimeout(res, ms))
 
 const MAX_RETRIES = 3
 const PER_ATTEMPT_TIMEOUT = 30_000 // ms — a single attempt never hangs forever
@@ -20,7 +20,7 @@ export async function api(path, options = {}, retries = MAX_RETRIES) {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${auth.token}`,
+          Authorization: `Bearer ${auth.token}`,
           ...options.headers,
         },
       })

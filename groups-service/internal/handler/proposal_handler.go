@@ -17,7 +17,7 @@ import (
 )
 
 type ProposalHandler struct {
-	pool            *pgxpool.Pool
+	pool             *pgxpool.Pool
 	habitsServiceURL string
 }
 
@@ -265,7 +265,7 @@ func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitI
 
 		resp, err := http.DefaultClient.Do(req)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode < 500 {
 				return // 2xx applied, or 4xx that won't succeed on retry
 			}

@@ -6,9 +6,9 @@ import { usePenaltiesStore } from '@/stores/penalties'
 // Not a Vue composable — call from anywhere (including onMounted).
 // Returns { disconnect } to call in the parent's onUnmounted.
 export function useGroupSocket(groupID) {
-  const auth         = useAuthStore()
-  const groupStore   = useGroupStore()
-  const habitsStore  = useHabitsStore()
+  const auth = useAuthStore()
+  const groupStore = useGroupStore()
+  const habitsStore = useHabitsStore()
   const penaltiesStore = usePenaltiesStore()
 
   const url = `${import.meta.env.VITE_WS_URL}/ws/${groupID}?token=${auth.token}`
@@ -16,19 +16,22 @@ export function useGroupSocket(groupID) {
   // Each handler receives the full Event object (type, groupID, userID, payload).
   // member_online/offline carry userID at the top level; data events carry info in .payload.
   const handlers = {
-    checkin:              (msg) => { habitsStore.updateCheckin(msg.payload); if (msg.userID) habitsStore.loadStreaks(msg.userID) },
-    streak_update:        (msg) => habitsStore.updateStreak(msg.payload),
-    member_online:        (msg) => groupStore.setMemberOnline(msg.userID),
-    member_offline:       (msg) => groupStore.setMemberOffline(msg.userID),
-    roulette_result:      (msg) => penaltiesStore.setRouletteResult(msg.payload),
-    collective_punishment:(msg) => penaltiesStore.setRouletteResult(msg.payload),
-    debt_created:         (msg) => penaltiesStore.addDebt(msg.payload),
+    checkin: (msg) => {
+      habitsStore.updateCheckin(msg.payload)
+      if (msg.userID) habitsStore.loadStreaks(msg.userID)
+    },
+    streak_update: (msg) => habitsStore.updateStreak(msg.payload),
+    member_online: (msg) => groupStore.setMemberOnline(msg.userID),
+    member_offline: (msg) => groupStore.setMemberOffline(msg.userID),
+    roulette_result: (msg) => penaltiesStore.setRouletteResult(msg.payload),
+    collective_punishment: (msg) => penaltiesStore.setRouletteResult(msg.payload),
+    debt_created: (msg) => penaltiesStore.addDebt(msg.payload),
   }
 
-  let ws             = null
+  let ws = null
   let reconnectTimer = null
-  let closed         = false
-  let attempts       = 0
+  let closed = false
+  let attempts = 0
   const MAX_ATTEMPTS = 10
 
   function scheduleReconnect() {
@@ -42,7 +45,10 @@ export function useGroupSocket(groupID) {
     if (closed) return
     ws = new WebSocket(url)
 
-    ws.onopen = () => { attempts = 0; clearTimeout(reconnectTimer) }
+    ws.onopen = () => {
+      attempts = 0
+      clearTimeout(reconnectTimer)
+    }
 
     ws.onmessage = ({ data }) => {
       try {
@@ -56,7 +62,9 @@ export function useGroupSocket(groupID) {
       } catch {}
     }
 
-    ws.onclose = () => { if (!closed) scheduleReconnect() }
+    ws.onclose = () => {
+      if (!closed) scheduleReconnect()
+    }
 
     ws.onerror = () => ws.close()
   }

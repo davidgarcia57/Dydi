@@ -1,0 +1,16 @@
+version: "2"
+
+# Config compartida por los 4 servicios Go (golangci-lint sube por los
+# directorios padre hasta encontrar este archivo).
+#
+# "standard" habilita el set base con casi cero falsos positivos:
+#   errcheck   - errores devueltos que no se chequean
+#   govet      - el mismo go vet
+#   ineffassign- asignaciones que nunca se usan
+#   staticcheck- bugs y simplificaciones (el linter mas potente)
+#   unused     - codigo muerto (vars, funcs, tipos sin usar)
+#
+# Para subir el rigor mas adelante: cambia a "default: all" y desactiva
+# linters puntuales, o agrega linters sueltos en "enable".
+linters:
+  default: standard

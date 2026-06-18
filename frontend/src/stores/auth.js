@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 
-const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
@@ -11,8 +11,8 @@ const supabase = hasSupabaseConfig ? createClient(SUPABASE_URL, SUPABASE_ANON_KE
 export const useAuthStore = defineStore('auth', () => {
   const session = ref(null)
 
-  const user      = computed(() => session.value?.user ?? null)
-  const token     = computed(() => session.value?.access_token ?? null)
+  const user = computed(() => session.value?.user ?? null)
+  const token = computed(() => session.value?.access_token ?? null)
   const isLoggedIn = computed(() => !!session.value)
 
   async function init() {

@@ -1,21 +1,32 @@
-# Environment files
+# Environment files (las plantillas .env.example SÍ se versionan)
 .env
-.env.local
+.env.*
+!.env.example
 
 # Go
 bin/
+# coverage / perfiles de go test y binarios de test compilados
+*.out
+*.test
 
 # Node / Frontend
-frontend/node_modules/
+# node_modules en cualquier nivel, no solo frontend/
+node_modules/
 frontend/dist/
 frontend/.vite/
+# salida de vitest --coverage
+coverage/
 
-# Docker
+# Tooling / caché local (Docker monta GOCACHE aquí al verificar)
+.gocache/
+
+# Docker / logs
 *.log
 
 # IDE
 .vscode/
 .idea/
+*.swp
 
 # Claude Code
 .claude/

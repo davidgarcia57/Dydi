@@ -3,10 +3,10 @@ import { ref } from 'vue'
 import { api } from '@/api'
 
 export const useGroupStore = defineStore('group', () => {
-  const group = ref(null)         // { id, name, invite_code, created_at }
-  const members = ref([])         // [{ user_id, display_name, ... }]
+  const group = ref(null) // { id, name, invite_code, created_at }
+  const members = ref([]) // [{ user_id, display_name, ... }]
   const onlineMembers = ref(new Set())
-  const myGroups = ref([])        // lightweight list: [{ id, name }]
+  const myGroups = ref([]) // lightweight list: [{ id, name }]
 
   async function loadMyGroups() {
     myGroups.value = await api('/api/groups')
@@ -77,9 +77,18 @@ export const useGroupStore = defineStore('group', () => {
   }
 
   return {
-    group, members, onlineMembers, myGroups,
-    loadMyGroups, loadGroup, autoLoad,
-    createGroup, joinGroup, leaveGroup, reset,
-    setMemberOnline, setMemberOffline,
+    group,
+    members,
+    onlineMembers,
+    myGroups,
+    loadMyGroups,
+    loadGroup,
+    autoLoad,
+    createGroup,
+    joinGroup,
+    leaveGroup,
+    reset,
+    setMemberOnline,
+    setMemberOffline,
   }
 })

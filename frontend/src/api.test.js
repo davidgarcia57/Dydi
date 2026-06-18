@@ -4,7 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 // Mockear el store de Pinia para no depender del navegador
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ token: 'fake-token' })
+  useAuthStore: () => ({ token: 'fake-token' }),
 }))
 
 // Mockear variables de entorno de Vite
@@ -25,24 +25,24 @@ describe('api.js (Cold Start Resilience)', () => {
       .mockResolvedValueOnce({
         ok: false,
         status: 502,
-        text: async () => JSON.stringify({ error: 'Bad Gateway' })
+        text: async () => JSON.stringify({ error: 'Bad Gateway' }),
       })
       .mockResolvedValueOnce({
         ok: false,
         status: 503,
-        text: async () => JSON.stringify({ error: 'Service Unavailable' })
+        text: async () => JSON.stringify({ error: 'Service Unavailable' }),
       })
       // A la 3ra vez, los servidores ya despertaron y responde bien
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        text: async () => JSON.stringify({ data: 'ok' })
+        text: async () => JSON.stringify({ data: 'ok' }),
       })
 
-    // Ejecutamos la petición reduciendo los retries y sin esperar los tiempos reales de delay 
+    // Ejecutamos la petición reduciendo los retries y sin esperar los tiempos reales de delay
     // (vitest maneja los promesas de delay rápidamente si mockeamos timers, o aquí como usamos timeouts reales tomará ~3 segundos)
     const result = await api('/test-endpoint')
-    
+
     expect(result).toEqual({ data: 'ok' })
     expect(global.fetch).toHaveBeenCalledTimes(3)
   }, 10000) // Timeout de 10s porque nuestro delay real esperará 1s + 2s = 3s
@@ -51,10 +51,10 @@ describe('api.js (Cold Start Resilience)', () => {
     global.fetch.mockResolvedValueOnce({
       ok: false,
       status: 400,
-      text: async () => JSON.stringify({ error: 'Bad request' })
+      text: async () => JSON.stringify({ error: 'Bad request' }),
     })
 
-    await expect(api('/fail-endpoint')).rejects.toEqual({ error: 'Bad request' })
+    await expect(api('/fail-endpoint')).rejects.toEqual({ status: 400, error: 'Bad request' })
     expect(global.fetch).toHaveBeenCalledTimes(1) // Solo 1 intento
   })
 })

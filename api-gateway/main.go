@@ -72,14 +72,14 @@ func setupRouter() *chi.Mux {
 				client := &http.Client{Timeout: 45 * time.Second}
 				resp, err := client.Get(serviceUrl + "/health")
 				if err == nil {
-					resp.Body.Close()
+					_ = resp.Body.Close()
 				}
 			}(u)
 		}
 
 		// Respondemos "ok" de inmediato para evitar el timeout de 30s de Render
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	})
 
 	r.Route("/api", func(r chi.Router) {

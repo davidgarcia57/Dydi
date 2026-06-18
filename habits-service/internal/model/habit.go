@@ -69,13 +69,13 @@ type RouletteEntry struct {
 // PunishmentSuggestion is submitted by a group member for a specific RouletteEntry.
 // One suggestion per member per entry (enforced by DB unique constraint).
 type PunishmentSuggestion struct {
-	ID               string    `json:"id"`
-	RouletteEntryID  string    `json:"roulette_entry_id"`
-	GroupID          string    `json:"group_id"`
-	SuggesterID      string    `json:"suggester_id"`
-	Text             string    `json:"text"`
-	Emoji            *string   `json:"emoji,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
+	ID              string    `json:"id"`
+	RouletteEntryID string    `json:"roulette_entry_id"`
+	GroupID         string    `json:"group_id"`
+	SuggesterID     string    `json:"suggester_id"`
+	Text            string    `json:"text"`
+	Emoji           *string   `json:"emoji,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 // Debt is created after a spin or as a collective punishment.
