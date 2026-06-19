@@ -225,7 +225,9 @@ async function submit() {
           class="w-full rounded-card bg-paper shadow-card p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform"
           @click="pick(h)"
         >
+          <WaterBottle v-if="isWaterHabit(h)" :size="44" class="flex-shrink-0" />
           <div
+            v-else
             class="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-paper"
             :style="{ backgroundColor: h.color || 'var(--color-sage)' }"
           >
