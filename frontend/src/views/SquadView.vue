@@ -5,6 +5,7 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 import { usePenaltiesStore } from '@/stores/penalties'
+import PageContainer from '@/components/ui/PageContainer.vue'
 
 const auth = useAuthStore()
 const group = useGroupStore()
@@ -66,7 +67,7 @@ onUnmounted(() => socketDisconnect?.())
 </script>
 
 <template>
-  <div class="max-w-md mx-auto px-4 pt-4 pb-6">
+  <PageContainer>
     <header class="mb-6">
       <div class="flex items-center justify-between">
         <h1 class="font-serif text-2xl font-semibold text-ink">Squad</h1>
@@ -83,7 +84,7 @@ onUnmounted(() => socketDisconnect?.())
       <span v-else>Ningún miembro tiene hábitos asignados todavía.</span>
     </div>
 
-    <div v-else class="space-y-3">
+    <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       <div
         v-for="row in squadRows"
         :key="row.user_id"
@@ -168,7 +169,7 @@ onUnmounted(() => socketDisconnect?.())
         </svg>
         MURO DE LA VERGÜENZA
       </h2>
-      <div class="space-y-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div
           v-for="debt in penalties.debts"
           :key="debt.id"
@@ -199,5 +200,5 @@ onUnmounted(() => socketDisconnect?.())
         </div>
       </div>
     </section>
-  </div>
+  </PageContainer>
 </template>

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { usePenaltiesStore } from '@/stores/penalties'
+import PageContainer from '@/components/ui/PageContainer.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -64,7 +65,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto px-4 pt-4 pb-6">
+  <PageContainer width="narrow">
     <!-- Perfil -->
     <div class="rounded-card shadow-card bg-paper p-5 mb-6 flex items-center gap-4">
       <div
@@ -169,5 +170,5 @@ onMounted(async () => {
         </div>
       </div>
     </section>
-  </div>
+  </PageContainer>
 </template>

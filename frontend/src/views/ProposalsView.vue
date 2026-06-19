@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
+import PageContainer from '@/components/ui/PageContainer.vue'
 
 const router = useRouter()
 const group = useGroupStore()
@@ -101,7 +102,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="max-w-md mx-auto px-4 pt-4 pb-6">
+  <PageContainer>
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <header class="mb-6">
       <div class="flex items-center justify-between">
@@ -120,7 +121,7 @@ onMounted(async () => {
 
     <template v-else>
       <!-- ── Tabs ─────────────────────────────────────────────────────────── -->
-      <div class="flex gap-1 bg-cream-2 rounded-[14px] p-1 mb-6">
+      <div class="flex gap-1 bg-cream-2 rounded-[14px] p-1 mb-6 max-w-md">
         <button
           class="flex-1 rounded-[10px] py-2 text-sm font-semibold transition-all"
           :class="tab === 'catalogo' ? 'bg-paper shadow-flat text-ink' : 'text-ink-soft'"
@@ -162,7 +163,7 @@ onMounted(async () => {
           <!-- HÁBITOS DISPONIBLES -->
           <div v-if="availableHabits.length > 0">
             <h3 class="text-eyebrow text-ink-soft mb-3">DISPONIBLES PARA AÑADIR</h3>
-            <div class="space-y-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
               <div
                 v-for="habit in availableHabits"
                 :key="habit.id"
@@ -208,7 +209,7 @@ onMounted(async () => {
           <!-- HÁBITOS ACTIVOS -->
           <div v-if="activeHabits.length > 0">
             <h3 class="text-eyebrow text-ink-soft mb-3">ACTIVOS EN EL SQUAD</h3>
-            <div class="space-y-2">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-2">
               <div
                 v-for="habit in activeHabits"
                 :key="habit.id"
@@ -266,8 +267,8 @@ onMounted(async () => {
           <p class="text-sm text-ink-soft mt-1">Propón un hábito desde el catálogo.</p>
         </div>
 
-        <div v-else class="space-y-3">
-          <p v-if="voteErr" class="text-sm text-coral font-medium">{{ voteErr }}</p>
+        <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+          <p v-if="voteErr" class="text-sm text-coral font-medium lg:col-span-2">{{ voteErr }}</p>
 
           <div
             v-for="p in store.proposals"
@@ -337,5 +338,5 @@ onMounted(async () => {
         </div>
       </div>
     </template>
-  </div>
+  </PageContainer>
 </template>

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
+import DydiLogo from '@/components/ui/DydiLogo.vue'
 
 const route = useRoute()
 const isPublic = computed(
@@ -61,19 +62,61 @@ const tabs = [
 function isActive(path) {
   return route.path === path || route.path.startsWith(path + '/')
 }
+
+// Móvil: deja espacio para el bottom-nav. Desktop: deja espacio para el sidebar.
+const mainClass = computed(() => (isPublic.value ? '' : 'pb-20 lg:pb-0 lg:pl-64'))
 </script>
 
 <template>
   <div class="min-h-screen bg-cream">
     <ServerWakeup />
     <ToastHost />
-    <main :class="isPublic ? '' : 'pb-20'">
+
+    <!-- ── Sidebar (escritorio) ──────────────────────────────────────────── -->
+    <aside
+      v-if="!isPublic"
+      class="hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:left-0 lg:w-64 bg-paper border-r border-hairline z-40"
+    >
+      <div class="px-6 py-6">
+        <RouterLink to="/today" aria-label="Dydi — inicio">
+          <DydiLogo variant="full" size="sm" />
+        </RouterLink>
+      </div>
+
+      <nav class="flex-1 px-3 space-y-1">
+        <RouterLink
+          v-for="tab in tabs"
+          :key="tab.path"
+          :to="tab.path"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50"
+          :class="isActive(tab.path) ? 'bg-wash text-sage-deep' : 'text-ink-soft hover:bg-cream-2'"
+        >
+          <!-- eslint-disable vue/no-v-html -- íconos SVG estáticos y de confianza (sin datos de usuario) -->
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+            v-html="tab.icon"
+          />
+          <!-- eslint-enable vue/no-v-html -->
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
+
+      <p class="px-6 py-4 text-[0.7rem] text-ink-faint">© 2025 Dydi · UTD</p>
+    </aside>
+
+    <!-- ── Contenido ─────────────────────────────────────────────────────── -->
+    <main :class="mainClass">
       <RouterView />
     </main>
 
+    <!-- ── Bottom nav (móvil) ────────────────────────────────────────────── -->
     <nav
       v-if="!isPublic"
-      class="fixed bottom-0 inset-x-0 bg-paper border-t border-hairline z-50 safe-area-bottom"
+      class="lg:hidden fixed bottom-0 inset-x-0 bg-paper border-t border-hairline z-50 safe-area-bottom"
     >
       <div class="flex items-center max-w-md mx-auto">
         <RouterLink

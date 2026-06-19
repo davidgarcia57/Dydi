@@ -26,25 +26,25 @@ const props = defineProps({
 const sizeClasses = computed(() => {
   if (props.variant === 'symbol') {
     return {
-      sm: 'w-6 h-6',      // 24px
-      md: 'w-12 h-12',    // 48px
-      lg: 'w-16 h-16',    // 64px
-      xl: 'w-32 h-32',    // 128px
+      sm: 'w-6 h-6', // 24px
+      md: 'w-12 h-12', // 48px
+      lg: 'w-16 h-16', // 64px
+      xl: 'w-32 h-32', // 128px
     }[props.size]
   } else if (props.variant === 'wordmark') {
     return {
-      sm: 'w-24 h-8',     // 96x32
-      md: 'w-36 h-12',    // 144x48
-      lg: 'w-48 h-16',    // 192x64
-      xl: 'w-72 h-24',    // 288x96
+      sm: 'w-24 h-8', // 96x32
+      md: 'w-36 h-12', // 144x48
+      lg: 'w-48 h-16', // 192x64
+      xl: 'w-72 h-24', // 288x96
     }[props.size]
   } else {
     // 'full'
     return {
-      sm: 'w-32 h-10',    // 128x40
-      md: 'w-48 h-16',    // 192x64
-      lg: 'w-64 h-22',    // 256x88
-      xl: 'w-96 h-32',    // 384x128
+      sm: 'w-32 h-10', // 128x40
+      md: 'w-48 h-16', // 192x64
+      lg: 'w-64 h-22', // 256x88
+      xl: 'w-96 h-32', // 384x128
     }[props.size]
   }
 })
@@ -54,7 +54,7 @@ const colors = computed(() => {
   switch (props.theme) {
     case 'white':
       return {
-        primary: '#FFFFFF',   // Terracotta equivalent
+        primary: '#FFFFFF', // Terracotta equivalent
         secondary: '#FFFFFF', // Sage deep equivalent
         text: '#FFFFFF',
       }
@@ -73,9 +73,9 @@ const colors = computed(() => {
     case 'brand':
     default:
       return {
-        primary: '#C26F4D',   // Terracotta (action / consequences)
+        primary: '#C26F4D', // Terracotta (action / consequences)
         secondary: '#7CA39D', // Sage deep (success / habits)
-        text: '#2A251F',      // Ink (neutral text)
+        text: '#2A251F', // Ink (neutral text)
       }
   }
 })
@@ -105,31 +105,16 @@ const colors = computed(() => {
         fill="none"
         transform="rotate(-90 45 50)"
       />
-      
+
       <!-- El 8vo segmento destacado (Con consecuencias/ruleta - Terracotta) -->
       <!-- Cierra el trazo de la letra 'd' -->
-      <path
-        d="M 73,22 L 73,78"
-        :stroke="colors.primary"
-        stroke-width="8"
-        stroke-linecap="round"
-      />
-      
+      <path d="M 73,22 L 73,78" :stroke="colors.primary" stroke-width="8" stroke-linecap="round" />
+
       <!-- Flecha/Cursor de la ruleta apuntando hacia el centro -->
-      <path
-        d="M 73,50 L 59,50"
-        :stroke="colors.primary"
-        stroke-width="8"
-        stroke-linecap="round"
-      />
-      
+      <path d="M 73,50 L 59,50" :stroke="colors.primary" stroke-width="8" stroke-linecap="round" />
+
       <!-- Centro de la ruleta / Eje -->
-      <circle
-        cx="45"
-        cy="50"
-        r="4.5"
-        :fill="colors.secondary"
-      />
+      <circle cx="45" cy="50" r="4.5" :fill="colors.secondary" />
     </svg>
 
     <!-- VARIANT: WORDMARK (dydi Text) -->
@@ -192,14 +177,9 @@ const colors = computed(() => {
             stroke-width="8"
             stroke-linecap="round"
           />
-          <circle
-            cx="45"
-            cy="50"
-            r="4.5"
-            :fill="colors.secondary"
-          />
+          <circle cx="45" cy="50" r="4.5" :fill="colors.secondary" />
         </g>
-        
+
         <!-- Texto de la marca 'dydi' al lado -->
         <text
           x="95"
