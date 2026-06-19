@@ -34,7 +34,10 @@ const myHabits = computed(() => habits.todayCheckins.filter((c) => c.user_id ===
 const myPending = computed(() => myHabits.value.filter((c) => c.status === 'pending'))
 
 // Único hábito con ilustración propia por ahora: tomar agua.
-const isWater = computed(() => /agua|water/i.test(selected.value?.habit_name || ''))
+// Hook robusto: el campo icon_key del catálogo (el nombre puede cambiar).
+function isWaterHabit(h) {
+  return h?.icon_key === 'water' || /agua|water/i.test(h?.habit_name || '')
+}
 
 async function load() {
   step.value = 'loading'
@@ -166,7 +169,8 @@ async function submit() {
       v-else-if="step === 'done'"
       class="flex-1 flex flex-col items-center justify-center px-8 text-center"
     >
-      <div class="w-20 h-20 rounded-full bg-sage-soft flex items-center justify-center mb-6">
+      <WaterBottle v-if="isWaterHabit(myHabits[0])" :size="120" class="mb-6" />
+      <div v-else class="w-20 h-20 rounded-full bg-sage-soft flex items-center justify-center mb-6">
         <svg class="w-10 h-10 text-sage-deep" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path
             stroke-linecap="round"
@@ -316,7 +320,7 @@ async function submit() {
 
       <!-- BIG CHECK BUTTON — centered -->
       <div class="flex-1 flex flex-col items-center justify-center px-8">
-        <WaterBottle v-if="isWater" :size="120" class="mb-5" />
+        <WaterBottle v-if="isWaterHabit(selected)" :size="120" class="mb-5" />
         <button
           :disabled="submitting"
           aria-label="Registrar check-in"
@@ -373,7 +377,8 @@ async function submit() {
       class="flex-1 flex flex-col items-center justify-center px-8 text-center"
     >
       <!-- Check ring (animated entrance) -->
-      <div class="relative mb-8">
+      <WaterBottle v-if="isWaterHabit(selected)" :size="140" class="mb-8" />
+      <div v-else class="relative mb-8">
         <!-- Outer glow ring -->
         <div
           class="w-32 h-32 rounded-full bg-sage-soft flex items-center justify-center animate-[ping_0.6s_ease-out_1]"
