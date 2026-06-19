@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import DydiLogo from '@/components/ui/DydiLogo.vue'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
@@ -206,7 +207,7 @@ onUnmounted(() => {
   <div class="max-w-md mx-auto px-4 pt-4 pb-6">
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <header class="flex items-center justify-between mb-4">
-      <span class="font-serif text-xl font-semibold text-terracotta tracking-wide">DYDI</span>
+      <DydiLogo variant="symbol" size="sm" />
 
       <button
         class="flex items-center gap-1.5 text-sm font-bold text-ink rounded-pill border border-hairline px-3 py-1.5 bg-surface active:opacity-70 transition-opacity"
