@@ -8,7 +8,7 @@ defineProps({
   showText: {
     type: Boolean,
     default: true,
-  }
+  },
 })
 
 const TEXT_SIZES = {
@@ -27,27 +27,96 @@ const LOGO_SIZES = {
 </script>
 
 <template>
-  <div class="flex items-center gap-2">
+  <div class="group flex cursor-pointer items-center gap-2">
     <!-- SVG Logo -->
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" :class="LOGO_SIZES[size]" class="shrink-0">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 240 240"
+      :class="LOGO_SIZES[size]"
+      class="shrink-0 transition-transform duration-1000 ease-out group-hover:rotate-[360deg]"
+    >
       <g transform="translate(120, 120)">
-        <path d="M 0 -24 L 0 -88 A 88 88 0 0 1 76.21 44 L 20.78 12 Z" class="fill-hairline stroke-surface" stroke-width="6" stroke-linejoin="round" transform="rotate(240)" />
-        <path d="M 0 -24 L 0 -88 A 88 88 0 0 1 76.21 44 L 20.78 12 Z" class="fill-terracotta stroke-surface" stroke-width="6" stroke-linejoin="round" transform="rotate(0)" />
-        <g transform="translate(0, 12)">
-          <path d="M 0 -24 L 0 -88 A 88 88 0 0 1 76.21 44 L 20.78 12 Z" class="fill-ink opacity-10" transform="rotate(120) translate(0, 4)" />
-          <path d="M 0 -24 L 0 -88 A 88 88 0 0 1 76.21 44 L 20.78 12 Z" class="fill-sage-deep stroke-surface" stroke-width="6" stroke-linejoin="round" transform="rotate(120)" />
+        <g class="animate-wheel-slow">
+          <!-- Segmento 3: Hairline -->
+          <circle
+            cx="0"
+            cy="0"
+            r="70"
+            class="fill-none stroke-hairline"
+            stroke-width="20"
+            stroke-linecap="round"
+            stroke-dasharray="115 325"
+            transform="rotate(240)"
+          />
+          <!-- Segmento 1: Terracotta -->
+          <circle
+            cx="0"
+            cy="0"
+            r="70"
+            class="fill-none stroke-terracotta"
+            stroke-width="20"
+            stroke-linecap="round"
+            stroke-dasharray="115 325"
+            transform="rotate(0)"
+          />
+          <!-- Segmento 2: Sage-deep (Desplazado - Consecuencia) -->
+          <g transform="rotate(120) translate(0, 12)">
+            <circle
+              cx="0"
+              cy="0"
+              r="70"
+              class="fill-none stroke-sage-deep"
+              stroke-width="20"
+              stroke-linecap="round"
+              stroke-dasharray="115 325"
+            />
+          </g>
+          <!-- Bolas de ruleta asimétricas (Movimiento) -->
+          <g class="animate-ball-float">
+            <circle cx="82" cy="-40" r="7" class="fill-ink" />
+            <circle cx="94" cy="-22" r="4" class="fill-ink-soft" />
+          </g>
         </g>
-        <circle cx="82" cy="-35" r="7" class="fill-ink" />
-        <circle cx="94" cy="-15" r="4" class="fill-ink-soft" />
       </g>
     </svg>
-    
+
     <span
       v-if="showText"
-      class="font-serif font-semibold lowercase tracking-tight text-terracotta"
+      class="font-serif font-semibold lowercase tracking-tight text-terracotta transition-colors duration-300 group-hover:text-accent-deep"
       :class="TEXT_SIZES[size]"
     >
       dydi
     </span>
   </div>
 </template>
+
+<style scoped>
+@keyframes rotate-wheel {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float-ball {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(3px, -3px);
+  }
+}
+
+.animate-wheel-slow {
+  animation: rotate-wheel 30s linear infinite;
+  transform-origin: center;
+}
+
+.animate-ball-float {
+  animation: float-ball 2s ease-in-out infinite;
+  transform-origin: center;
+}
+</style>
