@@ -36,7 +36,16 @@ const LOGO_SIZES = {
       class="shrink-0 transition-transform duration-1000 ease-out group-hover:rotate-[360deg]"
     >
       <g transform="translate(120, 120)">
-        <g class="animate-wheel-slow">
+        <g>
+          <!-- Animación nativa de rotación (SMIL) libre de bugs de transform-origin -->
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0"
+            to="360"
+            dur="30s"
+            repeatCount="indefinite"
+          />
           <!-- Segmento 3: Hairline -->
           <circle
             cx="0"
@@ -91,15 +100,6 @@ const LOGO_SIZES = {
 </template>
 
 <style scoped>
-@keyframes rotate-wheel {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes float-ball {
   0%,
   100% {
@@ -108,11 +108,6 @@ const LOGO_SIZES = {
   50% {
     transform: translate(3px, -3px);
   }
-}
-
-.animate-wheel-slow {
-  animation: rotate-wheel 30s linear infinite;
-  transform-origin: center;
 }
 
 .animate-ball-float {

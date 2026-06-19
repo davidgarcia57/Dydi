@@ -31,6 +31,18 @@ func CreateProposal(ctx context.Context, pool *pgxpool.Pool, groupID, proposerID
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Lazily close any proposal whose deadline has passed but is still 'open'.
+	// Without this, the partial unique indexes (uq_proposals_one_open_*) would
+	// permanently block re-proposing the same habit/kick/delete once a prior
+	// proposal expired unresolved — there is no background expiry job.
+	if _, err := tx.Exec(ctx,
+		`UPDATE proposals SET status = 'expired', resolved_at = NOW()
+		 WHERE group_id = $1 AND status = 'open' AND expires_at <= NOW()`,
+		groupID,
+	); err != nil {
+		return nil, err
+	}
+
 	var id string
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO proposals (group_id, proposer_id, type, habit_id, target_user_id)

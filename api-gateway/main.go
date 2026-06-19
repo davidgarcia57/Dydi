@@ -17,6 +17,14 @@ import (
 )
 
 func main() {
+	// The gateway is the only JWT-validating hop; it proves to the backend
+	// services that a request came through it by stamping INTERNAL_TOKEN on
+	// every proxied request. Without it, the services would have to trust the
+	// X-User-ID header from any internet caller — refuse to boot instead.
+	if os.Getenv("INTERNAL_TOKEN") == "" {
+		log.Fatal("INTERNAL_TOKEN is required (shared gateway↔services secret)")
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

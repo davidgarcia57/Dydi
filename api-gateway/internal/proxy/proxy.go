@@ -6,9 +6,21 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
+
+// injectInternalToken stamps the gateway→service shared secret onto a proxied
+// request and strips any client-supplied value first, so the backend services
+// can prove a request actually came through the gateway (which validated the
+// JWT) instead of trusting the X-User-ID header from any internet caller.
+func injectInternalToken(r *http.Request) {
+	r.Header.Del("X-Internal-Token")
+	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+		r.Header.Set("X-Internal-Token", tok)
+	}
+}
 
 // proxyTransport bounds how long the gateway waits on a downstream service.
 // ResponseHeaderTimeout is generous (60s) so a cold-starting Render service can
@@ -55,6 +67,7 @@ func To(target string) http.Handler {
 		r.URL.Host = u.Host
 		r.Host = u.Host
 		r.URL.Path = downstreamPath(u.Path, r.URL.Path)
+		injectInternalToken(r)
 	}
 	return rp
 }
@@ -84,6 +97,7 @@ func WebSocket(target string) http.Handler {
 		r.URL.Scheme = u.Scheme
 		r.URL.Host = u.Host
 		r.Host = u.Host
+		injectInternalToken(r)
 	}
 	return rp
 }

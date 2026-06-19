@@ -11,6 +11,9 @@ services:
       SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
       ALLOWED_ORIGINS: http://localhost:5173
+      # Shared secret the gateway stamps on every proxied request so the backend
+      # services can trust it came through here (JWT already validated).
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
     depends_on:
       - groups-service
       - habits-service
@@ -48,6 +51,8 @@ services:
       PING_INTERVAL_SECONDS: 30
       WRITE_WAIT_SECONDS: 10
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      # Used to verify a user belongs to a group before accepting their WebSocket.
+      GROUPS_SERVICE_URL: http://groups-service:8082
 
   frontend:
     image: node:20-alpine

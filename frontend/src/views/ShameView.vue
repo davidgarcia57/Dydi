@@ -15,6 +15,7 @@ const penalties = usePenaltiesStore()
 const loggingOut = ref(false)
 const leavingGroup = ref(false)
 const confirmLeave = ref(false)
+const loadError = ref(false)
 
 async function handleLogout() {
   loggingOut.value = true
@@ -56,16 +57,37 @@ const avatarBg = (n = '') => COLORS[(n?.charCodeAt(0) ?? 0) % COLORS.length]
 const shortDate = (iso) =>
   new Date(iso).toLocaleDateString('es-MX', { month: 'long', day: 'numeric' })
 
-onMounted(async () => {
-  await group.autoLoad()
-  if (group.group?.id && auth.user?.id) {
-    await Promise.all([habits.loadStreaks(auth.user.id), penalties.loadDebts(group.group.id)])
+async function load() {
+  loadError.value = false
+  try {
+    await group.autoLoad()
+    if (group.group?.id && auth.user?.id) {
+      await Promise.all([habits.loadStreaks(auth.user.id), penalties.loadDebts(group.group.id)])
+    }
+  } catch (_) {
+    loadError.value = true
   }
-})
+}
+
+onMounted(load)
 </script>
 
 <template>
   <PageContainer width="narrow">
+    <!-- Error state -->
+    <div
+      v-if="loadError"
+      class="rounded-card bg-coral-soft/40 border border-coral/40 p-4 mb-4 flex flex-wrap items-center justify-between gap-3"
+    >
+      <p class="text-sm font-medium text-coral-deep">No pudimos cargar tu perfil y deudas.</p>
+      <button
+        class="rounded-pill bg-coral text-paper px-4 py-2 text-sm font-bold active:opacity-80 transition-opacity"
+        @click="load"
+      >
+        Reintentar
+      </button>
+    </div>
+
     <!-- Perfil -->
     <div class="rounded-card shadow-card bg-paper p-5 mb-6 flex items-center gap-4">
       <div

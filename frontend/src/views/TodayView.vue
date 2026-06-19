@@ -14,10 +14,13 @@ const auth = useAuthStore()
 const group = useGroupStore()
 const habits = useHabitsStore()
 const loaded = ref(false)
+const loadError = ref(false)
 
 async function shareInvite() {
-  if (!group.group?.invite_code) return
-  const text = `¡Únete a mi squad "${group.group.name}" en Dydi!\nCódigo de invitación: ${group.group.invite_code}`
+  if (!group.group?.invite_code || !group.group?.id) return
+  // Join expects the full "{groupID}:{inviteCode}" code (see OnboardingView).
+  const code = `${group.group.id}:${group.group.invite_code}`
+  const text = `¡Únete a mi squad "${group.group.name}" en Dydi!\nCódigo de invitación: ${code}`
   if (navigator.share) {
     try {
       await navigator.share({
@@ -26,8 +29,8 @@ async function shareInvite() {
       })
     } catch (e) {}
   } else {
-    await navigator.clipboard.writeText(group.group.invite_code)
-    showToast(`Código copiado: ${group.group.invite_code}`)
+    await navigator.clipboard.writeText(code)
+    showToast(`Código copiado: ${code}`)
   }
 }
 
@@ -176,12 +179,11 @@ const STATUS_PILL = {
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 let socketDisconnect = null
 
-onMounted(async () => {
-  ticker = setInterval(() => {
-    now.value = new Date()
-  }, 30_000)
+async function load() {
+  loadError.value = false
   try {
     const found = await group.autoLoad()
+    // No group at all → onboarding. A *failure* to load is a different thing.
     if (!found) {
       router.replace('/onboarding')
       return
@@ -194,8 +196,15 @@ onMounted(async () => {
     socketDisconnect = disconnect
     loaded.value = true
   } catch (_) {
-    router.replace('/onboarding')
+    loadError.value = true
   }
+}
+
+onMounted(() => {
+  ticker = setInterval(() => {
+    now.value = new Date()
+  }, 30_000)
+  load()
 })
 
 onUnmounted(() => {
@@ -206,6 +215,22 @@ onUnmounted(() => {
 
 <template>
   <PageContainer>
+    <!-- ── Error state ────────────────────────────────────────────────────── -->
+    <div
+      v-if="loadError"
+      class="rounded-card bg-coral-soft/40 border border-coral/40 p-4 mb-4 flex flex-wrap items-center justify-between gap-3"
+    >
+      <p class="text-sm font-medium text-coral-deep">
+        No pudimos cargar tu grupo. Revisa tu conexión.
+      </p>
+      <button
+        class="rounded-pill bg-coral text-paper px-4 py-2 text-sm font-bold active:opacity-80 transition-opacity"
+        @click="load"
+      >
+        Reintentar
+      </button>
+    </div>
+
     <!-- ── Header ─────────────────────────────────────────────────────────── -->
     <header class="flex items-center justify-between mb-4">
       <BrandWordmark size="sm" />

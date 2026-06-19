@@ -83,6 +83,18 @@ func (h *PenaltyHandler) OpenRoulette(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A roulette may only be opened against a member who actually missed a
+	// habit this week — not anyone the caller picks.
+	eligible, err := db.IsEligibleForRoulette(r.Context(), h.pool, body.GroupID, body.DebtorID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !eligible {
+		writeError(w, http.StatusConflict, "debtor has no missed habits this week")
+		return
+	}
+
 	weekStart := db.CurrentWeekStart().Format("2006-01-02")
 	deadline := time.Now().UTC().Add(suggestionWindowHours * time.Hour)
 

@@ -142,6 +142,13 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// A proposal past its deadline can no longer be voted on; close it lazily.
+	if time.Now().After(proposal.ExpiresAt) {
+		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalExpired, nil)
+		writeError(w, http.StatusConflict, "proposal has expired")
+		return
+	}
+
 	// Only the frozen electorate (active members when the proposal opened) may vote.
 	eligible, err := db.IsEligibleVoter(r.Context(), h.pool, proposalID, userID)
 	if err != nil {

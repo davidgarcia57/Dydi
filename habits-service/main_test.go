@@ -93,6 +93,32 @@ func TestSpin_MissingUserID(t *testing.T) {
 	}
 }
 
+// TestRequireInternalToken pins the gateway↔services trust boundary: with the
+// secret configured, application routes are unreachable without it.
+func TestRequireInternalToken(t *testing.T) {
+	t.Setenv("INTERNAL_TOKEN", "secret")
+	r := setupRouter(nil)
+
+	// No token → rejected at the gate.
+	req := httptest.NewRequest(http.MethodPost, "/habits/checkins", strings.NewReader(`{}`))
+	req.Header.Set("X-User-ID", "user-123")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without internal token, got %d", w.Code)
+	}
+
+	// Correct token → reaches the handler (400 for missing fields, no DB hit).
+	req = httptest.NewRequest(http.MethodPost, "/habits/checkins", strings.NewReader(`{}`))
+	req.Header.Set("X-User-ID", "user-123")
+	req.Header.Set("X-Internal-Token", "secret")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 (handler reached) with correct token, got %d", w.Code)
+	}
+}
+
 func TestSubmitSuggestion_MissingUserID(t *testing.T) {
 	r := setupRouter(nil)
 	body := strings.NewReader(`{"text":"do 20 pushups"}`)

@@ -18,6 +18,17 @@ import (
 )
 
 func main() {
+	// Fail closed: the gateway proves a WebSocket came through it (JWT-validated)
+	// by stamping this secret, and habits/groups send it on /internal/broadcast.
+	if os.Getenv("INTERNAL_TOKEN") == "" {
+		log.Fatal("INTERNAL_TOKEN is required (shared gateway↔services secret)")
+	}
+	// Required so the WebSocket membership check (isMember) can't be silently
+	// skipped in production — only tests, which don't run main, may omit it.
+	if os.Getenv("GROUPS_SERVICE_URL") == "" {
+		log.Fatal("GROUPS_SERVICE_URL is required (WebSocket membership check)")
+	}
+
 	h := usecase.NewHubUseCase()
 	go h.Run()
 
@@ -57,6 +68,21 @@ func port() string {
 	return p
 }
 
+// requireInternalToken rejects any request lacking the shared gateway↔services
+// secret. A no-op when INTERNAL_TOKEN is unset (tests only — main refuses to
+// boot without it).
+func requireInternalToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if expected := os.Getenv("INTERNAL_TOKEN"); expected != "" && r.Header.Get("X-Internal-Token") != expected {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -72,8 +98,14 @@ func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 
 	r.Handle("/metrics", promhttp.Handler())
 
-	r.Get("/ws/{groupID}", websocket.WebSocketHandler(h))
-	r.Post("/internal/broadcast", websocket.BroadcastHandler(h))
+	// The /ws handshake and /internal/broadcast both arrive carrying the shared
+	// secret (the gateway stamps it on the proxied WS upgrade; habits/groups on
+	// broadcast). Reachable only through that trust boundary.
+	r.Group(func(r chi.Router) {
+		r.Use(requireInternalToken)
+		r.Get("/ws/{groupID}", websocket.WebSocketHandler(h))
+		r.Post("/internal/broadcast", websocket.BroadcastHandler(h))
+	})
 
 	return r
 }

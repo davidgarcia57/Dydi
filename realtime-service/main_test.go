@@ -55,6 +55,37 @@ func TestBroadcastEndpoint(t *testing.T) {
 	}
 }
 
+// TestRequireInternalToken pins the gateway↔services trust boundary: with the
+// secret configured, /internal/broadcast (and /ws) need it.
+func TestRequireInternalToken(t *testing.T) {
+	t.Setenv("INTERNAL_TOKEN", "secret")
+	h := usecase.NewHubUseCase()
+	go h.Run()
+	r := setupRouter(h)
+
+	ev := domain.Event{Type: domain.EventCheckin, GroupID: "g1", UserID: "u1"}
+	body, _ := json.Marshal(ev)
+
+	// No token → rejected.
+	req := httptest.NewRequest(http.MethodPost, "/internal/broadcast", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without internal token, got %d", w.Code)
+	}
+
+	// Correct token → broadcast accepted.
+	req = httptest.NewRequest(http.MethodPost, "/internal/broadcast", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Token", "secret")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 with correct token, got %d", w.Code)
+	}
+}
+
 func TestBroadcastEndpointInvalidBody(t *testing.T) {
 	h := usecase.NewHubUseCase()
 	go h.Run()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -14,6 +15,36 @@ import (
 	"github.com/dydi/realtime-service/internal/usecase"
 	"github.com/go-chi/chi/v5"
 )
+
+// isMember asks groups-service whether userID is an active member of groupID,
+// before we let them subscribe to that group's live events. Fail closed: if the
+// check can't be completed (network/cold start), the connection is refused.
+// When GROUPS_SERVICE_URL is unset (local/tests) the check is skipped.
+func isMember(ctx context.Context, groupID, userID string) bool {
+	base := os.Getenv("GROUPS_SERVICE_URL")
+	if base == "" {
+		return true
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	u := base + "/internal/groups/" + url.PathEscape(groupID) + "/members/" + url.PathEscape(userID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return false
+	}
+	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+		req.Header.Set("X-Internal-Token", tok)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusNoContent
+}
 
 func maxConnections() int {
 	n, _ := strconv.Atoi(os.Getenv("MAX_CONNECTIONS_PER_GROUP"))
@@ -46,6 +77,13 @@ func WebSocketHandler(h *usecase.HubUseCase) http.HandlerFunc {
 
 		if userID == "" {
 			http.Error(w, `{"error":"missing X-User-ID"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// A valid JWT alone isn't enough: only members of this group may listen
+		// to its live events (debts, check-ins, presence).
+		if !isMember(r.Context(), groupID, userID) {
+			http.Error(w, `{"error":"not a member of this group"}`, http.StatusForbidden)
 			return
 		}
 
@@ -87,13 +125,8 @@ func WebSocketHandler(h *usecase.HubUseCase) http.HandlerFunc {
 
 func BroadcastHandler(h *usecase.HubUseCase) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Service-to-service auth: this endpoint is internet-reachable on Render,
-		// so without a shared secret anyone could inject fake realtime events.
-		if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" && r.Header.Get("X-Internal-Token") != tok {
-			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
-			return
-		}
-
+		// Service-to-service auth is enforced by the requireInternalToken
+		// middleware on this route (the endpoint is internet-reachable on Render).
 		var ev domain.Event
 		if err := json.NewDecoder(r.Body).Decode(&ev); err != nil {
 			http.Error(w, `{"error":"invalid body"}`, http.StatusBadRequest)

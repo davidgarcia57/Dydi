@@ -295,6 +295,49 @@ func IsMemberOfGroup(ctx context.Context, pool *pgxpool.Pool, groupID, userID st
 	return exists, err
 }
 
+// UsersShareGroup reports whether two users are active members of at least one
+// common group. Used to authorize reading another user's streaks.
+func UsersShareGroup(ctx context.Context, pool *pgxpool.Pool, userA, userB string) (bool, error) {
+	var exists bool
+	err := pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		     SELECT 1
+		     FROM memberships m1
+		     JOIN memberships m2 ON m1.group_id = m2.group_id
+		     WHERE m1.user_id = $1 AND m2.user_id = $2
+		       AND m1.status = 'active' AND m2.status = 'active'
+		 )`,
+		userA, userB,
+	).Scan(&exists)
+	return exists, err
+}
+
+// IsEligibleForRoulette reports whether a debtor missed at least one habit-day
+// so far this week (Mon→yesterday) — the same rule GetEligibleMembers applies,
+// scoped to a single user. A roulette must not be opened against someone who
+// didn't actually fail. On Monday nobody is eligible yet.
+func IsEligibleForRoulette(ctx context.Context, pool *pgxpool.Pool, groupID, debtorID string) (bool, error) {
+	var exists bool
+	err := pool.QueryRow(ctx,
+		`SELECT EXISTS(
+		     SELECT 1
+		     FROM memberships gm
+		     JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
+		     WHERE gm.group_id = $1 AND gm.user_id = $2 AND gm.status = 'active'
+		       AND (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date) > 0
+		       AND (
+		           SELECT COUNT(*)
+		           FROM checkins c
+		           WHERE c.user_habit_id = uh.id
+		             AND c.checked_on >= DATE_TRUNC('week', CURRENT_DATE)::date
+		             AND c.checked_on < CURRENT_DATE
+		       ) < (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date)
+		 )`,
+		groupID, debtorID,
+	).Scan(&exists)
+	return exists, err
+}
+
 // GetEligibleMembers returns members who missed at least one habit Mon–yesterday.
 // On Monday the list is always empty.
 func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.EligibleMember, error) {

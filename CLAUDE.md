@@ -82,14 +82,21 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service
 ```
 
 - **Sin auth-service**: Supabase Auth maneja login/registro desde el cliente.
-  El gateway valida JWT **ES256** vía **JWKS** (no shared secret). Servicios
-  internos confían en el header `X-User-ID` que pone el gateway; no revalidan.
+  El gateway valida JWT **ES256** vía **JWKS** (no shared secret) y pone el header
+  `X-User-ID`. Como los 4 servicios viven en cuentas Render separadas (URLs
+  públicas), el gateway **estampa `X-Internal-Token` en cada request proxeada** y
+  los servicios la **exigen** (middleware `requireInternalToken`): así nadie puede
+  saltarse el gateway y forjar `X-User-ID` golpeando el backend directo. Recién
+  con ese token presente confían en `X-User-ID`; no revalidan el JWT.
 - **Sin penalties-service**: las penitencias viven en `habits-service`.
 - **Realtime propio** con `nhooyr.io/websocket` → migrado a
   `github.com/coder/websocket` (misma API). No usar Supabase Realtime — es la
   variable más importante del experimento.
-- **Endpoints internos** (`/internal/*`) exigen header `X-Internal-Token` ==
-  env `INTERNAL_TOKEN` (debe ser el MISMO en groups/habits/realtime).
+- **`INTERNAL_TOKEN`**: secreto compartido, MISMO valor en **api-gateway,
+  groups, habits y realtime**. Protege TODAS las rutas de aplicación y los
+  `/internal/*` (incluido el handshake `/ws` y `realtime → groups` para verificar
+  membresía). Los servicios **no arrancan sin él** (fail-closed); en tests, al
+  estar vacío, el middleware se vuelve no-op.
 - **Keep-alive**: un ping a `gateway/health` despierta a los 3 servicios vía
   goroutines (env `*_SERVICE_URL`). Render free se duerme a los 15 min; para
   fiabilidad usar un pinger externo (cron-job.org/UptimeRobot), no GitHub

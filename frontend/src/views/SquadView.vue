@@ -12,6 +12,7 @@ const group = useGroupStore()
 const habits = useHabitsStore()
 const penalties = usePenaltiesStore()
 const loaded = ref(false)
+const loadError = ref(false)
 
 // Group checkins by member
 const squadRows = computed(() => {
@@ -48,20 +49,28 @@ const STATUS_DOT = {
 
 let socketDisconnect = null
 
-onMounted(async () => {
-  await group.autoLoad()
-  if (group.group?.id) {
-    await habits.loadToday(group.group.id)
-    const ids = [...new Set(habits.todayCheckins.map((c) => c.user_id))]
-    await Promise.all([
-      ...ids.map((id) => habits.loadStreaks(id)),
-      penalties.loadDebts(group.group.id),
-    ])
-    const { disconnect } = useGroupSocket(group.group.id)
-    socketDisconnect = disconnect
+async function load() {
+  loadError.value = false
+  loaded.value = false
+  try {
+    await group.autoLoad()
+    if (group.group?.id) {
+      await habits.loadToday(group.group.id)
+      const ids = [...new Set(habits.todayCheckins.map((c) => c.user_id))]
+      await Promise.all([
+        ...ids.map((id) => habits.loadStreaks(id)),
+        penalties.loadDebts(group.group.id),
+      ])
+      const { disconnect } = useGroupSocket(group.group.id)
+      socketDisconnect = disconnect
+    }
+    loaded.value = true
+  } catch (_) {
+    loadError.value = true
   }
-  loaded.value = true
-})
+}
+
+onMounted(load)
 
 onUnmounted(() => socketDisconnect?.())
 </script>
@@ -77,7 +86,20 @@ onUnmounted(() => socketDisconnect?.())
     </header>
 
     <div
-      v-if="!squadRows.length"
+      v-if="loadError"
+      class="rounded-card bg-coral-soft/40 border border-coral/40 py-10 text-center"
+    >
+      <p class="text-sm font-medium text-coral-deep mb-3">No pudimos cargar el squad.</p>
+      <button
+        class="rounded-pill bg-coral text-paper px-4 py-2 text-sm font-bold active:opacity-80 transition-opacity"
+        @click="load"
+      >
+        Reintentar
+      </button>
+    </div>
+
+    <div
+      v-else-if="!squadRows.length"
       class="rounded-card bg-surface border border-hairline py-10 text-center text-sm text-ink-soft"
     >
       <span v-if="!loaded">Cargando el squad…</span>

@@ -153,6 +153,51 @@ func TestVote_MissingUserID(t *testing.T) {
 	}
 }
 
+// TestRequireInternalToken pins the gateway↔services trust boundary: when the
+// secret is configured, application routes are unreachable without it (so an
+// internet caller can't forge X-User-ID by hitting the service directly).
+func TestRequireInternalToken(t *testing.T) {
+	t.Setenv("INTERNAL_TOKEN", "secret")
+	r := setupRouter(nil)
+
+	// No token → rejected at the gate.
+	req := httptest.NewRequest(http.MethodGet, "/groups", nil)
+	req.Header.Set("X-User-ID", "user-123")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 without internal token, got %d", w.Code)
+	}
+
+	// Wrong token → rejected.
+	req = httptest.NewRequest(http.MethodGet, "/groups", nil)
+	req.Header.Set("X-User-ID", "user-123")
+	req.Header.Set("X-Internal-Token", "nope")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 with wrong internal token, got %d", w.Code)
+	}
+
+	// Correct token → reaches the handler (400 for the missing name, no DB hit).
+	req = httptest.NewRequest(http.MethodPost, "/groups", strings.NewReader(`{}`))
+	req.Header.Set("X-User-ID", "user-123")
+	req.Header.Set("X-Internal-Token", "secret")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 (handler reached) with correct token, got %d", w.Code)
+	}
+
+	// Health stays public even with the secret configured.
+	req = httptest.NewRequest(http.MethodGet, "/health", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected /health to stay public (200), got %d", w.Code)
+	}
+}
+
 func TestCreateProposal_InvalidType(t *testing.T) {
 	r := setupRouter(nil)
 	body := strings.NewReader(`{"type":"ban_user","payload":{}}`)

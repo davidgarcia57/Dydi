@@ -235,6 +235,25 @@ func (h *GroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// CheckMembership is an internal endpoint (called by realtime-service before it
+// accepts a WebSocket). 204 = active member, 403 = not. Identity here comes from
+// the URL, not X-User-ID, because the caller is a trusted service, not the user.
+func (h *GroupHandler) CheckMembership(w http.ResponseWriter, r *http.Request) {
+	groupID := chi.URLParam(r, "groupID")
+	userID := chi.URLParam(r, "userID")
+
+	member, err := db.IsMember(r.Context(), h.pool, groupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

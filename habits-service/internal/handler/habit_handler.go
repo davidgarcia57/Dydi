@@ -51,6 +51,20 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// checked_on is the client's local date (to avoid UTC drift), but it must
+	// stay within a day of the server's date. Otherwise a member could backfill
+	// arbitrary past dates to fake streaks or dodge roulette eligibility.
+	checkedOn, perr := time.Parse("2006-01-02", body.CheckedOn)
+	if perr != nil {
+		writeError(w, http.StatusBadRequest, "checked_on must be a valid YYYY-MM-DD date")
+		return
+	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	if delta := checkedOn.Sub(today); delta < -24*time.Hour || delta > 24*time.Hour {
+		writeError(w, http.StatusBadRequest, "checked_on is outside the allowed range")
+		return
+	}
+
 	userHabitID, err := db.FindUserHabitID(r.Context(), h.pool, userID, body.GroupID, body.HabitID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -126,6 +140,17 @@ func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Only members may read a group's check-ins (matches GetHistory / debts).
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
 	checkins, err := db.GetTodayCheckinsByGroup(r.Context(), h.pool, groupID, date)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
@@ -170,9 +195,30 @@ func (h *HabitHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "userID")
+	callerID := r.Header.Get("X-User-ID")
+	if callerID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
 
-	streaks, err := db.GetStreaksForUser(r.Context(), h.pool, userID)
+	targetID := chi.URLParam(r, "userID")
+
+	// A user may read their own streaks, or those of someone they share a group
+	// with (the squad/today views show co-members' streaks). Anything else is a
+	// cross-user data leak.
+	if callerID != targetID {
+		shares, err := db.UsersShareGroup(r.Context(), h.pool, callerID, targetID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		if !shares {
+			writeError(w, http.StatusForbidden, "not allowed to view this user's streaks")
+			return
+		}
+	}
+
+	streaks, err := db.GetStreaksForUser(r.Context(), h.pool, targetID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -184,12 +230,8 @@ func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 // is approved. It bulk-assigns or bulk-removes a habit for all group members.
 // Not exposed through api-gateway.
 func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
-	// Service-to-service auth — this endpoint is internet-reachable on Render.
-	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" && r.Header.Get("X-Internal-Token") != tok {
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
+	// Service-to-service auth is enforced by the requireInternalToken middleware
+	// on this route (the endpoint is internet-reachable on Render).
 	var body struct {
 		GroupID string `json:"group_id"`
 		HabitID string `json:"habit_id"`
