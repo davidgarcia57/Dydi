@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
-import DydiLogo from '@/components/ui/DydiLogo.vue'
+import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 
 const route = useRoute()
 const isPublic = computed(
@@ -79,7 +79,7 @@ const mainClass = computed(() => (isPublic.value ? '' : 'pb-20 lg:pb-0 lg:pl-64'
     >
       <div class="px-6 py-6">
         <RouterLink to="/today" aria-label="Dydi — inicio">
-          <DydiLogo variant="full" size="sm" />
+          <BrandWordmark size="md" />
         </RouterLink>
       </div>
 

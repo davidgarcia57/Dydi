@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
-import DydiLogo from '@/components/ui/DydiLogo.vue'
+import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 
 const router = useRouter()
 const group = useGroupStore()
@@ -76,7 +76,7 @@ const copied = ref(false)
     <!-- ── Home: elige acción ─────────────────────────────────────────────── -->
     <template v-if="step === 'home'">
       <div class="w-full max-w-sm text-center">
-        <DydiLogo variant="full" size="md" class="mb-4" />
+        <BrandWordmark size="xl" class="mb-4" />
         <h1 class="font-serif text-2xl font-semibold text-ink mb-2">Bienvenido</h1>
         <p class="text-sm text-ink-soft mb-10">Únete a tu squad o crea uno nuevo para empezar.</p>
 

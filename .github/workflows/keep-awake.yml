@@ -2,8 +2,11 @@ name: Keep Services Awake
 
 on:
   schedule:
-    # Corre cada 12 minutos entre las 14:00 UTC (8:00 AM UTC-6) y las 02:00 UTC (8:00 PM UTC-6)
-    - cron: '*/12 14-23,0-1 * * *'
+    # Cada 12 min entre 14:00 UTC (8 AM UTC-6) y 02:59 UTC (8 PM UTC-6).
+    # OJO: el scheduler de GitHub Actions suele retrasarse >15 min, y Render free
+    # se duerme a los 15 min — para keep-alive fiable usar un pinger externo
+    # (cron-job.org / UptimeRobot) apuntando a /health del gateway.
+    - cron: '*/12 14-23,0-2 * * *'
   workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
 
 jobs:

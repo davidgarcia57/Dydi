@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
+import WaterBottle from '@/components/ui/WaterBottle.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -31,6 +32,9 @@ function formatTime() {
 
 const myHabits = computed(() => habits.todayCheckins.filter((c) => c.user_id === auth.user?.id))
 const myPending = computed(() => myHabits.value.filter((c) => c.status === 'pending'))
+
+// Único hábito con ilustración propia por ahora: tomar agua.
+const isWater = computed(() => /agua|water/i.test(selected.value?.habit_name || ''))
 
 async function load() {
   step.value = 'loading'
@@ -312,6 +316,7 @@ async function submit() {
 
       <!-- BIG CHECK BUTTON — centered -->
       <div class="flex-1 flex flex-col items-center justify-center px-8">
+        <WaterBottle v-if="isWater" :size="120" class="mb-5" />
         <button
           :disabled="submitting"
           aria-label="Registrar check-in"

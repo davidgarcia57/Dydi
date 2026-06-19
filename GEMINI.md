@@ -1,4 +1,4 @@
-# AGENTS.md
+# GEMINI.md
 
 Este proyecto mantiene **una sola** guía de agentes para evitar que se
 desincronicen entre herramientas.

@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import DydiLogo from '@/components/ui/DydiLogo.vue'
+import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -98,7 +98,7 @@ const fieldInput =
     <aside
       class="hidden lg:flex lg:w-[55%] lg:flex-col lg:justify-between lg:px-14 lg:py-12 animate-fade-in"
     >
-      <DydiLogo variant="full" size="sm" />
+      <BrandWordmark size="lg" />
 
       <div class="animate-fade-up [animation-delay:100ms]">
         <span
@@ -143,7 +143,7 @@ const fieldInput =
     >
       <!-- Logo solo en mobile -->
       <div class="text-center mb-8 animate-fade-up lg:hidden">
-        <DydiLogo variant="full" size="sm" />
+        <BrandWordmark size="lg" />
         <p class="text-sm text-ink-soft mt-1">Hábitos con consecuencias</p>
       </div>
 
