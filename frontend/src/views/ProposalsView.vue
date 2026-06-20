@@ -6,6 +6,7 @@ import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import WaterBottle from '@/components/ui/WaterBottle.vue'
+import HabitIcon from '@/components/ui/HabitIcon.vue'
 
 const router = useRouter()
 const group = useGroupStore()
@@ -173,10 +174,10 @@ onMounted(async () => {
                 <WaterBottle v-if="habit.icon_key === 'water'" :size="40" class="flex-shrink-0" />
                 <div
                   v-else
-                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper"
                   :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
-                  {{ habit.name.charAt(0).toUpperCase() }}
+                  <HabitIcon :icon-key="habit.icon_key" :size="22" />
                 </div>
 
                 <div class="flex-1 min-w-0">
@@ -225,10 +226,10 @@ onMounted(async () => {
                 />
                 <div
                   v-else
-                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold opacity-60"
+                  class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper opacity-60"
                   :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
-                  {{ habit.name.charAt(0).toUpperCase() }}
+                  <HabitIcon :icon-key="habit.icon_key" :size="22" />
                 </div>
 
                 <div class="flex-1 min-w-0">

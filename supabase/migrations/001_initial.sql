@@ -535,14 +535,18 @@ ALTER TABLE proposal_votes           ENABLE ROW LEVEL SECURITY;
 INSERT INTO habits (name, description, icon_key, color)
 SELECT v.name, v.description, v.icon_key, v.color
 FROM (VALUES
-  ('Ejercicio 30 min',   'Cualquier actividad física continua por al menos 30 minutos',  'exercise',  '#C9714A'),
-  ('Leer 20 páginas',    'Lectura de cualquier libro, no pantallas',                     'read',      '#3D6B5E'),
-  ('Meditar 10 min',     'Meditación guiada o en silencio, sin distracciones',           'meditate',  '#A8C39A'),
-  ('Dormir antes de 11', 'Estar en cama con luces apagadas antes de las 11:00 pm',       'sleep',     '#7B8FA1'),
-  ('Sin redes sociales', 'Cero scroll pasivo en IG, TikTok, Twitter durante el día',     'no_social', '#D4A847'),
-  ('Agua 2 L',           'Completar al menos 2 litros de agua durante el día',           'water',     '#5B9BD5'),
-  ('Sin azúcar',         'Sin refrescos, dulces ni postres procesados',                  'no_sugar',  '#E07070'),
-  ('Journaling',         'Escribir al menos media página sobre el día o reflexiones',    'journal',   '#9B7FD4')
+  ('Ejercicio 30 min',       'Actividad física continua de al menos 30 minutos (gym, correr, deporte)', 'exercise',  '#C9714A'),
+  ('8,000 pasos',            'Llegar a 8,000 pasos según tu teléfono',                                  'steps',     '#C9714A'),
+  ('Agua 2 L',               'Tomar al menos 2 litros de agua durante el día',                          'water',     '#5B9BD5'),
+  ('2 frutas o verduras',    'Comer al menos 2 porciones de fruta o verdura',                           'fruit',     '#A8C39A'),
+  ('Sin comida chatarra',    'Cero refrescos, dulces ni frituras en todo el día',                       'no_sugar',  '#E07070'),
+  ('Leer 20 min',            'Leer un libro al menos 20 minutos, sin pantallas',                        'read',      '#3D6B5E'),
+  ('Foco 1 h sin teléfono',  'Un bloque de 1 hora de estudio o trabajo sin tocar el teléfono',          'focus',     '#9B7FD4'),
+  ('Journaling',             'Escribir al menos media página sobre tu día o lo que agradeces',          'journal',   '#7B8FA1'),
+  ('Sin redes en la mañana', 'No abrir redes sociales durante la primera hora del día',                 'no_social', '#D4A847'),
+  ('Sin teléfono de noche',  'No usar el teléfono después de las 11:00 pm',                             'no_phone',  '#7B8FA1'),
+  ('Tender la cama',         'Hacer tu cama al despertar',                                              'bed',       '#D4A847'),
+  ('15 min al aire libre',   'Pasar al menos 15 minutos al aire libre',                                 'outdoors',  '#A8C39A')
 ) AS v(name, description, icon_key, color)
 WHERE NOT EXISTS (
   SELECT 1 FROM habits WHERE habits.name = v.name

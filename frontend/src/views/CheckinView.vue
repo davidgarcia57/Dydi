@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import WaterBottle from '@/components/ui/WaterBottle.vue'
+import HabitIcon from '@/components/ui/HabitIcon.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -228,10 +229,10 @@ async function submit() {
           <WaterBottle v-if="isWaterHabit(h)" :size="44" class="flex-shrink-0" />
           <div
             v-else
-            class="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-paper"
+            class="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-paper"
             :style="{ backgroundColor: h.color || 'var(--color-sage)' }"
           >
-            {{ h.habit_name?.charAt(0).toUpperCase() }}
+            <HabitIcon :icon-key="h.icon_key" :size="26" />
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-semibold text-ink truncate">{{ h.habit_name }}</p>
@@ -323,6 +324,13 @@ async function submit() {
       <!-- BIG CHECK BUTTON — centered -->
       <div class="flex-1 flex flex-col items-center justify-center px-8">
         <WaterBottle v-if="isWaterHabit(selected)" :size="120" class="mb-5" />
+        <HabitIcon
+          v-else
+          :icon-key="selected?.icon_key"
+          :size="96"
+          class="mb-5"
+          :style="{ color: selected?.color || 'var(--color-sage-deep)' }"
+        />
         <button
           :disabled="submitting"
           aria-label="Registrar check-in"
