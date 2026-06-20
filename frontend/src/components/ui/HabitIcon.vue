@@ -9,6 +9,7 @@ defineProps({
 })
 
 const labels = {
+  water: 'Agua',
   exercise: 'Ejercicio',
   steps: 'Pasos',
   fruit: 'Fruta o verdura',
@@ -46,6 +47,14 @@ const labels = {
       <rect x="16.5" y="7.5" width="3" height="9" rx="1.2" />
       <line x1="3" y1="9.5" x2="3" y2="14.5" />
       <line x1="21" y1="9.5" x2="21" y2="14.5" />
+    </g>
+
+    <!-- Agua: gota que sube/baja con una onda interior -->
+    <g v-else-if="iconKey === 'water'">
+      <g class="drop">
+        <path d="M12 3.5 C12 3.5 6 10.5 6 14.8 A6 6 0 0 0 18 14.8 C18 10.5 12 3.5 12 3.5 Z" />
+        <path class="ripple" d="M9.4 15.2 A2.8 2.8 0 0 0 11.6 17.4" />
+      </g>
     </g>
 
     <!-- Pasos: dos huellas que alternan al "caminar" -->
@@ -157,12 +166,10 @@ const labels = {
 .hi {
   display: inline-block;
 }
-
-/* Ejercicio: repetición */
 .lift {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: hi-lift 2.4s ease-in-out infinite;
+  animation: hi-lift 2.1s ease-in-out infinite;
 }
 @keyframes hi-lift {
   0%,
@@ -170,107 +177,121 @@ const labels = {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-1.6px);
+    transform: translateY(-2.4px);
   }
 }
-
-/* Pasos: alternancia */
 .foot {
   transform-box: fill-box;
   transform-origin: 50% 50%;
 }
 .fl {
-  animation: hi-step 1.4s ease-in-out infinite;
+  animation: hi-step 1.2s ease-in-out infinite;
 }
 .fr {
-  animation: hi-step 1.4s ease-in-out infinite;
-  animation-delay: 0.7s;
+  animation: hi-step 1.2s ease-in-out infinite;
+  animation-delay: 0.6s;
 }
 @keyframes hi-step {
   0%,
   100% {
-    opacity: 0.35;
-    transform: translateY(0.6px);
+    opacity: 0.3;
+    transform: translateY(1px);
   }
   50% {
     opacity: 1;
-    transform: translateY(-0.6px);
+    transform: translateY(-1px);
   }
 }
-
-/* Fruta: hoja que se mece */
+.drop {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: hi-bob 2.6s ease-in-out infinite;
+}
+@keyframes hi-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.ripple {
+  animation: hi-rip 2.6s ease-in-out infinite;
+}
+@keyframes hi-rip {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
 .leaf {
   transform-box: fill-box;
   transform-origin: 0% 100%;
-  animation: hi-sway 2.8s ease-in-out infinite;
+  animation: hi-sway 2.6s ease-in-out infinite;
 }
 @keyframes hi-sway {
   0%,
   100% {
-    transform: rotate(-7deg);
+    transform: rotate(-12deg);
   }
   50% {
-    transform: rotate(7deg);
+    transform: rotate(12deg);
   }
 }
-
-/* Tachados (no_sugar / no_social): la línea pulsa */
 .slash {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: hi-slash 2s ease-in-out infinite;
+  animation: hi-slash 1.8s ease-in-out infinite;
 }
 @keyframes hi-slash {
   0%,
   100% {
-    opacity: 0.45;
+    opacity: 0.35;
   }
   50% {
     opacity: 1;
   }
 }
-
-/* Leer: página que aletea sobre el lomo */
 .page {
   transform-box: fill-box;
   transform-origin: 0% 50%;
-  animation: hi-page 3.2s ease-in-out infinite;
+  animation: hi-page 3s ease-in-out infinite;
 }
 @keyframes hi-page {
   0%,
   100% {
-    transform: rotateY(0deg) scaleX(1);
+    transform: scaleX(1);
   }
   50% {
-    transform: rotateY(0deg) scaleX(0.93);
+    transform: scaleX(0.86);
   }
 }
-
-/* Foco: anillo que se expande */
 .pulse {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: hi-pulse 2.4s ease-out infinite;
+  animation: hi-pulse 2.2s ease-out infinite;
 }
 @keyframes hi-pulse {
   0% {
-    transform: scale(0.7);
-    opacity: 0.7;
+    transform: scale(0.65);
+    opacity: 0.75;
   }
   70% {
     opacity: 0;
   }
   100% {
-    transform: scale(1.15);
+    transform: scale(1.2);
     opacity: 0;
   }
 }
-
-/* Journaling: la línea se escribe */
 .write {
   transform-box: fill-box;
   transform-origin: 0% 50%;
-  animation: hi-write 2.6s ease-in-out infinite;
+  animation: hi-write 2.4s ease-in-out infinite;
 }
 @keyframes hi-write {
   0% {
@@ -281,43 +302,34 @@ const labels = {
     transform: scaleX(1);
   }
 }
-
-/* Luna / destellos que titilan */
 .moon,
-.sparkle {
-  transform-box: fill-box;
-  transform-origin: 50% 50%;
-  animation: hi-twinkle 2.6s ease-in-out infinite;
-}
+.sparkle,
 .twinkle {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: hi-twinkle 2.6s ease-in-out infinite;
+  animation: hi-twinkle 2.4s ease-in-out infinite;
 }
 @keyframes hi-twinkle {
   0%,
   100% {
-    transform: scale(0.85);
-    opacity: 0.55;
+    transform: scale(0.7);
+    opacity: 0.4;
   }
   50% {
     transform: scale(1);
     opacity: 1;
   }
 }
-
-/* Sol: rayos que giran */
 .rays {
   transform-box: fill-box;
   transform-origin: 50% 50%;
-  animation: hi-spin 18s linear infinite;
+  animation: hi-spin 12s linear infinite;
 }
 @keyframes hi-spin {
   to {
     transform: rotate(360deg);
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .hi * {
     animation: none !important;

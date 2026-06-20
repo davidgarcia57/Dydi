@@ -5,7 +5,6 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
 import PageContainer from '@/components/ui/PageContainer.vue'
-import WaterBottle from '@/components/ui/WaterBottle.vue'
 import HabitIcon from '@/components/ui/HabitIcon.vue'
 
 const router = useRouter()
@@ -171,9 +170,7 @@ onMounted(async () => {
                 :key="habit.id"
                 class="rounded-card bg-paper shadow-flat p-4 flex items-center gap-3"
               >
-                <WaterBottle v-if="habit.icon_key === 'water'" :size="40" class="flex-shrink-0" />
                 <div
-                  v-else
                   class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper"
                   :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
@@ -219,13 +216,7 @@ onMounted(async () => {
                 :key="habit.id"
                 class="rounded-card bg-surface border border-hairline p-4 flex items-center gap-3"
               >
-                <WaterBottle
-                  v-if="habit.icon_key === 'water'"
-                  :size="40"
-                  class="flex-shrink-0 opacity-60"
-                />
                 <div
-                  v-else
                   class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper opacity-60"
                   :style="{ backgroundColor: habit.color || 'var(--color-sage)' }"
                 >
