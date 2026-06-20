@@ -38,7 +38,9 @@ BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+-- search_path pinned to '' to close the mutable-search_path attack surface
+-- (Supabase advisor). NOW() resolves via pg_catalog, always implicitly present.
+$$ LANGUAGE plpgsql SET search_path = '';
 
 -- =============================================================
 -- IDENTITY
@@ -397,7 +399,9 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+-- search_path pinned to '' (Supabase advisor). public.memberships is already
+-- schema-qualified above, so an empty search_path is safe here.
+$$ LANGUAGE plpgsql SET search_path = '';
 
 CREATE TRIGGER trg_memberships_size_limit
     BEFORE INSERT OR UPDATE OF status ON memberships
