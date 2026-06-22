@@ -1,9 +1,9 @@
-import './global.css';
+import '../../global.css';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { Text, View, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from './lib/supabase';
+import { supabase } from '../../lib/supabase';
 
 export default function App() {
   const [apiStatus, setApiStatus] = useState<'idle' | 'checking' | 'ok' | 'error'>('idle');

@@ -124,7 +124,7 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service
 | Lint Go | `golangci-lint run` (config `.golangci.yml` raíz) |
 | Web dev | servicio `frontend` del compose (`:5173`) |
 | Web lint/format/test/build | `npm run lint` / `format:check` / `test` / `build` |
-| Móvil | `cd mobile && expo start` (no usa Docker) |
+| Móvil dev (Web) | servicio `mobile` del compose (`:8081`) |
 | Pruebas de estrés | k6 con `load-tests/k6_stress_test.js` |
 
 ## Convenciones

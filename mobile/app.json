@@ -20,6 +20,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "dydi",
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ]
   }
 }

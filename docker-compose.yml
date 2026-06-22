@@ -69,3 +69,16 @@ services:
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     command: sh -c "npm install && npm run dev -- --host"
 
+  mobile:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./mobile:/app
+      - /app/node_modules
+    ports:
+      - "8081:8081"
+    environment:
+      EXPO_PUBLIC_API_URL: http://localhost:8080
+      EXPO_PUBLIC_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+    command: sh -c "npm install && npx expo start --web"
