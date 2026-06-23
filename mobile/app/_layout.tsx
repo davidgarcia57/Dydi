@@ -14,6 +14,8 @@ import {
 import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 
+import { AuthProvider } from '../src/contexts/AuthContext';
+
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     Newsreader: Newsreader_400Regular,
@@ -39,10 +41,12 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
-    </Stack>
+    <AuthProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
+      </Stack>
+    </AuthProvider>
   );
 }
