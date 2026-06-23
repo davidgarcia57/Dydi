@@ -21,7 +21,7 @@ export async function api(path: string, options: RequestInit = {}, retries = MAX
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        ...options.headers,
+        ...(options.headers as Record<string, string> | undefined),
       };
 
       if (token) {

@@ -6,7 +6,9 @@ interface DydiLogoProps {
   size?: number;
 }
 
-const AnimatedG = Animated.createAnimatedComponent(G);
+// react-native-svg's GProps typings omit `style`, though G accepts it at
+// runtime; cast so the animated transform style typechecks.
+const AnimatedG = Animated.createAnimatedComponent(G) as React.ComponentType<any>;
 
 export default function DydiLogo({ size = 32 }: DydiLogoProps) {
   const spinValue = useRef(new Animated.Value(0)).current;

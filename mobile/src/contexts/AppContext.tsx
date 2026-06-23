@@ -167,7 +167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // WebSocket connection state
   const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsClosedRef = useRef(true);
   const wsAttemptsRef = useRef(0);
 

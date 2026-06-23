@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
 
@@ -253,7 +253,7 @@ export default function ShameScreen() {
       duration: 4200,
       easing: Easing.bezier(0.17, 0.67, 0.12, 0.99),
       useNativeDriver: true,
-    }).current.start(() => {
+    }).start(() => {
       setSpinResult(result);
       setSpinning(false);
     });
