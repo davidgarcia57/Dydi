@@ -54,7 +54,8 @@ type Streak struct {
 // RouletteEntry is opened for an eligible member (missed habits Mon-Fri).
 // SuggestionDeadline: group members can submit suggestions until this time.
 // After the deadline the offender can spin with whatever suggestions exist.
-// If no suggestions exist at deadline, collective debt is issued instead.
+// If no suggestions exist at deadline, a penance is drawn from the shared
+// catalog and assigned to the offender alone.
 // SpunAt: nil = not yet spun.
 type RouletteEntry struct {
 	ID                 string     `json:"id"`
@@ -78,16 +79,15 @@ type PunishmentSuggestion struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// Debt is created after a spin or as a collective punishment.
+// Debt is created for the offender after a spin (Scope is always "individual").
 //
-// Individual (Scope = "individual"):
-//   - One debt for the offender.
-//   - WinningSuggestionID is set to the selected suggestion.
+//   - With suggestions: WinningSuggestionID points to the chosen suggestion and
+//     PunishmentText/Emoji are snapshotted from it.
+//   - Without suggestions: a penance is drawn from the shared catalog;
+//     WinningSuggestionID is nil and PunishmentText/Emoji come from the catalog.
 //
-// Collective (Scope = "collective"):
-//   - Triggered when suggestion_deadline passes with zero suggestions.
-//   - One debt per active member (including the offender).
-//   - WinningSuggestionID is nil; PunishmentText is a default message.
+// The "collective" scope still exists in the schema but is no longer produced:
+// members who completed their check-ins are never punished.
 //
 // Debts auto-expire at week_start + 14 days (expires_at). Status tracks the
 // lifecycle: pending → completed / expired / forgiven.

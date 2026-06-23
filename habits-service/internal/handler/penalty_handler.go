@@ -19,13 +19,64 @@ import (
 
 const suggestionWindowHours = 48
 
+// Punishment is one entry of the penance catalog (punishments.json). It is the
+// fallback source when a roulette spins with zero member suggestions, so the
+// offender still gets a penance and nobody who complied is ever punished.
+type Punishment struct {
+	Text  string `json:"text"`
+	Emoji string `json:"emoji"`
+}
+
+// defaultPunishments is the built-in catalog used when the JSON file is missing,
+// unreadable or empty, so a spin can always produce a penance.
+var defaultPunishments = []Punishment{
+	{Text: "Le invitas el desayuno al squad", Emoji: "🥐"},
+	{Text: "Cantas una canción en la llamada del grupo", Emoji: "🎤"},
+	{Text: "Cambias tu foto de perfil por una semana", Emoji: "🤡"},
+}
+
+// LoadPunishmentCatalog reads the penance catalog from path (a JSON array of
+// {text, emoji}). On any error or an empty file it returns defaultPunishments,
+// so the roulette is never left without penances to draw from.
+func LoadPunishmentCatalog(path string) []Punishment {
+	if path == "" {
+		return defaultPunishments
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return defaultPunishments
+	}
+	var catalog []Punishment
+	if err := json.Unmarshal(data, &catalog); err != nil || len(catalog) == 0 {
+		return defaultPunishments
+	}
+	return catalog
+}
+
 type PenaltyHandler struct {
 	pool        *pgxpool.Pool
 	realtimeURL string
+	catalog     []Punishment
 }
 
-func NewPenaltyHandler(pool *pgxpool.Pool, realtimeURL string) *PenaltyHandler {
-	return &PenaltyHandler{pool: pool, realtimeURL: realtimeURL}
+func NewPenaltyHandler(pool *pgxpool.Pool, realtimeURL string, catalog []Punishment) *PenaltyHandler {
+	if len(catalog) == 0 {
+		catalog = defaultPunishments
+	}
+	return &PenaltyHandler{pool: pool, realtimeURL: realtimeURL, catalog: catalog}
+}
+
+// randomPunishment picks a uniformly random catalog entry using crypto/rand.
+func (h *PenaltyHandler) randomPunishment() Punishment {
+	cat := h.catalog
+	if len(cat) == 0 {
+		cat = defaultPunishments
+	}
+	idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(cat))))
+	if err != nil {
+		return cat[0]
+	}
+	return cat[idx.Int64()]
 }
 
 func (h *PenaltyHandler) GetEligible(w http.ResponseWriter, r *http.Request) {
@@ -211,7 +262,8 @@ func (h *PenaltyHandler) GetSuggestions(w http.ResponseWriter, r *http.Request) 
 
 // Spin picks a random suggestion and assigns the debt. Only the debtor themselves
 // can spin, and only after the suggestion deadline has passed.
-// If no suggestions were submitted the whole group receives a collective debt.
+// If no suggestions were submitted, a penance is drawn from the shared catalog
+// (crypto/rand) and assigned to the offender alone.
 func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
@@ -272,10 +324,17 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	weekStart := entry.WeekStart.Format("2006-01-02")
 
 	if len(suggestions) == 0 {
-		// No suggestions → collective punishment for all group members.
-		debts, err := db.CreateCollectiveDebts(r.Context(), tx, entryID, entry.GroupID, weekStart)
+		// Nobody suggested a penance before the deadline → draw one from the
+		// shared catalog and assign it to the offender alone. Members who
+		// completed their check-ins are never punished.
+		p := h.randomPunishment()
+		var emoji *string
+		if p.Emoji != "" {
+			emoji = &p.Emoji
+		}
+		debt, err := db.CreateDebt(r.Context(), tx, entryID, entry.GroupID, entry.DebtorID, weekStart, nil, p.Text, emoji)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "could not create collective debts")
+			writeError(w, http.StatusInternalServerError, "could not create debt")
 			return
 		}
 		if err := db.MarkEntrySpun(r.Context(), tx, entryID); err != nil {
@@ -286,8 +345,8 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "db error")
 			return
 		}
-		go h.notifyRealtime(entry.GroupID, "collective_punishment", debts)
-		writeJSON(w, http.StatusCreated, debts)
+		go h.notifyRealtime(entry.GroupID, "roulette_result", debt)
+		writeJSON(w, http.StatusCreated, debt)
 		return
 	}
 

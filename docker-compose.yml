@@ -81,4 +81,4 @@ services:
       EXPO_PUBLIC_API_URL: http://localhost:8080
       EXPO_PUBLIC_SUPABASE_URL: ${VITE_SUPABASE_URL}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-    command: sh -c "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps && npx expo start --web --clear"
+    command: sh -c "npm install --legacy-peer-deps && npx expo start --web --clear"

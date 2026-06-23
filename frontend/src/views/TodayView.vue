@@ -111,8 +111,27 @@ const onlineAvatars = computed(() =>
   group.members.filter((m) => group.onlineMembers.has(m.user_id)).slice(0, 5)
 )
 
-// ── Squad list (each member's checkin row) ────────────────────────────────────
-const squadRows = computed(() => habits.todayCheckins.filter((c) => c.user_id !== auth.user?.id))
+// ── Squad list (one card per member, their habits nested) ─────────────────────
+// todayCheckins has one row per (member, assigned habit); habits are group-wide,
+// so a member with N habits would otherwise render as N "duplicate" cards.
+const squadMembers = computed(() => {
+  const byUser = new Map()
+  for (const c of habits.todayCheckins) {
+    if (c.user_id === auth.user?.id) continue
+    const entry = byUser.get(c.user_id)
+    if (entry) entry.habits.push(c)
+    else byUser.set(c.user_id, { user_id: c.user_id, display_name: c.display_name, habits: [c] })
+  }
+  return Array.from(byUser.values())
+})
+
+// A member's overall status: done only if every habit is done, else pending,
+// unless all are missed.
+function memberStatus(member) {
+  if (member.habits.every((h) => h.status === 'done')) return 'done'
+  if (member.habits.some((h) => h.status === 'pending')) return 'pending'
+  return 'missed'
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
@@ -427,7 +446,7 @@ onUnmounted(() => {
 
         <!-- Empty / loading state -->
         <div
-          v-if="squadRows.length === 0"
+          v-if="squadMembers.length === 0"
           class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft"
         >
           <span v-if="!loaded">Cargando el squad…</span>
@@ -436,60 +455,72 @@ onUnmounted(() => {
 
         <div v-else class="space-y-3">
           <div
-            v-for="row in squadRows"
-            :key="row.user_id"
-            class="rounded-card bg-surface p-4 flex items-start gap-3"
+            v-for="member in squadMembers"
+            :key="member.user_id"
+            class="rounded-card bg-surface p-4"
           >
-            <!-- Avatar -->
-            <div
-              class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
-              :class="avatarBg(row.display_name ?? '')"
-            >
-              {{ initials(row.display_name ?? '') }}
-            </div>
-
-            <!-- Info -->
-            <div class="flex-1 min-w-0">
-              <div class="flex justify-between items-center mb-0.5">
+            <!-- Member header (once per member) -->
+            <div class="flex items-center gap-3 mb-3">
+              <div
+                class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
+                :class="avatarBg(member.display_name ?? '')"
+              >
+                {{ initials(member.display_name ?? '') }}
+              </div>
+              <div class="flex-1 min-w-0 flex justify-between items-center">
                 <div class="flex items-baseline gap-1.5">
                   <span class="font-semibold text-sm text-ink truncate">{{
-                    row.display_name
+                    member.display_name
                   }}</span>
                   <span class="text-xs text-terracotta font-medium">
-                    ★ {{ habits.streaks[row.user_id] ?? 0 }}
+                    ★ {{ habits.streaks[member.user_id] ?? 0 }}
                   </span>
                 </div>
                 <span
-                  v-if="STATUS_PILL[row.status]"
+                  v-if="STATUS_PILL[memberStatus(member)]"
                   class="rounded-pill px-2 py-0.5 text-[10px] font-semibold ml-2 flex-shrink-0"
-                  :class="STATUS_PILL[row.status].cls"
+                  :class="STATUS_PILL[memberStatus(member)].cls"
                 >
-                  {{ STATUS_PILL[row.status].label }}
+                  {{ STATUS_PILL[memberStatus(member)].label }}
                 </span>
               </div>
+            </div>
 
-              <p class="text-xs text-ink-soft mb-2 truncate">{{ row.habit_name }}</p>
-
-              <!-- 7-day strip -->
-              <div class="flex gap-1">
-                <div
-                  v-for="(day, i) in dayStrip(row)"
-                  :key="i"
-                  class="flex flex-col items-center gap-0.5"
-                >
-                  <div
-                    class="w-7 h-7 rounded-md flex items-center justify-center"
-                    :class="STATUS_STYLE[day.status].strip"
+            <!-- One block per assigned habit -->
+            <div class="space-y-3">
+              <div v-for="row in member.habits" :key="row.habit_id">
+                <div class="flex justify-between items-center mb-1">
+                  <p class="text-xs text-ink-soft truncate">{{ row.habit_name }}</p>
+                  <span
+                    v-if="STATUS_PILL[row.status]"
+                    class="rounded-pill px-2 py-0.5 text-[10px] font-semibold ml-2 flex-shrink-0"
+                    :class="STATUS_PILL[row.status].cls"
                   >
-                    <span
-                      v-if="STATUS_STYLE[day.status].icon"
-                      class="text-xs font-bold"
-                      :class="STATUS_STYLE[day.status].iconColor"
+                    {{ STATUS_PILL[row.status].label }}
+                  </span>
+                </div>
+
+                <!-- 7-day strip -->
+                <div class="flex gap-1">
+                  <div
+                    v-for="(day, i) in dayStrip(row)"
+                    :key="i"
+                    class="flex flex-col items-center gap-0.5"
+                  >
+                    <div
+                      class="w-7 h-7 rounded-md flex items-center justify-center"
+                      :class="STATUS_STYLE[day.status].strip"
                     >
-                      {{ STATUS_STYLE[day.status].icon }}
-                    </span>
+                      <span
+                        v-if="STATUS_STYLE[day.status].icon"
+                        class="text-xs font-bold"
+                        :class="STATUS_STYLE[day.status].iconColor"
+                      >
+                        {{ STATUS_STYLE[day.status].icon }}
+                      </span>
+                    </div>
+                    <span class="text-[9px] text-ink-faint font-medium">{{ day.label }}</span>
                   </div>
-                  <span class="text-[9px] text-ink-faint font-medium">{{ day.label }}</span>
                 </div>
               </div>
             </div>

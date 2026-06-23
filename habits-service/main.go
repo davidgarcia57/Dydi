@@ -97,7 +97,8 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		r.Get("/habits/history/{groupID}", habits.GetHistory)
 		r.Get("/habits/streaks/{userID}", habits.GetStreaks)
 
-		penalties := handler.NewPenaltyHandler(pool, os.Getenv("REALTIME_SERVICE_URL"))
+		catalog := handler.LoadPunishmentCatalog(os.Getenv("PUNISHMENT_CATALOG_PATH"))
+		penalties := handler.NewPenaltyHandler(pool, os.Getenv("REALTIME_SERVICE_URL"), catalog)
 		r.Get("/penalties/{groupID}/eligible", penalties.GetEligible)
 		r.Post("/penalties/roulette", penalties.OpenRoulette)
 		r.Post("/penalties/roulette/{entryID}/suggestions", penalties.SubmitSuggestion)

@@ -322,16 +322,24 @@ func IsEligibleForRoulette(ctx context.Context, pool *pgxpool.Pool, groupID, deb
 		`SELECT EXISTS(
 		     SELECT 1
 		     FROM memberships gm
+		     JOIN users       u  ON u.id = gm.user_id
 		     JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
+		     -- "today" and the week's Monday in the member's OWN timezone, so a
+		     -- late-night check-in counts for the right day instead of being
+		     -- bumped a day forward in UTC.
+		     CROSS JOIN LATERAL (
+		         SELECT date_trunc('week', (now() AT TIME ZONE u.timezone))::date AS week_start,
+		                (now() AT TIME ZONE u.timezone)::date                     AS today
+		     ) d
 		     WHERE gm.group_id = $1 AND gm.user_id = $2 AND gm.status = 'active'
-		       AND (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date) > 0
+		       AND (d.today - d.week_start) > 0
 		       AND (
 		           SELECT COUNT(*)
 		           FROM checkins c
 		           WHERE c.user_habit_id = uh.id
-		             AND c.checked_on >= DATE_TRUNC('week', CURRENT_DATE)::date
-		             AND c.checked_on < CURRENT_DATE
-		       ) < (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date)
+		             AND c.checked_on >= d.week_start
+		             AND c.checked_on <  d.today
+		       ) < (d.today - d.week_start)
 		 )`,
 		groupID, debtorID,
 	).Scan(&exists)
@@ -346,15 +354,21 @@ func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string)
 		 FROM memberships gm
 		 JOIN users       u  ON u.id = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
+		 -- "today" and the week's Monday in each member's OWN timezone, so a
+		 -- late-night check-in is not bumped a day forward in UTC.
+		 CROSS JOIN LATERAL (
+		     SELECT date_trunc('week', (now() AT TIME ZONE u.timezone))::date AS week_start,
+		            (now() AT TIME ZONE u.timezone)::date                     AS today
+		 ) d
 		 WHERE gm.group_id = $1 AND gm.status = 'active'
-		   AND (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date) > 0
+		   AND (d.today - d.week_start) > 0
 		   AND (
 		       SELECT COUNT(*)
 		       FROM checkins c
 		       WHERE c.user_habit_id = uh.id
-		         AND c.checked_on >= DATE_TRUNC('week', CURRENT_DATE)::date
-		         AND c.checked_on < CURRENT_DATE
-		   ) < (CURRENT_DATE - DATE_TRUNC('week', CURRENT_DATE)::date)
+		         AND c.checked_on >= d.week_start
+		         AND c.checked_on <  d.today
+		   ) < (d.today - d.week_start)
 		 ORDER BY u.display_name`,
 		groupID,
 	)
@@ -521,44 +535,6 @@ func CreateDebt(ctx context.Context, dbtx DBTX, entryID, groupID, debtorID, week
 		           scope, status, completed_at, expires_at, created_at`,
 		entryID, groupID, debtorID, weekStart, suggestionID, text, emoji,
 	))
-}
-
-// CreateCollectiveDebts creates one debt per group member when no suggestions
-// were submitted before the deadline. Accepts DBTX for transactional safety.
-func CreateCollectiveDebts(ctx context.Context, dbtx DBTX, entryID, groupID, weekStart string) ([]model.Debt, error) {
-	rows, err := dbtx.Query(ctx,
-		`INSERT INTO debts
-		     (roulette_entry_id, group_id, debtor_id, week_start,
-		      winning_suggestion_id, punishment_text, scope, expires_at)
-		 SELECT $1, $2, user_id, $3::date,
-		        NULL, 'Nadie propuso una penitencia — todos pagan.', 'collective',
-		        $3::date + INTERVAL '14 days'
-		 FROM memberships
-		 WHERE group_id = $2 AND status = 'active'
-		 ON CONFLICT (roulette_entry_id, debtor_id) DO NOTHING
-		 RETURNING id, roulette_entry_id, group_id, debtor_id, week_start,
-		           winning_suggestion_id, punishment_text, punishment_emoji,
-		           scope, status, completed_at, expires_at, created_at`,
-		entryID, groupID, weekStart,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	debts := make([]model.Debt, 0)
-	for rows.Next() {
-		var d model.Debt
-		if err := rows.Scan(
-			&d.ID, &d.RouletteEntryID, &d.GroupID, &d.DebtorID, &d.WeekStart,
-			&d.WinningSuggestionID, &d.PunishmentText, &d.PunishmentEmoji,
-			&d.Scope, &d.Status, &d.CompletedAt, &d.ExpiresAt, &d.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		debts = append(debts, d)
-	}
-	return debts, rows.Err()
 }
 
 // GetActiveDebts returns all non-expired debts for a group.

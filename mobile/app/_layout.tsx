@@ -15,6 +15,7 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 
 import { AuthProvider } from '../src/contexts/AuthContext';
+import { AppProvider } from '../src/contexts/AppContext';
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -42,11 +43,14 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
-      </Stack>
+      <AppProvider>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
+        </Stack>
+      </AppProvider>
     </AuthProvider>
   );
 }
