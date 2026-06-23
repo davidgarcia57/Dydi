@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { useApp } from '../../src/contexts/AppContext';
+import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import BrandWordmark from '../../src/components/ui/BrandWordmark';
 
 const AVATAR_COLORS = [

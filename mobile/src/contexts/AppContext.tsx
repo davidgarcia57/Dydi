@@ -23,10 +23,13 @@ interface Member {
   display_name: string;
 }
 
-interface Checkin {
+export interface Checkin {
   user_id: string;
+  display_name: string;
   habit_id: string;
   habit_name: string;
+  icon_key: string;
+  color: string;
   status: 'done' | 'pending' | 'missed';
   scheduled_time?: string;
   note?: string;

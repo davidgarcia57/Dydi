@@ -64,28 +64,37 @@ func setupRouter() *chi.Mux {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		// Despertar todos los servicios en segundo plano (asíncrono)
-		urls := []string{
-			os.Getenv("GROUPS_SERVICE_URL"),
-			os.Getenv("HABITS_SERVICE_URL"),
-			os.Getenv("REALTIME_SERVICE_URL"),
+		// Wake every backend service in the background. Each lives on a separate
+		// Render account, so this 12-min ping is what keeps them off the
+		// free-tier 15-min sleep. Failures are LOGGED (not silent) so a missing
+		// or wrong *_SERVICE_URL surfaces instead of quietly dropping a service.
+		services := map[string]string{
+			"groups":   os.Getenv("GROUPS_SERVICE_URL"),
+			"habits":   os.Getenv("HABITS_SERVICE_URL"),
+			"realtime": os.Getenv("REALTIME_SERVICE_URL"),
 		}
 
-		for _, u := range urls {
+		for name, u := range services {
 			if u == "" {
+				log.Printf("keep-alive: %s_SERVICE_URL is empty — that service will NOT be kept awake", name)
 				continue
 			}
-			go func(serviceUrl string) {
-				// Timeout de seguridad para la petición interna
+			go func(name, serviceURL string) {
+				// 45s is enough to cover a Render cold start of the target.
 				client := &http.Client{Timeout: 45 * time.Second}
-				resp, err := client.Get(serviceUrl + "/health")
-				if err == nil {
-					_ = resp.Body.Close()
+				resp, err := client.Get(serviceURL + "/health")
+				if err != nil {
+					log.Printf("keep-alive: failed to wake %s (%s): %v", name, serviceURL, err)
+					return
 				}
-			}(u)
+				if resp.StatusCode != http.StatusOK {
+					log.Printf("keep-alive: %s (%s) returned %d", name, serviceURL, resp.StatusCode)
+				}
+				_ = resp.Body.Close()
+			}(name, u)
 		}
 
-		// Respondemos "ok" de inmediato para evitar el timeout de 30s de Render
+		// Respond immediately so we never hit Render's 30s request timeout.
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
