@@ -40,6 +40,7 @@ type Proposal struct {
 	ExpiresAt    time.Time      `json:"expires_at"`
 	VoteCount    int            `json:"vote_count"`
 	MemberCount  int            `json:"member_count"`
+	UserVoted    bool           `json:"user_voted"`
 }
 
 type ProposalVote struct {

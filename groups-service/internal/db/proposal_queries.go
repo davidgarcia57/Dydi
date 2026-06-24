@@ -107,18 +107,19 @@ func GetProposal(ctx context.Context, pool *pgxpool.Pool, proposalID string) (*m
 	))
 }
 
-func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Proposal, error) {
+func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) ([]model.Proposal, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.habit_id, p.target_user_id,
 		        p.status, p.created_at, p.expires_at,
 		        COUNT(pv.voter_id) AS vote_count,
-		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count
+		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count,
+		        EXISTS(SELECT 1 FROM proposal_votes WHERE proposal_id = p.id AND voter_id = $2) AS user_voted
 		 FROM proposals p
 		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
 		 WHERE p.group_id = $1 AND p.status = 'open' AND p.expires_at > NOW()
 		 GROUP BY p.id
 		 ORDER BY p.created_at DESC`,
-		groupID,
+		groupID, userID,
 	)
 	if err != nil {
 		return nil, err
@@ -131,6 +132,7 @@ func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID string) 
 		if err := rows.Scan(
 			&p.ID, &p.GroupID, &p.ProposerID, &p.Type, &p.HabitID, &p.TargetUserID,
 			&p.Status, &p.CreatedAt, &p.ExpiresAt, &p.VoteCount, &p.MemberCount,
+			&p.UserVoted,
 		); err != nil {
 			return nil, err
 		}

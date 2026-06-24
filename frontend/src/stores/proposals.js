@@ -5,7 +5,7 @@ import { api } from '@/api'
 export const useProposalsStore = defineStore('proposals', () => {
   const catalog = ref([]) // Habit[] from /api/habits
   const proposals = ref([]) // Proposal[] for current group
-  const voted = ref(new Set()) // proposalIDs the user has already voted on (local)
+  const voted = ref(new Set()) // proposalIDs the user has already voted on
   const currentGroupID = ref(null) // remembered so vote() can re-fetch the list
 
   async function loadCatalog() {
@@ -14,7 +14,10 @@ export const useProposalsStore = defineStore('proposals', () => {
 
   async function loadProposals(groupID) {
     currentGroupID.value = groupID
-    proposals.value = await api(`/api/groups/${groupID}/proposals`)
+    const list = await api(`/api/groups/${groupID}/proposals`)
+    proposals.value = list
+    // Sync voted set from server — survives page reloads
+    voted.value = new Set(list.filter((p) => p.user_voted).map((p) => p.id))
   }
 
   async function propose(groupID, type, habitID = null) {
@@ -29,13 +32,21 @@ export const useProposalsStore = defineStore('proposals', () => {
   }
 
   async function vote(proposalID, approved) {
-    await api(`/api/proposals/${proposalID}/vote`, {
-      method: 'POST',
-      body: JSON.stringify({ approved }),
-    })
+    try {
+      await api(`/api/proposals/${proposalID}/vote`, {
+        method: 'POST',
+        body: JSON.stringify({ approved }),
+      })
+    } catch (e) {
+      // 409 = already voted, proposal closed, or expired — just re-sync
+      if (e?.status === 409) {
+        voted.value.add(proposalID)
+        if (currentGroupID.value) await loadProposals(currentGroupID.value)
+        return
+      }
+      throw e
+    }
     voted.value.add(proposalID)
-    const p = proposals.value.find((x) => x.id === proposalID)
-    if (p && approved) p.vote_count = (p.vote_count ?? 0) + 1
     // Re-fetch the authoritative list: a proposal that just reached quorum flips
     // to status != 'open' server-side and drops out, so it stops showing here.
     if (currentGroupID.value) await loadProposals(currentGroupID.value)
@@ -48,3 +59,4 @@ export const useProposalsStore = defineStore('proposals', () => {
 
   return { catalog, proposals, voted, loadCatalog, loadProposals, propose, vote, reset }
 })
+

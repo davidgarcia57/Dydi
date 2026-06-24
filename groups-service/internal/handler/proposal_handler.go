@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -106,7 +107,7 @@ func (h *ProposalHandler) ListProposals(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	proposals, err := db.ListOpenProposals(r.Context(), h.pool, groupID)
+	proposals, err := db.ListOpenProposals(r.Context(), h.pool, groupID, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -192,7 +193,9 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 	// Quorum: yes_votes * 2 >= member_count (≥50% of the frozen electorate).
 	if quorumReached(approvals, members) {
 		go h.executeProposal(proposal)
-		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalApproved, &userID)
+		if err := db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalApproved, &userID); err != nil {
+			slog.Error("failed to approve proposal after quorum", "proposal_id", proposalID, "err", err)
+		}
 	}
 
 	w.WriteHeader(http.StatusNoContent)
