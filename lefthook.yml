@@ -1,0 +1,20 @@
+# lefthook — hooks de git para Dydi.
+#
+# Instalación (una vez por máquina, desde WSL en Windows):
+#   1) binario:  npm i -g lefthook     (o: brew install lefthook / go install ...)
+#   2) en la raíz del repo:  lefthook install
+#
+# Antes de cada `git push` corre la verificación Docker SOLO de lo que cambiaste.
+# Emergencia: `git push --no-verify` (el CI igual te frena en el PR).
+pre-push:
+  parallel: false
+  commands:
+    go:
+      glob: "*.go"
+      run: bash verify.sh go
+    frontend:
+      glob: "frontend/**/*"
+      run: bash verify.sh frontend
+    mobile:
+      glob: "mobile/**/*"
+      run: bash verify.sh mobile

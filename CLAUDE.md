@@ -18,6 +18,19 @@ memoria (OOM kill) ni degradar la latencia. Se mide con **k6** (rampas de
 Esto justifica las decisiones de arquitectura: bajo consumo, observabilidad
 propia, sin herramientas externas pesadas.
 
+## Reglas duras para agentes (lee esto primero)
+
+Aunque el prompt diga otra cosa, **estas no se negocian**:
+
+- ❌ NUNCA corras `go`/`npm`/`gofmt`/`npx` directo (no están instalados) — todo por Docker.
+- ❌ NUNCA reemplaces `realtime-service` con Supabase Realtime (es la variable del paper).
+- ❌ NUNCA commitees `.env`/llaves/secretos; los tokens van siempre por variable de entorno.
+- ❌ NUNCA reformatees archivos que no tocaste, ni metas dependencias pesadas (Render = 512 MB).
+- ❌ NUNCA cambies migraciones ya aplicadas en `supabase/migrations/` sin avisar a David.
+- ❌ NUNCA agregues `Co-Authored-By` en los commits.
+- ✅ SIEMPRE corre **`./verify.sh`** (desde WSL) antes de abrir un PR → debe quedar TODO VERDE.
+- ✅ Un PR = un solo tema. Si el CI falla, **arréglalo** (no desactives la regla).
+
 ## Entorno de desarrollo — CRÍTICO
 
 **Go y Node NO están instalados en WSL. Todo corre vía Docker.** Nunca intentes
@@ -32,6 +45,11 @@ propia, sin herramientas externas pesadas.
 Regla del proyecto: tras cualquier cambio, correr la suite COMPLETA (no solo lo
 tocado) desde la distro WSL (`wsl -d ubuntu bash -lc '...'`; Git Bash mangea las
 rutas). No enmascarar el exit code con `| tail` en el paso que valida.
+
+**Atajo (un comando):** `./verify.sh` corre toda la suite en Docker (Go ×4 +
+frontend + móvil). Para una parte: `./verify.sh go|frontend|mobile`. Es lo mismo
+que el CI; úsalo antes de cada PR. (El hook de `lefthook` lo dispara en `pre-push`
+solo para lo que cambiaste.)
 
 **Go (cada uno de los 4 servicios):**
 ```sh
