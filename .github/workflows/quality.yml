@@ -74,3 +74,24 @@ jobs:
       - name: Prettier (formato)
         working-directory: frontend
         run: npm run format:check
+
+  mobile-quality:
+    name: Mobile typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install
+        working-directory: mobile
+        run: npm ci --legacy-peer-deps
+
+      # tsc --noEmit: chequeo de tipos del proyecto Expo (no compila, solo verifica).
+      - name: TypeScript (tsc --noEmit)
+        working-directory: mobile
+        run: npx tsc --noEmit
