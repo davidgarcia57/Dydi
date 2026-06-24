@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -56,4 +57,35 @@ func observability(next http.Handler) http.Handler {
 			"dur_ms", dur.Milliseconds(),
 		)
 	})
+}
+
+// registerPoolMetrics exposes pgx pool saturation at /metrics so the k6 ramps
+// can correlate DB connection pressure with latency and memory — the research
+// explicitly tracks "Conexiones de PostgreSQL". The GaugeFuncs read pool.Stat()
+// lazily on each scrape, so there is no background cost.
+func registerPoolMetrics(pool *pgxpool.Pool) {
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "db_pool_total_conns",
+		Help: "Connections currently open in the pgx pool (acquired + idle).",
+	}, func() float64 { return float64(pool.Stat().TotalConns()) })
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "db_pool_acquired_conns",
+		Help: "Connections currently checked out (in use).",
+	}, func() float64 { return float64(pool.Stat().AcquiredConns()) })
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "db_pool_idle_conns",
+		Help: "Idle connections available in the pool.",
+	}, func() float64 { return float64(pool.Stat().IdleConns()) })
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "db_pool_max_conns",
+		Help: "Configured maximum pool size (DB_MAX_CONNS).",
+	}, func() float64 { return float64(pool.Stat().MaxConns()) })
+
+	promauto.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "db_pool_empty_acquire_total",
+		Help: "Cumulative acquires that had to wait because the pool was exhausted.",
+	}, func() float64 { return float64(pool.Stat().EmptyAcquireCount()) })
 }

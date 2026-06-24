@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/dydi/habits-service/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -23,11 +25,12 @@ func main() {
 		log.Fatal("INTERNAL_TOKEN is required (shared gateway↔services secret)")
 	}
 
-	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
+	pool, err := newDBPool(context.Background())
 	if err != nil {
 		panic("db connect failed: " + err.Error())
 	}
 	defer pool.Close()
+	registerPoolMetrics(pool)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -75,10 +78,45 @@ func requireInternalToken(next http.Handler) http.Handler {
 	})
 }
 
+// requestTimeout bounds every HTTP request. Tuned for the load experiment: a
+// slow query under stress fails fast instead of accumulating goroutines.
+const requestTimeout = 15 * time.Second
+
+// newDBPool builds the pgx pool. Tuned for Supabase's Supavisor transaction
+// pooler (port 6543): MaxConns is bounded (and tunable per k6 ramp via
+// DB_MAX_CONNS) so the four services don't exhaust the shared connection budget,
+// and QueryExecModeExec avoids implicit prepared statements, which transaction
+// pooling can't keep alive across multiplexed backend connections.
+func newDBPool(ctx context.Context) (*pgxpool.Pool, error) {
+	cfg, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	cfg.MaxConns = envInt32("DB_MAX_CONNS", 10)
+	cfg.MinConns = 0
+	cfg.MaxConnIdleTime = time.Minute
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.HealthCheckPeriod = 30 * time.Second
+	return pgxpool.NewWithConfig(ctx, cfg)
+}
+
+func envInt32(key string, def int32) int32 {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return int32(n)
+		}
+	}
+	return def
+}
+
 func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(observability)
 	r.Use(middleware.Recoverer)
+	// Bound every request so a slow query under load fails fast (504) instead of
+	// piling up goroutines and pushing the 512 MB instance toward an OOM kill.
+	r.Use(middleware.Timeout(requestTimeout))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
