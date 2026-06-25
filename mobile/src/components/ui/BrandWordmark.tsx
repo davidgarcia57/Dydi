@@ -26,8 +26,8 @@ export default function BrandWordmark({ size = 'md', showText = true }: BrandWor
     <View className="flex-row items-center gap-2">
       <DydiLogo size={LOGO_SIZES[size]} />
       {showText && (
-        <Text className={`font-serif text-terracotta lowercase tracking-tight ${TEXT_SIZES[size]}`}>
-          dydi
+        <Text className={`font-serif text-terracotta tracking-tight ${TEXT_SIZES[size]}`}>
+          DYDI
         </Text>
       )}
     </View>

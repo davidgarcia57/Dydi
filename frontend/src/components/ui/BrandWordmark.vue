@@ -91,10 +91,10 @@ const LOGO_SIZES = {
 
     <span
       v-if="showText"
-      class="font-serif font-semibold lowercase tracking-tight text-terracotta transition-colors duration-300 group-hover:text-accent-deep"
+      class="font-serif font-semibold tracking-wider text-terracotta transition-colors duration-300 group-hover:text-accent-deep"
       :class="TEXT_SIZES[size]"
     >
-      dydi
+      DYDI
     </span>
   </div>
 </template>
