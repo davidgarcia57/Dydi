@@ -1,13 +1,12 @@
 name: Keep Services Awake
 
+# DESHABILITADO como keep-alive automático: el scheduler de GitHub Actions se
+# retrasa >15 min y Render free se duerme a los 15 min, así que daba falsa
+# cobertura. El keep-alive REAL es un cron externo (cron-job.org) que pinga
+# /health del gateway cada 12 min en ventana 8am-8pm, y el gateway despierta en
+# cascada a los 3 servicios. Este workflow queda SOLO para disparo manual.
 on:
-  schedule:
-    # Cada 12 min entre 14:00 UTC (8 AM UTC-6) y 02:59 UTC (8 PM UTC-6).
-    # OJO: el scheduler de GitHub Actions suele retrasarse >15 min, y Render free
-    # se duerme a los 15 min — para keep-alive fiable usar un pinger externo
-    # (cron-job.org / UptimeRobot) apuntando a /health del gateway.
-    - cron: '*/12 14-23,0-2 * * *'
-  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+  workflow_dispatch: # Ping manual desde la pestaña Actions si hace falta
 
 jobs:
   ping:

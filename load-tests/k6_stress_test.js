@@ -73,6 +73,7 @@ export const options = {
   thresholds: {
     // Free tier: umbrales generosos; ajústalos según tu hipótesis.
     http_req_duration: ['p(95)<800', 'p(99)<2000'],
+    http_req_failed:   ['rate<0.05'], // tasa de error REST (variable del paper)
     ws_connect_time:   ['p(95)<2000'],
     ws_dropped_rate:   ['rate<0.10'],
     checks:            ['rate>0.95'],

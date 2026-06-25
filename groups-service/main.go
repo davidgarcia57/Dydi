@@ -127,6 +127,21 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	// Readiness: /health proves the process is up; /ready also proves Postgres
+	// is reachable. Lets the experiment tell "service up" from "DB up" when
+	// something degrades under load.
+	r.Get("/ready", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		w.Header().Set("Content-Type", "application/json")
+		if err := pool.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"status":"unavailable"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"ready"}`))
+	})
+
 	r.Handle("/metrics", promhttp.Handler())
 
 	// Everything else is reachable only through the gateway (or sibling
