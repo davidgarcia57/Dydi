@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*' # Se ejecuta al subir un tag como v1.0.0
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,14 +36,24 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Verify Expo auth
+        run: eas whoami
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Build APK locally
-        # Compila localmente en la máquina de GitHub (sin servidores de Expo)
+        # Compila localmente en la maquina de GitHub (sin servidores de Expo)
         run: eas build -p android --profile preview --local --non-interactive --output app-release.apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
