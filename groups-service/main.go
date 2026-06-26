@@ -6,27 +6,27 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/dydi/groups-service/internal/handler"
+	sharedDb "github.com/dydi/shared/db"
+	sharedMiddleware "github.com/dydi/shared/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
 	// Reject requests that don't carry the shared gateway↔services secret
-	// (see requireInternalToken). Fail closed: a missing token would otherwise
+	// (see RequireInternalToken). Fail closed: a missing token would otherwise
 	// leave every endpoint trusting the X-User-ID header from any caller.
 	if os.Getenv("INTERNAL_TOKEN") == "" {
 		log.Fatal("INTERNAL_TOKEN is required (shared gateway↔services secret)")
 	}
 
-	pool, err := newDBPool(context.Background())
+	pool, err := sharedDb.NewDBPool(context.Background())
 	if err != nil {
 		panic("db connect failed: " + err.Error())
 	}
@@ -63,55 +63,7 @@ func main() {
 	log.Println("groups-service stopped")
 }
 
-// requireInternalToken rejects any request that does not carry the shared
-// gateway↔services secret. The gateway stamps it on every proxied request and
-// sibling services send it on /internal/* calls, so a backend endpoint can only
-// be reached through the gateway (which validated the JWT). When INTERNAL_TOKEN
-// is unset — only in tests; main refuses to boot without it — the check is a
-// no-op so unit tests keep exercising the handlers directly.
-func requireInternalToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if expected := os.Getenv("INTERNAL_TOKEN"); expected != "" && r.Header.Get("X-Internal-Token") != expected {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// requestTimeout bounds every HTTP request. Tuned for the load experiment: a
-// slow query under stress fails fast instead of accumulating goroutines.
 const requestTimeout = 15 * time.Second
-
-// newDBPool builds the pgx pool. Tuned for Supabase's Supavisor transaction
-// pooler (port 6543): MaxConns is bounded (and tunable per k6 ramp via
-// DB_MAX_CONNS) so the four services don't exhaust the shared connection budget,
-// and QueryExecModeExec avoids implicit prepared statements, which transaction
-// pooling can't keep alive across multiplexed backend connections.
-func newDBPool(ctx context.Context) (*pgxpool.Pool, error) {
-	cfg, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
-	if err != nil {
-		return nil, err
-	}
-	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
-	cfg.MaxConns = envInt32("DB_MAX_CONNS", 10)
-	cfg.MinConns = 0
-	cfg.MaxConnIdleTime = time.Minute
-	cfg.MaxConnLifetime = 30 * time.Minute
-	cfg.HealthCheckPeriod = 30 * time.Second
-	return pgxpool.NewWithConfig(ctx, cfg)
-}
-
-func envInt32(key string, def int32) int32 {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			return int32(n)
-		}
-	}
-	return def
-}
 
 func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
@@ -147,7 +99,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	// Everything else is reachable only through the gateway (or sibling
 	// services), proven by the shared internal token.
 	r.Group(func(r chi.Router) {
-		r.Use(requireInternalToken)
+		r.Use(sharedMiddleware.RequireInternalToken)
 
 		u := handler.NewUserHandler(pool)
 		r.Post("/users/sync", u.SyncUser)

@@ -28,19 +28,17 @@ verify_go() {
   for svc in $GO_SERVICES; do
     green "Go: $svc — gofmt · vet · build · test -race"
     docker run --rm \
-      -v "$ROOT/$svc":/app -v "$ROOT/.gocache":/gocache -v "$ROOT/.gomodcache":/gomodcache \
-      -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -w /app "$GO_IMAGE" \
-      sh -c 'test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test -race ./...' \
+      -v "$ROOT":/workspace -v "$ROOT/.gocache":/gocache -v "$ROOT/.gomodcache":/gomodcache \
+      -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -w "/workspace/$svc" "$GO_IMAGE" \
+      sh -c 'test -z "$(gofmt -l .)" && go vet ./... && go build -buildvcs=false ./... && go test -buildvcs=false -race ./...' \
       || fail "$svc (gofmt/vet/build/test)"
 
     green "Go: $svc — golangci-lint"
-    # La config se monta FUERA de /app (en /golangci.yml) a propósito: montarla
-    # dentro del dir del servicio deja un archivo .golangci.yml vacío (artefacto
-    # del bind-mount de Docker).
+    # La config se monta FUERA de /workspace/$svc (en /golangci.yml) a propósito
     docker run --rm \
-      -v "$ROOT/$svc":/app -v "$ROOT/.golangci.yml":/golangci.yml \
+      -v "$ROOT":/workspace -v "$ROOT/.golangci.yml":/golangci.yml \
       -v "$ROOT/.gocache":/gocache -v "$ROOT/.gomodcache":/gomodcache \
-      -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -w /app "$LINT_IMAGE" \
+      -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -w "/workspace/$svc" "$LINT_IMAGE" \
       golangci-lint run --config /golangci.yml \
       || fail "$svc (golangci-lint)"
   done

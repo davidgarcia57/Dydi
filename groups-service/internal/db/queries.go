@@ -24,14 +24,37 @@ func GenerateInviteCode() (string, error) {
 	return string(b), nil
 }
 
-func CreateGroup(ctx context.Context, pool *pgxpool.Pool, name, inviteCode, createdBy string) (*model.Group, error) {
+// CreateGroupWithOwner inserts a new group AND the owner membership in a single
+// transaction, so a crash between the two can never leave an ownerless group.
+func CreateGroupWithOwner(ctx context.Context, pool *pgxpool.Pool, name, inviteCode, createdBy string) (*model.Group, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
 	g := &model.Group{}
-	err := pool.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO groups (name, invite_code, created_by) VALUES ($1, $2, $3)
 		 RETURNING id, name, invite_code, created_at`,
 		name, inviteCode, createdBy,
 	).Scan(&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt)
-	return g, err
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO memberships (group_id, user_id, role, status)
+		 VALUES ($1, $2, 'owner', 'active')`,
+		g.ID, createdBy,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return g, nil
 }
 
 func GetGroupByID(ctx context.Context, pool *pgxpool.Pool, id string) (*model.Group, error) {

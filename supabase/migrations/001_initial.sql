@@ -432,6 +432,9 @@ CREATE INDEX IF NOT EXISTS idx_user_habits_group_habit
 -- checkins
 CREATE INDEX IF NOT EXISTS idx_checkins_date
     ON checkins (checked_on DESC);
+-- Covers the eligibility queries: COUNT(*) FROM checkins WHERE user_habit_id = X AND checked_on >= Y
+CREATE INDEX IF NOT EXISTS idx_checkins_user_habit_date
+    ON checkins (user_habit_id, checked_on);
 
 -- roulette
 CREATE INDEX IF NOT EXISTS idx_roulette_group_week

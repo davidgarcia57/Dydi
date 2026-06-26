@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -416,6 +417,7 @@ func (h *PenaltyHandler) notifyRealtime(groupID, eventType string, data any) {
 		"payload": data,
 	})
 	if err != nil {
+		log.Printf("notifyRealtime: marshal error: %v", err)
 		return
 	}
 
@@ -425,11 +427,20 @@ func (h *PenaltyHandler) notifyRealtime(groupID, eventType string, data any) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		h.realtimeURL+"/internal/broadcast", bytes.NewReader(payload))
 	if err != nil {
+		log.Printf("notifyRealtime: request build error: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
 		req.Header.Set("X-Internal-Token", tok)
 	}
-	http.DefaultClient.Do(req) //nolint:errcheck
+	resp, err := internalClient.Do(req)
+	if err != nil {
+		log.Printf("notifyRealtime: broadcast to %s failed: %v", h.realtimeURL, err)
+		return
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		log.Printf("notifyRealtime: broadcast returned %d", resp.StatusCode)
+	}
 }

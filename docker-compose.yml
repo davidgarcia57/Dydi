@@ -8,19 +8,28 @@ services:
       GROUPS_SERVICE_URL: http://groups-service:8082
       HABITS_SERVICE_URL: http://habits-service:8083
       REALTIME_SERVICE_URL: http://realtime-service:8084
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
       ALLOWED_ORIGINS: http://localhost:5173
       # Shared secret the gateway stamps on every proxied request so the backend
       # services can trust it came through here (JWT already validated).
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - groups-service
-      - habits-service
-      - realtime-service
+      groups-service:
+        condition: service_healthy
+      habits-service:
+        condition: service_healthy
+      realtime-service:
+        condition: service_healthy
 
   groups-service:
-    build: ./groups-service
+    build:
+      context: .
+      dockerfile: ./groups-service/Dockerfile
     ports:
       - "8082:8082"
     environment:
@@ -29,9 +38,16 @@ services:
       MAX_GROUP_SIZE: 8
       HABITS_SERVICE_URL: http://habits-service:8083
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   habits-service:
-    build: ./habits-service
+    build:
+      context: .
+      dockerfile: ./habits-service/Dockerfile
     ports:
       - "8083:8083"
     environment:
@@ -40,9 +56,16 @@ services:
       REALTIME_SERVICE_URL: http://realtime-service:8084
       PUNISHMENT_CATALOG_PATH: ./punishments.json
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8083/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   realtime-service:
-    build: ./realtime-service
+    build:
+      context: .
+      dockerfile: ./realtime-service/Dockerfile
     ports:
       - "8084:8084"
     environment:
@@ -51,11 +74,19 @@ services:
       PING_INTERVAL_SECONDS: 30
       WRITE_WAIT_SECONDS: 10
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      ALLOWED_ORIGINS: http://localhost:5173
       # Used to verify a user belongs to a group before accepting their WebSocket.
       GROUPS_SERVICE_URL: http://groups-service:8082
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8084/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     working_dir: /app
     volumes:
       - ./frontend:/app
@@ -67,7 +98,6 @@ services:
       VITE_WS_URL: ws://localhost:8080
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-    command: sh -c "npm install && npm run dev -- --host"
 
   mobile:
     image: node:20-alpine

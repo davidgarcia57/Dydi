@@ -11,8 +11,6 @@ export function useGroupSocket(groupID) {
   const habitsStore = useHabitsStore()
   const penaltiesStore = usePenaltiesStore()
 
-  const url = `${import.meta.env.VITE_WS_URL}/ws/${groupID}?token=${auth.token}`
-
   // Each handler receives the full Event object (type, groupID, userID, payload).
   // member_online/offline carry userID at the top level; data events carry info in .payload.
   const handlers = {
@@ -43,6 +41,10 @@ export function useGroupSocket(groupID) {
 
   function connect() {
     if (closed) return
+    // Build the URL on every connect so the token is always fresh.
+    // Supabase rotates access_tokens (~1h); a stale token would fail the
+    // handshake silently and burn through all reconnection attempts.
+    const url = `${import.meta.env.VITE_WS_URL}/ws/${groupID}?token=${auth.token}`
     ws = new WebSocket(url)
 
     ws.onopen = () => {
@@ -59,7 +61,9 @@ export function useGroupSocket(groupID) {
           if (latency >= 0) console.debug(`[dydi] ws ${msg.type} delivery ${latency}ms`)
         }
         handlers[msg.type]?.(msg)
-      } catch {}
+      } catch (e) {
+        console.warn('[dydi] ws message handler error:', e)
+      }
     }
 
     ws.onclose = () => {

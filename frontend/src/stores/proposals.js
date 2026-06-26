@@ -59,4 +59,3 @@ export const useProposalsStore = defineStore('proposals', () => {
 
   return { catalog, proposals, voted, loadCatalog, loadProposals, propose, vote, reset }
 })
-

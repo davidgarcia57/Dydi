@@ -247,6 +247,9 @@ func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitI
 		return
 	}
 
+	// Bounded client so a hung habits-service doesn't leak this goroutine.
+	client := &http.Client{Timeout: 30 * time.Second}
+
 	// The vote is already committed, so the apply must be best-effort durable:
 	// retry with exponential backoff to ride out a brief outage / cold start.
 	// (A proper outbox + reconcile job would make this fully exactly-once.)
@@ -273,12 +276,16 @@ func (h *ProposalHandler) callHabitsService(ctx context.Context, groupID, habitI
 			req.Header.Set("X-Internal-Token", tok)
 		}
 
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err == nil {
 			_ = resp.Body.Close()
 			if resp.StatusCode < 500 {
 				return // 2xx applied, or 4xx that won't succeed on retry
 			}
+			slog.Warn("callHabitsService: upstream returned 5xx", "status", resp.StatusCode, "attempt", attempt+1)
+		} else {
+			slog.Warn("callHabitsService: request failed", "err", err, "attempt", attempt+1)
 		}
 	}
+	slog.Error("callHabitsService: exhausted retries", "group_id", groupID, "habit_id", habitID, "action", action)
 }

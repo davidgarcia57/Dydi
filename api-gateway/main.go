@@ -59,6 +59,8 @@ func setupRouter() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(apimiddleware.CORS)
 
+	limiter := apimiddleware.NewRateLimiter(5.0, 20.0)
+
 	// /metrics is unauthenticated and lives at the root (not under /api) so a
 	// Prometheus scraper / Grafana Cloud agent can read P95 latency.
 	r.Handle("/metrics", promhttp.Handler())
@@ -101,6 +103,7 @@ func setupRouter() *chi.Mux {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(apimiddleware.Auth)
+		r.Use(apimiddleware.RateLimit(limiter))
 		r.Use(observability) // P95 latency per proxied route (kept off /ws to preserve hijacking)
 		r.Mount("/users", proxy.To(os.Getenv("GROUPS_SERVICE_URL")))
 		r.Mount("/groups", proxy.To(os.Getenv("GROUPS_SERVICE_URL")))
@@ -109,7 +112,7 @@ func setupRouter() *chi.Mux {
 		r.Mount("/penalties", proxy.To(os.Getenv("HABITS_SERVICE_URL")))
 	})
 
-	r.With(apimiddleware.Auth).Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
+	r.With(apimiddleware.Auth, apimiddleware.RateLimit(limiter)).Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
 
 	return r
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/dydi/realtime-service/internal/delivery/websocket"
 	"github.com/dydi/realtime-service/internal/usecase"
+	sharedMiddleware "github.com/dydi/shared/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -68,21 +69,6 @@ func port() string {
 	return p
 }
 
-// requireInternalToken rejects any request lacking the shared gateway↔services
-// secret. A no-op when INTERNAL_TOKEN is unset (tests only — main refuses to
-// boot without it).
-func requireInternalToken(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if expected := os.Getenv("INTERNAL_TOKEN"); expected != "" && r.Header.Get("X-Internal-Token") != expected {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -102,7 +88,7 @@ func setupRouter(h *usecase.HubUseCase) *chi.Mux {
 	// secret (the gateway stamps it on the proxied WS upgrade; habits/groups on
 	// broadcast). Reachable only through that trust boundary.
 	r.Group(func(r chi.Router) {
-		r.Use(requireInternalToken)
+		r.Use(sharedMiddleware.RequireInternalToken)
 		r.Get("/ws/{groupID}", websocket.WebSocketHandler(h))
 		r.Post("/internal/broadcast", websocket.BroadcastHandler(h))
 	})

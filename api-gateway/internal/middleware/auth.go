@@ -77,24 +77,20 @@ func Auth(next http.Handler) http.Handler {
 }
 
 func signingKey(token *jwt.Token) (interface{}, error) {
-	switch token.Method.Alg() {
-	case jwt.SigningMethodHS256.Alg():
-		secret := os.Getenv("SUPABASE_JWT_SECRET")
-		if secret == "" {
-			return nil, errors.New("missing SUPABASE_JWT_SECRET")
-		}
-		return []byte(secret), nil
-
-	case jwt.SigningMethodES256.Alg():
-		kid, _ := token.Header["kid"].(string)
-		if kid == "" {
-			return nil, errors.New("missing JWT kid")
-		}
-		return jwkPublicKey(kid)
-
-	default:
+	// Only ES256 (ECDSA P-256) is accepted — Supabase signs with it and
+	// jwt.Parse is called with WithValidMethods([]string{"ES256"}).
+	// Keeping the keyfunc equally strict closes the algorithm-confusion
+	// surface: an attacker who somehow bypasses the method whitelist still
+	// can't downgrade to HS256 with a known/guessable symmetric secret.
+	if token.Method.Alg() != jwt.SigningMethodES256.Alg() {
 		return nil, errors.New("unsupported JWT signing method")
 	}
+
+	kid, _ := token.Header["kid"].(string)
+	if kid == "" {
+		return nil, errors.New("missing JWT kid")
+	}
+	return jwkPublicKey(kid)
 }
 
 func jwkPublicKey(kid string) (*ecdsa.PublicKey, error) {

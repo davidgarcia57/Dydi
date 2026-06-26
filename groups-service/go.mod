@@ -3,10 +3,13 @@ module github.com/dydi/groups-service
 go 1.24
 
 require (
+	github.com/dydi/shared v0.0.0
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/prometheus/client_golang v1.23.2
 )
+
+replace github.com/dydi/shared => ../shared
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect

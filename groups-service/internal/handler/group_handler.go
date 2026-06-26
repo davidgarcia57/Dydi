@@ -50,15 +50,9 @@ func (h *GroupHandler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	group, err := db.CreateGroup(r.Context(), h.pool, body.Name, code, userID)
+	group, err := db.CreateGroupWithOwner(r.Context(), h.pool, body.Name, code, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "could not create group")
-		return
-	}
-
-	// The creator joins as the group owner.
-	if err := db.AddMember(r.Context(), h.pool, group.ID, userID, "owner"); err != nil {
-		writeError(w, http.StatusInternalServerError, "could not add creator to group")
 		return
 	}
 

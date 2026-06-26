@@ -3,9 +3,12 @@ module github.com/dydi/realtime-service
 go 1.24
 
 require (
+	github.com/dydi/shared v0.0.0
 	github.com/coder/websocket v1.8.15
 	github.com/go-chi/chi/v5 v5.3.0
 )
+
+replace github.com/dydi/shared => ../shared
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
