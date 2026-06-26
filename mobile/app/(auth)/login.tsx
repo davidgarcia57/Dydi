@@ -130,7 +130,7 @@ export default function LoginScreen() {
         >
           {/* Header/Logo */}
           <View className="items-center mt-6 mb-8">
-            <Text className="text-5xl font-serif text-terracotta tracking-tight">Dydi</Text>
+            <Text className="text-5xl font-serif text-terracotta tracking-tight">DYDI</Text>
             <Text className="text-xs font-bold text-ink-soft tracking-[0.15em] uppercase mt-2">
               Hábitos con consecuencias
             </Text>

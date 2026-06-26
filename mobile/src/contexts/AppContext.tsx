@@ -57,6 +57,7 @@ interface Proposal {
   vote_count: number;
   member_count: number;
   created_at: string;
+  user_voted: boolean;
 }
 
 interface Debt {
@@ -299,7 +300,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   async function loadProposals(groupID: string) {
     const data = await api(`/api/groups/${groupID}/proposals`);
-    setProposals(data || []);
+    const list = data || [];
+    setProposals(list);
+    // Sync voted set from server — survives app reloads
+    setVoted(new Set(list.filter((p: Proposal) => p.user_voted).map((p: Proposal) => p.id)));
   }
 
   async function propose(groupID: string, type: string, habitID: string | null = null): Promise<Proposal> {

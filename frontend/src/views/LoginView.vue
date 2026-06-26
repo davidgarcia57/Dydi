@@ -134,7 +134,7 @@ const fieldInput =
         </div>
       </div>
 
-      <p class="text-[0.7rem] text-ink-faint">© 2025 Dydi · UTD Integradora</p>
+      <p class="text-[0.7rem] text-ink-faint">© 2025 DYDI · UTD Integradora</p>
     </aside>
 
     <!-- ── Form side ────────────────────────────────────────────────────── -->

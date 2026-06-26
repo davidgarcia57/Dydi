@@ -58,14 +58,17 @@ Llena las variables de la raíz con las credenciales del proyecto Supabase cloud
 | `SUPABASE_JWKS_URL` | `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json` |
 | `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key |
-| `INTERNAL_TOKEN` | Genéralo con `openssl rand -hex 32`. Protege los endpoints internos servicio-a-servicio |
+| `INTERNAL_TOKEN` | Genéralo con `openssl rand -hex 32`. Protege las llamadas gateway-a-servicios y servicio-a-servicio |
 
 > **Sobre `INTERNAL_TOKEN`:** es un secreto compartido que autentica las llamadas
-> internas (`/internal/broadcast` y `/internal/proposals/apply`). Debe tener el
-> **mismo valor exacto** en `groups-service`, `habits-service` y `realtime-service`
-> — **no** en el `api-gateway`. Si los valores no coinciden, las llamadas internas
-> se rechazan con 401. En local con Docker Compose basta ponerlo una vez en el
-> `.env` de la raíz; en Render hay que configurarlo en las env vars de esos 3 servicios.
+> del `api-gateway` hacia los servicios y las llamadas internas entre servicios
+> (`/internal/broadcast`, `/internal/proposals/apply`, etc.). Debe tener el
+> **mismo valor exacto** en `api-gateway`, `groups-service`, `habits-service` y
+> `realtime-service`: el gateway lo estampa en cada request proxeada y los
+> servicios lo exigen antes de confiar en `X-User-ID`. Si los valores no
+> coinciden, las llamadas se rechazan con 401. En local con Docker Compose basta
+> ponerlo una vez en el `.env` de la raíz; en Render hay que configurarlo en las
+> env vars de los 4 servicios.
 
 > **Nota para despliegues o ejecución nativa:** Cada microservicio (`api-gateway`, `groups-service`, etc.) tiene su propio `.env.example`. Estos son necesarios si vas a correr los servicios con `go run main.go` o para configurar las variables en **Render**. Si solo vas a usar Docker Compose, el `.env` de la raíz es suficiente, ya que `docker-compose.yml` gestiona las rutas internas automáticamente.
 > 
@@ -145,8 +148,9 @@ El backend está diseñado para desplegarse en la capa gratuita de Render (un mi
    - *(Opcional)* Existe un workflow de respaldo en `.github/workflows/keep-awake.yml` que cumple esta misma función, pero consume minutos de GitHub Actions.
 
 > **Recuerda al desplegar:** configura `INTERNAL_TOKEN` con el **mismo valor** en
-> las env vars de `groups-service`, `habits-service` y `realtime-service` en Render.
-> Sin él (o con valores distintos) las llamadas internas se rechazan con 401.
+> las env vars de `api-gateway`, `groups-service`, `habits-service` y
+> `realtime-service` en Render. Sin él (o con valores distintos), el gateway no
+> arranca o los servicios rechazan las llamadas con 401.
 
 ---
 
