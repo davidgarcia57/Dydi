@@ -55,6 +55,25 @@ export const useAuthStore = defineStore('auth', () => {
     return current?.access_token ?? null
   }
 
+  async function updateProfile(displayName) {
+    if (!supabase) throw new Error('Faltan las variables de Supabase para actualizar tu perfil.')
+    const { data, error } = await supabase.auth.updateUser({
+      data: { display_name: displayName },
+    })
+    if (error) throw error
+    session.value = data.session ?? session.value
+    if (session.value?.user && data.user) session.value = { ...session.value, user: data.user }
+    return data.user
+  }
+
+  async function changePassword(password) {
+    if (!supabase) throw new Error('Faltan las variables de Supabase para cambiar tu contraseña.')
+    const { data, error } = await supabase.auth.updateUser({ password })
+    if (error) throw error
+    session.value = data.session ?? session.value
+    return data.user
+  }
+
   async function login(email, password) {
     if (!supabase) throw new Error('Faltan las variables de Supabase para iniciar sesión.')
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -95,6 +114,8 @@ export const useAuthStore = defineStore('auth', () => {
     init,
     refreshSession,
     getAccessToken,
+    updateProfile,
+    changePassword,
     login,
     register,
     logout,
