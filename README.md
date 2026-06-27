@@ -18,6 +18,7 @@ api-gateway/        -> Go 1.24 + chi v5               (Render - Cuenta 1)
 groups-service/     -> Go 1.24 + chi v5               (Render - Cuenta 2)
 habits-service/     -> Go 1.24 + chi v5               (Render - Cuenta 3)
 realtime-service/   -> Go 1.24 + WebSocket            (Render - Cuenta 4)
+mobile/             -> Expo + React Native            (APK via EAS)
 ```
 
 Auth y base de datos viven en Supabase cloud. El unico punto de entrada publico es `api-gateway`.
@@ -125,9 +126,26 @@ métricas del paper. Ej: `curl http://localhost:8080/metrics`.
 
 ---
 
-## Compilar y Verificar Cambios Go
+## Verificar Cambios (`verify.sh`)
 
-Go NO esta instalado localmente; corre dentro de Docker. Para verificar que un cambio compila:
+Go y Node no están instalados localmente — todo corre en Docker. `verify.sh`
+ejecuta la **suite completa, la misma que el CI**: por cada servicio Go corre
+`gofmt`, `go vet`, `go build`, `go test -race` y `golangci-lint`; en el frontend
+`lint`, `format:check`, `build` y `test`; en el móvil `tsc --noEmit`.
+
+```bash
+./verify.sh                    # todo (4 Go + frontend + móvil)
+./verify.sh go                 # solo los 4 servicios Go
+./verify.sh go:habits-service  # un solo servicio Go
+./verify.sh frontend           # solo el frontend
+./verify.sh mobile             # solo el typecheck del móvil
+```
+
+> En Windows, córrelo desde WSL: `wsl -d ubuntu bash -lc './verify.sh'`
+> (Git Bash mangea las rutas de los volúmenes Docker).
+
+Déjalo **todo verde** antes de abrir un PR. Para iterar levantando un solo
+servicio en vez de verificar:
 
 ```bash
 docker compose build <servicio>   # ej. docker compose build habits-service
@@ -137,9 +155,58 @@ docker compose logs -f <servicio>
 
 ---
 
+## Atajos De Desarrollo (`scripts/`)
+
+Para inspeccionar el sistema sin abrir el front (corre desde WSL; usan Docker/curl
+y leen `.env`, no instalan nada):
+
+| Atajo | Qué hace |
+|---|---|
+| `./scripts/q.sh "SELECT …"` | Query **read-only** a la BD de Supabase (la sesión va forzada a solo-lectura; un write falla). `-f archivo.sql` para correr un archivo. |
+| `./scripts/hit.sh GET habits /habits` | Golpea un servicio backend **directo** (estampa `X-Internal-Token` + `X-User-ID`, sin JWT). Para el gateway: `DYDI_JWT=<token> ./scripts/hit.sh GET gateway /groups`. |
+| `./scripts/logs.sh habits -f` | Tail de logs (slog JSON) de un servicio del compose. Alias: `gateway`/`groups`/`habits`/`realtime`. |
+
+---
+
 ## Despliegue en Producción (Render Free Tier)
 
-El backend está diseñado para desplegarse en la capa gratuita de Render (un microservicio por cuenta). Para lidiar con el límite de inactividad de 15 minutos de Render, el proyecto cuenta con dos mecanismos:
+El backend se despliega en la capa gratuita de Render: **un microservicio por
+cuenta**, los 4 apuntando a este mismo monorepo.
+
+### Configuración de build de cada servicio en Render
+
+Como el monorepo comparte el módulo `shared/`, los Dockerfiles de `groups`,
+`habits` y `realtime` se construyen desde la **raíz** del repo:
+
+| Campo (Render → Settings → Build) | Valor |
+|---|---|
+| **Root Directory** | *(vacío)* |
+| **Docker Build Context Directory** | `.` |
+| **Dockerfile Path** | `<servicio>/Dockerfile` — ej. `habits-service/Dockerfile` |
+
+> ⚠️ **El `Dockerfile Path` debe coincidir EXACTO con el nombre de la carpeta**
+> (`habits-service`, **con "s"**). Un typo como `habit-service/Dockerfile` no
+> existe → Render falla el build **en silencio** y el servicio sigue sirviendo la
+> última imagen que sí compiló (que puede ser de OTRO servicio). Síntoma clásico:
+> el servicio responde `/health` 200 pero **todas** sus rutas de app dan **404**.
+> Para saber qué binario corre realmente una URL:
+> `curl https://<url>/<ruta-conocida>` debe dar **401** (la ruta existe y pide el
+> token interno), no 404.
+
+El `api-gateway` es la excepción: su Dockerfile no usa `shared/`, así que su build
+context es `./api-gateway` con el `Dockerfile` por defecto. Además, en sus env
+vars necesita las **URLs públicas** de los otros 3 servicios:
+
+| Env var (api-gateway) | Apunta a |
+|---|---|
+| `GROUPS_SERVICE_URL` | URL pública de `groups-service` |
+| `HABITS_SERVICE_URL` | URL pública de `habits-service` |
+| `REALTIME_SERVICE_URL` | URL pública de `realtime-service` |
+| `INTERNAL_TOKEN` | mismo valor que en los 3 servicios |
+
+### Keep-Awake (límite de 15 min de inactividad)
+
+Para lidiar con el límite de inactividad de 15 minutos de Render, el proyecto cuenta con dos mecanismos:
 
 1. **Despertar en Paralelo:** El endpoint `/health` del `api-gateway` hace peticiones asíncronas a los demás microservicios (`groups`, `habits`, `realtime`) para despertarlos simultáneamente sin agotar el timeout de Render.
 2. **Cron Job (Keep-Awake):** 
@@ -157,10 +224,14 @@ El backend está diseñado para desplegarse en la capa gratuita de Render (un mi
 ## Flujo De Trabajo En Equipo
 
 1. Crea tu rama desde `main`: `git checkout -b feature/nombre-feature`
-2. Trabaja unicamente dentro del directorio del servicio que te corresponde
-3. Abre un Pull Request a `main`
-4. GitHub Actions corre build automaticamente
-5. Merge solo cuando el CI este en verde
+2. Trabaja en el directorio del servicio que te corresponde
+3. Corre `./verify.sh` localmente y déjalo **todo verde**
+4. Abre un Pull Request a `main`
+5. GitHub Actions corre la misma suite (`verify.sh`) en los jobs **Go**, **Frontend** y **Mobile**
+6. Merge solo cuando **CI Success** (el job-gate que agrupa a todos) esté en verde
+
+> El único check requerido en branch protection es **CI Success**; así renombrar
+> o agregar jobs no rompe los PRs.
 
 Cada servicio se despliega de forma independiente. No modifiques archivos fuera de tu directorio sin avisar al equipo.
 
@@ -176,7 +247,11 @@ dydi/
 |-- groups-service/           -> grupos, membresias y propuestas de habitos
 |-- habits-service/           -> habitos, check-ins, rachas y penitencias
 |-- realtime-service/         -> WebSocket hub para eventos en tiempo real
-|-- frontend/                 -> Vue 3 SPA
+|-- frontend/                 -> Vue 3 SPA (web)
+|-- mobile/                   -> app Expo / React Native (APK)
+|-- scripts/                  -> atajos de dev (q.sh / hit.sh / logs.sh)
+|-- verify.sh                 -> suite de verificacion en Docker (== CI)
+|-- .github/                  -> CI (verify.sh), build del APK, keep-awake
 `-- supabase/
     `-- migrations/           -> schema de la base de datos (fuente de verdad)
 ```

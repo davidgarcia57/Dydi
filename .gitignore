@@ -20,6 +20,7 @@ coverage/
 # Tooling / caché local (Docker monta estos al verificar Go)
 .gocache/
 .gomodcache/
+.npmcache/
 
 # Docker / logs
 *.log
