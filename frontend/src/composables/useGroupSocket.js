@@ -39,12 +39,17 @@ export function useGroupSocket(groupID) {
     reconnectTimer = setTimeout(connect, wait)
   }
 
-  function connect() {
+  async function connect() {
     if (closed) return
     // Build the URL on every connect so the token is always fresh.
     // Supabase rotates access_tokens (~1h); a stale token would fail the
     // handshake silently and burn through all reconnection attempts.
-    const url = `${import.meta.env.VITE_WS_URL}/ws/${groupID}?token=${auth.token}`
+    const accessToken = await auth.getAccessToken().catch(() => null)
+    if (!accessToken) {
+      scheduleReconnect()
+      return
+    }
+    const url = `${import.meta.env.VITE_WS_URL}/ws/${groupID}?token=${encodeURIComponent(accessToken)}`
     ws = new WebSocket(url)
 
     ws.onopen = () => {

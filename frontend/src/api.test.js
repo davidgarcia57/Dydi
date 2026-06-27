@@ -4,7 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 
 // Mockear el store de Pinia para no depender del navegador
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ token: 'fake-token' }),
+  useAuthStore: () => ({ token: 'fake-token', getAccessToken: async () => 'fake-token' }),
 }))
 
 // Mockear variables de entorno de Vite

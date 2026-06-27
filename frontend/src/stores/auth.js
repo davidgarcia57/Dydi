@@ -17,11 +17,42 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function init() {
     if (!supabase) return
-    const { data } = await supabase.auth.getSession()
-    session.value = data.session
+    try {
+      await refreshSession()
+    } catch {
+      session.value = null
+    }
     supabase.auth.onAuthStateChange((_event, s) => {
       session.value = s
     })
+  }
+
+  async function refreshSession() {
+    if (!supabase) return null
+    const { data, error } = await supabase.auth.getSession()
+    if (error) {
+      session.value = null
+      throw error
+    }
+
+    let current = data.session
+    const expiresAt = current?.expires_at ? current.expires_at * 1000 : null
+    if (expiresAt && expiresAt - Date.now() < 60_000) {
+      const refreshed = await supabase.auth.refreshSession()
+      if (refreshed.error) {
+        session.value = null
+        throw refreshed.error
+      }
+      current = refreshed.data.session
+    }
+
+    session.value = current
+    return current
+  }
+
+  async function getAccessToken() {
+    const current = await refreshSession()
+    return current?.access_token ?? null
   }
 
   async function login(email, password) {
@@ -56,5 +87,16 @@ export const useAuthStore = defineStore('auth', () => {
     session.value = null
   }
 
-  return { session, user, token, isLoggedIn, init, login, register, logout }
+  return {
+    session,
+    user,
+    token,
+    isLoggedIn,
+    init,
+    refreshSession,
+    getAccessToken,
+    login,
+    register,
+    logout,
+  }
 })

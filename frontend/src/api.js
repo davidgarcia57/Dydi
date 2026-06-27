@@ -15,12 +15,17 @@ export async function api(path, options = {}, retries = MAX_RETRIES) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT)
     try {
+      const accessToken = await auth.getAccessToken()
+      if (!accessToken) {
+        throw { status: 401, error: 'missing session' }
+      }
+
       const res = await fetch(`${BASE}${path}`, {
         ...options,
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${auth.token}`,
+          Authorization: `Bearer ${accessToken}`,
           ...options.headers,
         },
       })
