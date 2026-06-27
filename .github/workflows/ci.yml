@@ -1,61 +1,87 @@
 name: CI
 
+# CI == ./verify.sh: la misma suite en Docker que corre el equipo en local.
+# La logica vive en verify.sh y en el composite action .github/actions/verify-action.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+# Un push nuevo cancela el run anterior del mismo ref (ahorra minutos).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  go-services:
-    name: Build & Test — ${{ matrix.service }}
+  go:
+    name: Go - ${{ matrix.service }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         service: [api-gateway, groups-service, habits-service, realtime-service]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
+      - uses: ./.github/actions/verify-action
         with:
-          go-version: '1.24'
-          cache-dependency-path: ${{ matrix.service }}/go.sum
-
-      - name: Tidy
-        working-directory: ${{ matrix.service }}
-        run: go mod tidy
-
-      - name: Build
-        working-directory: ${{ matrix.service }}
-        run: go build ./...
-
-      # -race activa el detector de condiciones de carrera (relevante para el
-      # realtime-service y el spin de ruleta concurrente).
-      - name: Test
-        working-directory: ${{ matrix.service }}
-        run: go test -race ./...
+          target: go:${{ matrix.service }}
+          cache-path: |
+            .gocache
+            .gomodcache
+          cache-key: ${{ runner.os }}-go-${{ matrix.service }}-${{ hashFiles('**/go.sum', '.golangci.yml', 'verify.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ matrix.service }}-
+            ${{ runner.os }}-go-
 
   frontend:
-    name: Build & Test — frontend
+    name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/verify-action
         with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          target: frontend
+          cache-path: .npmcache
+          cache-key: ${{ runner.os }}-npm-frontend-${{ hashFiles('frontend/package-lock.json', 'verify.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-frontend-
+            ${{ runner.os }}-npm-
 
-      - name: Install
-        working-directory: frontend
-        run: npm ci
+  mobile:
+    name: Mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/verify-action
+        with:
+          target: mobile
+          cache-path: .npmcache
+          cache-key: ${{ runner.os }}-npm-mobile-${{ hashFiles('mobile/package-lock.json', 'verify.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-mobile-
+            ${{ runner.os }}-npm-
 
-      - name: Test
-        working-directory: frontend
-        run: npm run test
-
-      - name: Build
-        working-directory: frontend
-        run: npm run build
+  # Gate unico: depende de todos. Marca ESTE como el unico required status check
+  # en Settings -> Branches. Asi renombrar/agregar jobs NO rompe branch protection.
+  ci-success:
+    name: CI Success
+    needs: [go, frontend, mobile]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [ "${{ needs.go.result }}" != "success" ] \
+          || [ "${{ needs.frontend.result }}" != "success" ] \
+          || [ "${{ needs.mobile.result }}" != "success" ]; then
+            echo "::error::CI fallo  (go=${{ needs.go.result }} frontend=${{ needs.frontend.result }} mobile=${{ needs.mobile.result }})"
+            exit 1
+          fi
+          echo "Todo verde."

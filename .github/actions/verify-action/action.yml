@@ -1,0 +1,36 @@
+name: "Verify (Docker)"
+description: "Cachea el estado de build de Docker y corre ./verify.sh para un target. CI == local."
+
+inputs:
+  target:
+    description: "Target de verify.sh (ej. go:habits-service, frontend, mobile)"
+    required: true
+  cache-path:
+    description: "Rutas a cachear (una por linea)"
+    required: true
+  cache-key:
+    description: "Key exacta del cache (calcula hashFiles en el workflow, no aqui)"
+    required: true
+  restore-keys:
+    description: "Keys de fallback (una por linea)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    # El cache vive aqui para no repetir el bloque en cada job. verify.sh monta
+    # estos dirs en los contenedores (.gocache/.gomodcache para Go, .npmcache
+    # para npm), asi que persistirlos entre runs ahorra el primer build frio.
+    - name: Cache Docker build state
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.cache-path }}
+        key: ${{ inputs.cache-key }}
+        restore-keys: ${{ inputs.restore-keys }}
+
+    # Misma suite que corre el equipo en local: gofmt, vet, build, test -race y
+    # golangci-lint (Go) o lint/format/build/test (front) o tsc (movil).
+    - name: Run ./verify.sh ${{ inputs.target }}
+      shell: bash
+      run: bash ./verify.sh "${{ inputs.target }}"
