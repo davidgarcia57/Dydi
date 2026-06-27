@@ -388,6 +388,7 @@ func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) 
 
 	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
 	if err != nil {
+		log.Printf("GetActiveDebts: membership lookup failed: group=%s user=%s err=%v", groupID, userID, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -398,6 +399,7 @@ func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) 
 
 	debts, err := db.GetActiveDebts(r.Context(), h.pool, groupID)
 	if err != nil {
+		log.Printf("GetActiveDebts: debts query failed: group=%s err=%v", groupID, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}

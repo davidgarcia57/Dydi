@@ -158,6 +158,7 @@ func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) 
 	// Only members may read a group's check-ins (matches GetHistory / debts).
 	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
 	if err != nil {
+		log.Printf("GetTodayCheckins: membership lookup failed: group=%s user=%s err=%v", groupID, userID, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -168,6 +169,7 @@ func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) 
 
 	checkins, err := db.GetTodayCheckinsByGroup(r.Context(), h.pool, groupID, date)
 	if err != nil {
+		log.Printf("GetTodayCheckins: checkins query failed: group=%s date=%s err=%v", groupID, date, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -193,6 +195,7 @@ func (h *HabitHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
 	if err != nil {
+		log.Printf("GetHistory: membership lookup failed: group=%s user=%s err=%v", groupID, userID, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -203,6 +206,7 @@ func (h *HabitHandler) GetHistory(w http.ResponseWriter, r *http.Request) {
 
 	history, err := db.GetCheckinHistory(r.Context(), h.pool, groupID, from, to)
 	if err != nil {
+		log.Printf("GetHistory: history query failed: group=%s from=%s to=%s err=%v", groupID, from, to, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
@@ -224,6 +228,7 @@ func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 	if callerID != targetID {
 		shares, err := db.UsersShareGroup(r.Context(), h.pool, callerID, targetID)
 		if err != nil {
+			log.Printf("GetStreaks: shared-group lookup failed: caller=%s target=%s err=%v", callerID, targetID, err)
 			writeError(w, http.StatusInternalServerError, "db error")
 			return
 		}
@@ -235,6 +240,7 @@ func (h *HabitHandler) GetStreaks(w http.ResponseWriter, r *http.Request) {
 
 	streaks, err := db.GetStreaksForUser(r.Context(), h.pool, targetID)
 	if err != nil {
+		log.Printf("GetStreaks: streak query failed: target=%s err=%v", targetID, err)
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
