@@ -5,14 +5,12 @@ import { api } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
-import { usePenaltiesStore } from '@/stores/penalties'
 import PageContainer from '@/components/ui/PageContainer.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 const group = useGroupStore()
 const habits = useHabitsStore()
-const penalties = usePenaltiesStore()
 
 const loggingOut = ref(false)
 const leavingGroup = ref(false)
@@ -38,7 +36,6 @@ const displayName = computed(
 
 const email = computed(() => auth.user?.email ?? '')
 const myStreak = computed(() => habits.streaks[auth.user?.id] ?? 0)
-const myDebts = computed(() => penalties.debts.filter((d) => d.debtor_id === auth.user?.id))
 const inviteCode = computed(() =>
   group.group?.id && group.group?.invite_code ? group.group.id + ':' + group.group.invite_code : ''
 )
@@ -54,8 +51,6 @@ const initials = (name = '') =>
     .slice(0, 2)
     .toUpperCase()
 const avatarBg = (name = '') => COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length]
-const shortDate = (iso) =>
-  new Date(iso).toLocaleDateString('es-MX', { month: 'long', day: 'numeric' })
 
 function setFeedback(type, message) {
   feedback.value = { type, message }
@@ -162,7 +157,7 @@ async function load() {
   try {
     await group.autoLoad()
     if (group.group?.id && auth.user?.id) {
-      await Promise.all([habits.loadStreaks(auth.user.id), penalties.loadDebts(group.group.id)])
+      await habits.loadStreaks(auth.user.id)
     }
   } catch (_) {
     loadError.value = true
@@ -178,9 +173,7 @@ onMounted(load)
       <div>
         <p class="text-eyebrow mb-2">CUENTA</p>
         <h1 class="font-serif text-3xl font-semibold text-ink leading-tight">Tu espacio</h1>
-        <p class="text-sm text-ink-soft mt-1">
-          Perfil, seguridad, grupo y deudas sin esconder acciones importantes.
-        </p>
+        <p class="text-sm text-ink-soft mt-1">Perfil, seguridad y grupo en un solo lugar.</p>
       </div>
       <button
         :disabled="loggingOut"
@@ -392,49 +385,6 @@ onMounted(load)
 
           <div v-else class="rounded-card bg-surface p-4 text-sm text-ink-soft">
             Todavía no tienes un grupo activo.
-          </div>
-        </section>
-
-        <section class="rounded-card shadow-card bg-paper p-5">
-          <div class="mb-4">
-            <h2 class="font-serif text-xl font-semibold text-ink">Mis deudas</h2>
-            <p class="text-sm text-ink-soft mt-1">Penitencias activas de tu semana.</p>
-          </div>
-
-          <div
-            v-if="!myDebts.length"
-            class="rounded-card border border-sage/30 bg-sage/10 px-4 py-6 text-center"
-          >
-            <p class="text-sm font-semibold text-sage-deep">Sin deudas pendientes</p>
-            <p class="text-xs text-ink-soft mt-1">Estás al corriente.</p>
-          </div>
-
-          <div v-else class="space-y-3">
-            <div
-              v-for="debt in myDebts"
-              :key="debt.id"
-              class="rounded-card bg-surface p-4 border-l-4"
-              :class="debt.scope === 'collective' ? 'border-coral' : 'border-terracotta'"
-            >
-              <div class="flex items-center justify-between mb-2">
-                <span
-                  class="text-[10px] font-bold rounded-pill px-2 py-0.5"
-                  :class="
-                    debt.scope === 'collective'
-                      ? 'bg-coral/20 text-coral-deep'
-                      : 'bg-terracotta/20 text-terracotta'
-                  "
-                >
-                  {{ debt.scope === 'collective' ? 'COLECTIVA' : 'PERSONAL' }}
-                </span>
-                <span class="text-[10px] text-ink-faint">
-                  expira {{ shortDate(debt.expires_at) }}
-                </span>
-              </div>
-              <p class="text-sm font-semibold text-ink">
-                {{ debt.punishment_emoji ?? '' }} {{ debt.punishment_text }}
-              </p>
-            </div>
           </div>
         </section>
       </aside>
