@@ -145,6 +145,17 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service
 | Móvil dev (Web) | servicio `mobile` del compose (`:8081`) |
 | Pruebas de estrés | k6 con `load-tests/k6_stress_test.js` |
 
+### Atajos de dev (`scripts/`)
+
+Tres scripts para inspeccionar el sistema sin abrir el front (corre desde WSL).
+Leen `.env` y van por Docker/curl; no instalan nada.
+
+| Atajo | Qué hace |
+|---|---|
+| `./scripts/q.sh "SELECT …"` | Query **read-only** a Supabase (sesión forzada a `default_transaction_read_only=on`; un write falla por diseño). También `-f archivo.sql`. |
+| `./scripts/hit.sh GET habits /habits` | Golpea un servicio **directo** estampando `X-Internal-Token` + `X-User-ID` (sin JWT). Para el gateway: `DYDI_JWT=<token> ./scripts/hit.sh GET gateway /groups`. Simula otro usuario con `DYDI_USER=<uuid>`. |
+| `./scripts/logs.sh habits -f` | Tail de logs (slog JSON) de un servicio del compose. Alias: `gateway`/`groups`/`habits`/`realtime`. |
+
 ## Build del APK móvil (release)
 
 El APK se compila en **GitHub Actions** (`.github/workflows/build-apk.yml`), no
@@ -190,6 +201,126 @@ wordmark de texto (`BrandWordmark`).
 
 **Commits:** historial limpio, **sin** línea `Co-Authored-By` (proyecto
 académico). Commitear/pushear solo cuando se pida.
+
+## Idiomas canónicos (Go) — copia estos patrones
+
+El estilo/formato lo exige el linter (`.golangci.yml` es la fuente de verdad:
+`gofmt`, `errcheck`, `staticcheck`…); no lo repitas aquí. Esta sección es para
+los **patrones de arquitectura** que el linter no ve. Regla práctica: antes de
+inventar estructura, copia el archivo hermano más cercano.
+
+**Handler** (`internal/handler`): valida el header → decodifica → delega en `db`
+→ responde con los helpers. Nunca metas SQL en el handler.
+
+```go
+func (h *UserHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID") // lo estampa el gateway tras validar el JWT
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+	var body struct {
+		DisplayName string  `json:"display_name"`
+		AvatarURL   *string `json:"avatar_url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "display_name is required")
+		return
+	}
+	user, err := db.UpsertUser(r.Context(), h.pool, userID, body.DisplayName, body.AvatarURL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "could not sync user")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
+}
+```
+
+**Helpers de respuesta** (uno por servicio, en `internal/handler/response.go`).
+Todo error sale como JSON `{"error":"..."}`; nada de `http.Error` con texto
+plano salvo en middleware.
+
+```go
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+```
+
+**Acceso a datos** (`internal/db`): funciones libres que reciben `ctx` y el
+`*pgxpool.Pool` (o `DBTX` si corren dentro de una tx). Una query = una función.
+
+```go
+func UpsertUser(ctx context.Context, pool *pgxpool.Pool, id, name string, avatar *string) (*model.User, error) {
+	u := &model.User{}
+	err := pool.QueryRow(ctx,
+		`INSERT INTO users (id, display_name, avatar_url) VALUES ($1,$2,$3)
+		 ON CONFLICT (id) DO UPDATE SET display_name = EXCLUDED.display_name
+		 RETURNING id, display_name, avatar_url, created_at`,
+		id, name, avatar,
+	).Scan(&u.ID, &u.DisplayName, &u.AvatarURL, &u.CreatedAt)
+	return u, err
+}
+```
+
+**Transacción** (pgx): `Begin` → `defer Rollback` (con `//nolint:errcheck`; tras
+un commit el rollback es no-op) → `Commit`. Las funciones de `db` toman `DBTX`
+para correr igual con pool o con tx.
+
+```go
+tx, err := pool.Begin(ctx)
+if err != nil {
+	return err
+}
+defer tx.Rollback(ctx) //nolint:errcheck
+// ... tx.Exec(ctx, ...) ...
+return tx.Commit(ctx)
+```
+
+**Ruleta — anti doble-spin** (la pieza de concurrencia del core loop): dentro de
+la tx, bloquea la fila con `SELECT ... FOR UPDATE` y re-checa `spun_at`. Un
+segundo spin concurrente se bloquea hasta que el primero commitea y ve `spun_at`
+ya puesto → no se crea doble deuda.
+
+```go
+locked, err := db.GetRouletteEntryForUpdate(ctx, tx, entryID) // SELECT ... FOR UPDATE
+if err != nil {
+	return err
+}
+if locked.SpunAt != nil {
+	// ya giró: responde idempotente, NO crees otra deuda
+}
+// ... crear deuda ...
+_ = db.MarkEntrySpun(ctx, tx, entryID)
+_ = tx.Commit(ctx)
+```
+
+**Context keys con tipo propio** (nunca `string`): evita colisiones entre
+paquetes (staticcheck SA1029).
+
+```go
+type contextKey string
+const UserIDKey contextKey = "userID"
+```
+
+**Go 1.24 — usa lo moderno** (los 4 servicios van anclados a 1.24): `any`, no
+`interface{}` · envuelve errores con `%w` y compáralos con `errors.Is` (no `==`)
+· `min`/`max`/`slices`/`maps` en vez de loops a mano · en tests usa `t.Context()`
+y tablas (`for _, tc := range cases`) · corre **siempre** con `-race`.
+
+**Correr una sola cosa en Docker** (mientras iteras; no dispares `verify.sh`
+entero cada vez). Desde WSL, en la raíz:
+
+```sh
+# un solo servicio / un solo test:
+docker run --rm -v "$(pwd)/habits-service":/app -v "$(pwd)/.gocache":/gocache \
+  -e GOCACHE=/gocache -w /app golang:1.24 \
+  sh -c "go test -race -run TestSpin ./..."
+```
+
+Antes del PR igual corre `./verify.sh` completo — el CI corre todo, no solo lo
+que tocaste.
 
 ## Lógica de negocio (core loop)
 
