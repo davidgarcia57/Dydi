@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 import { useGroupStore } from '@/stores/group'
@@ -111,28 +111,6 @@ const onlineAvatars = computed(() =>
   group.members.filter((m) => group.onlineMembers.has(m.user_id)).slice(0, 5)
 )
 
-// ── Squad list (one card per member, their habits nested) ─────────────────────
-// todayCheckins has one row per (member, assigned habit); habits are group-wide,
-// so a member with N habits would otherwise render as N "duplicate" cards.
-const squadMembers = computed(() => {
-  const byUser = new Map()
-  for (const c of habits.todayCheckins) {
-    if (c.user_id === auth.user?.id) continue
-    const entry = byUser.get(c.user_id)
-    if (entry) entry.habits.push(c)
-    else byUser.set(c.user_id, { user_id: c.user_id, display_name: c.display_name, habits: [c] })
-  }
-  return Array.from(byUser.values())
-})
-
-// A member's overall status: done only if every habit is done, else pending,
-// unless all are missed.
-function memberStatus(member) {
-  if (member.habits.every((h) => h.status === 'done')) return 'done'
-  if (member.habits.some((h) => h.status === 'pending')) return 'pending'
-  return 'missed'
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -157,38 +135,6 @@ function avatarBg(name = '') {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
 }
 
-// L M M J V S D — Monday-first
-const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-
-// Monday-first index (0..6) → the YYYY-MM-DD date for that day of the current week.
-function dateForIdx(i, todayIdx) {
-  const d = new Date()
-  d.setDate(d.getDate() - (todayIdx - i))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function dayStrip(checkin) {
-  const dow = new Date().getDay()
-  // Convert Sun=0…Sat=6 → Mon=0…Sun=6
-  const todayIdx = dow === 0 ? 6 : dow - 1
-  const dates = checkin ? habits.weekHistory[`${checkin.user_id}:${checkin.habit_id}`] : null
-
-  return DAY_LABELS.map((label, i) => {
-    if (i > todayIdx) return { label, status: 'future' }
-    if (i === todayIdx) return { label, status: checkin?.status ?? 'pending' }
-    // Past day: real history — a check-in that date means done, otherwise missed.
-    const done = dates ? dates.has(dateForIdx(i, todayIdx)) : false
-    return { label, status: done ? 'done' : 'missed' }
-  })
-}
-
-const STATUS_STYLE = {
-  done: { strip: 'bg-sage', icon: '✓', iconColor: 'text-sage-deep' },
-  pending: { strip: 'bg-amber', icon: '', iconColor: '' },
-  missed: { strip: 'bg-coral', icon: '✗', iconColor: 'text-coral-deep' },
-  future: { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
-}
-
 const STATUS_PILL = {
   done: { cls: 'bg-sage-soft text-sage-deep', label: '✓ hoy' },
   pending: { cls: 'bg-amber-soft text-amber-deep', label: 'pendiente' },
@@ -208,7 +154,6 @@ async function load() {
       return
     }
     await habits.loadToday(group.group.id)
-    await habits.loadWeekHistory(group.group.id)
     const memberIDs = [...new Set(habits.todayCheckins.map((c) => c.user_id))]
     await Promise.all(memberIDs.map((id) => habits.loadStreaks(id)))
     const { disconnect } = useGroupSocket(group.group.id)
@@ -416,115 +361,60 @@ onUnmounted(() => {
             Se te fue el día
           </div>
         </div>
-
-        <!-- ── Summary numbers ────────────────────────────────────────────────── -->
-        <div
-          class="rounded-card bg-paper shadow-flat grid grid-cols-3 text-center mb-6 overflow-hidden"
-        >
-          <div class="py-4">
-            <p class="font-serif text-3xl font-semibold text-sage-deep">{{ stats.done }}</p>
-            <p class="text-xs text-ink-soft mt-0.5">cumplieron</p>
-          </div>
-          <div class="border-x border-hairline py-4">
-            <p class="font-serif text-3xl font-semibold text-amber-deep">{{ stats.pending }}</p>
-            <p class="text-xs text-ink-soft mt-0.5">pendientes</p>
-          </div>
-          <div class="py-4">
-            <p class="font-serif text-3xl font-semibold text-coral-deep">{{ stats.missed }}</p>
-            <p class="text-xs text-ink-soft mt-0.5">fallaron</p>
-          </div>
-        </div>
-
-        <!-- ── Squad hoy ──────────────────────────────────────────────────────── -->
       </div>
 
+      <!-- ── El squad (resumen) ─────────────────────────────────────────────── -->
       <div class="lg:col-span-1">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-semibold text-sm text-ink">El squad hoy</h3>
-          <span class="text-xs text-ink-soft">Lun → Dom</span>
-        </div>
+        <div class="rounded-card bg-paper shadow-flat p-5">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-semibold text-sm text-ink">El squad</h3>
+            <RouterLink
+              to="/squad"
+              class="text-xs font-semibold text-sage-deep hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50 rounded"
+            >
+              Ver squad →
+            </RouterLink>
+          </div>
 
-        <!-- Empty / loading state -->
-        <div
-          v-if="squadMembers.length === 0"
-          class="rounded-card bg-surface py-10 text-center text-sm text-ink-soft"
-        >
-          <span v-if="!loaded">Cargando el squad…</span>
-          <span v-else>Propón un hábito en la pestaña Votar para ver al squad aquí.</span>
-        </div>
-
-        <div v-else class="space-y-3">
-          <div
-            v-for="member in squadMembers"
-            :key="member.user_id"
-            class="rounded-card bg-surface p-4"
-          >
-            <!-- Member header (once per member) -->
-            <div class="flex items-center gap-3 mb-3">
+          <!-- Online now -->
+          <div v-if="onlineAvatars.length" class="flex items-center gap-2 mb-5">
+            <div class="flex -space-x-2">
               <div
-                class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
-                :class="avatarBg(member.display_name ?? '')"
+                v-for="m in onlineAvatars"
+                :key="m.user_id"
+                class="w-7 h-7 rounded-full border-2 border-paper flex items-center justify-center text-paper text-[10px] font-bold"
+                :class="avatarBg(m.display_name)"
               >
-                {{ initials(member.display_name ?? '') }}
-              </div>
-              <div class="flex-1 min-w-0 flex justify-between items-center">
-                <div class="flex items-baseline gap-1.5">
-                  <span class="font-semibold text-sm text-ink truncate">{{
-                    member.display_name
-                  }}</span>
-                  <span class="text-xs text-terracotta font-medium">
-                    ★ {{ habits.streaks[member.user_id] ?? 0 }}
-                  </span>
-                </div>
-                <span
-                  v-if="STATUS_PILL[memberStatus(member)]"
-                  class="rounded-pill px-2 py-0.5 text-[10px] font-semibold ml-2 flex-shrink-0"
-                  :class="STATUS_PILL[memberStatus(member)].cls"
-                >
-                  {{ STATUS_PILL[memberStatus(member)].label }}
-                </span>
+                {{ initials(m.display_name) }}
               </div>
             </div>
+            <span class="text-xs text-ink-soft">{{ onlineAvatars.length }} en línea</span>
+          </div>
+          <p v-else class="text-xs text-ink-faint mb-5">Nadie conectado ahora mismo.</p>
 
-            <!-- One block per assigned habit -->
-            <div class="space-y-3">
-              <div v-for="row in member.habits" :key="row.habit_id">
-                <div class="flex justify-between items-center mb-1">
-                  <p class="text-xs text-ink-soft truncate">{{ row.habit_name }}</p>
-                  <span
-                    v-if="STATUS_PILL[row.status]"
-                    class="rounded-pill px-2 py-0.5 text-[10px] font-semibold ml-2 flex-shrink-0"
-                    :class="STATUS_PILL[row.status].cls"
-                  >
-                    {{ STATUS_PILL[row.status].label }}
-                  </span>
-                </div>
-
-                <!-- 7-day strip -->
-                <div class="flex gap-1">
-                  <div
-                    v-for="(day, i) in dayStrip(row)"
-                    :key="i"
-                    class="flex flex-col items-center gap-0.5"
-                  >
-                    <div
-                      class="w-7 h-7 rounded-md flex items-center justify-center"
-                      :class="STATUS_STYLE[day.status].strip"
-                    >
-                      <span
-                        v-if="STATUS_STYLE[day.status].icon"
-                        class="text-xs font-bold"
-                        :class="STATUS_STYLE[day.status].iconColor"
-                      >
-                        {{ STATUS_STYLE[day.status].icon }}
-                      </span>
-                    </div>
-                    <span class="text-[9px] text-ink-faint font-medium">{{ day.label }}</span>
-                  </div>
-                </div>
-              </div>
+          <!-- Squad pulse -->
+          <div class="grid grid-cols-3 text-center rounded-card bg-surface overflow-hidden">
+            <div class="py-3">
+              <p class="font-serif text-2xl font-semibold text-sage-deep leading-none">
+                {{ stats.done }}
+              </p>
+              <p class="text-[10px] text-ink-soft mt-1">al corriente</p>
+            </div>
+            <div class="border-x border-hairline py-3">
+              <p class="font-serif text-2xl font-semibold text-amber-deep leading-none">
+                {{ stats.pending }}
+              </p>
+              <p class="text-[10px] text-ink-soft mt-1">pendientes</p>
+            </div>
+            <div class="py-3">
+              <p class="font-serif text-2xl font-semibold text-coral-deep leading-none">
+                {{ stats.missed }}
+              </p>
+              <p class="text-[10px] text-ink-soft mt-1">fallaron</p>
             </div>
           </div>
+
+          <p v-if="!loaded" class="text-xs text-ink-faint mt-4 text-center">Cargando el squad…</p>
         </div>
       </div>
     </div>
