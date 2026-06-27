@@ -100,7 +100,7 @@ services:
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
 
   mobile:
-    image: node:20-alpine
+    image: node:22-alpine
     working_dir: /app
     volumes:
       - ./mobile:/app

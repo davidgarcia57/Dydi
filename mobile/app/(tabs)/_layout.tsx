@@ -1,9 +1,9 @@
 import { Tabs, Redirect } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, type ColorValue } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-function TabIcon({ d, color, size = 24 }: { d: string; color: string; size?: number }) {
+function TabIcon({ d, color, size = 24 }: { d: string; color: ColorValue; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path

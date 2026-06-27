@@ -145,6 +145,29 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service
 | Móvil dev (Web) | servicio `mobile` del compose (`:8081`) |
 | Pruebas de estrés | k6 con `load-tests/k6_stress_test.js` |
 
+## Build del APK móvil (release)
+
+El APK se compila en **GitHub Actions** (`.github/workflows/build-apk.yml`), no
+en local. Flujo:
+
+- **Disparador:** push de un tag `v*` (ej. `git tag v1.0.5 && git push origin v1.0.5`).
+  El workflow compila con `eas build -p android --profile preview --local` (EAS
+  corre en la máquina de Actions, sin servidores de Expo) y publica el `.apk` en
+  la Release del tag.
+- **Dependencias:** el móvil va anclado a **Expo SDK 56**. Si tocas versiones,
+  valida con `npx expo-doctor` (debe dar 21/21) — mezclar paquetes de otro SDK
+  rompe el build (causa de los fallos v1.0.0–v1.0.4).
+- **Firma:** keystore propio (alias `dydi`) en **GitHub Secrets**:
+  `ANDROID_KEYSTORE_BASE64` (el `.jks` en base64) y `ANDROID_KEYSTORE_PASSWORD`.
+  El CI reconstruye `release.jks` + `credentials.json` desde esos secrets;
+  `eas.json` (profile `preview`) usa `"credentialsSource": "local"`. También se
+  requiere el secret `EXPO_TOKEN`.
+- ⚠️ El keystore es la identidad de firma: **guárdalo en el gestor del equipo**.
+  Si se pierde, no se pueden publicar updates sobre la app ya instalada.
+  `credentials.json` y `*.jks` están gitignored — nunca commitearlos.
+- **Sacar release:** sube `version` en `mobile/app.json` → commit → tag `vX.Y.Z`
+  → push del tag.
+
 ## Convenciones
 
 **Go:** chi cerca de stdlib · chequear errores (`errcheck` lo exige; usa

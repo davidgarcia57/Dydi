@@ -19,7 +19,7 @@ mkdir -p .gocache .gomodcache
 GO_SERVICES="api-gateway groups-service habits-service realtime-service"
 GO_IMAGE="golang:1.24"
 LINT_IMAGE="golangci/golangci-lint:v2.12-alpine"
-NODE_IMAGE="node:20-alpine"
+NODE_IMAGE="node:22-alpine"
 
 green() { printf '\n\033[1;32m== %s ==\033[0m\n' "$1"; }
 fail()  { printf '\n\033[1;31m✗ FALLÓ: %s\033[0m\n' "$1"; exit 1; }
