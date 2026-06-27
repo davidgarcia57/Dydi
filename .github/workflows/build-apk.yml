@@ -22,7 +22,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: './mobile/package-lock.json'
 
@@ -48,6 +48,23 @@ jobs:
         run: eas whoami
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Setup release keystore
+        # Reconstruye el keystore y credentials.json desde los secrets (firma release reproducible, sin Expo servers)
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.jks
+          cat > credentials.json <<EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "release.jks",
+                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+                "keyAlias": "dydi",
+                "keyPassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}"
+              }
+            }
+          }
+          EOF
 
       - name: Build APK locally
         # Compila localmente en la maquina de GitHub (sin servidores de Expo)
