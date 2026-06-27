@@ -44,6 +44,10 @@ function habitName(habitID) {
   return store.catalog.find((h) => h.id === habitID)?.name ?? habitID
 }
 
+function memberName(userID) {
+  return group.members.find((m) => m.user_id === userID)?.display_name ?? 'Miembro'
+}
+
 function voteProgress(p) {
   if (!p.member_count) return 0
   return Math.round((p.vote_count / p.member_count) * 100)
@@ -59,7 +63,7 @@ async function propose(habit, type = 'add_habit') {
   proposing.value = habit.id
   proposeErr.value = ''
   try {
-    await store.propose(group.group.id, type, habit.id)
+    await store.propose(group.group.id, type, { habitID: habit.id })
     proposeOk.value = habit.id
     tab.value = 'propuestas'
   } catch (e) {
@@ -284,6 +288,9 @@ onMounted(async () => {
                 </span>
                 <p v-if="p.habit_id" class="font-semibold text-sm text-ink mt-0.5">
                   {{ habitName(p.habit_id) }}
+                </p>
+                <p v-else-if="p.target_user_id" class="font-semibold text-sm text-ink mt-0.5">
+                  {{ memberName(p.target_user_id) }}
                 </p>
               </div>
               <span

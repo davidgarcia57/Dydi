@@ -20,9 +20,10 @@ export const useProposalsStore = defineStore('proposals', () => {
     voted.value = new Set(list.filter((p) => p.user_voted).map((p) => p.id))
   }
 
-  async function propose(groupID, type, habitID = null) {
+  async function propose(groupID, type, { habitID = null, targetUserID = null } = {}) {
     const body = { type }
     if (habitID) body.habit_id = habitID
+    if (targetUserID) body.target_user_id = targetUserID
     const p = await api(`/api/groups/${groupID}/proposals`, {
       method: 'POST',
       body: JSON.stringify(body),
