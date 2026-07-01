@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import PageContainer from '@/components/ui/PageContainer.vue'
+import GroupSwitcher from '@/components/GroupSwitcher.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -332,6 +333,10 @@ onMounted(load)
               <p class="text-eyebrow mb-1">SQUAD ACTUAL</p>
               <p class="font-semibold text-ink">{{ group.group.name }}</p>
               <p class="font-mono text-xs text-ink-soft break-all mt-2">{{ inviteCode }}</p>
+              <div class="mt-3">
+                <p class="text-eyebrow mb-1.5">CAMBIAR DE SQUAD</p>
+                <GroupSwitcher />
+              </div>
             </div>
 
             <div class="grid grid-cols-2 gap-2">

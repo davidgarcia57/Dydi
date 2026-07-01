@@ -58,14 +58,17 @@ function dayStrip(checkin) {
   const dow = new Date().getDay()
   // Convert Sun=0…Sat=6 → Mon=0…Sun=6
   const todayIdx = dow === 0 ? 6 : dow - 1
-  const dates = checkin ? habits.weekHistory[`${checkin.user_id}:${checkin.habit_id}`] : null
+  const key = checkin ? `${checkin.user_id}:${checkin.habit_id}` : ''
+  const dates = checkin ? habits.weekHistory[key] : null
 
   return DAY_LABELS.map((label, i) => {
     if (i > todayIdx) return { label, status: 'future' }
-    if (i === todayIdx) return { label, status: checkin?.status ?? 'pending' }
+    if (i === todayIdx)
+      return { label, status: checkin?.status ?? 'pending', note: checkin?.note }
     // Past day: real history — a check-in that date means done, otherwise missed.
-    const done = dates ? dates.has(dateForIdx(i, todayIdx)) : false
-    return { label, status: done ? 'done' : 'missed' }
+    const date = dateForIdx(i, todayIdx)
+    const done = dates ? dates.has(date) : false
+    return { label, status: done ? 'done' : 'missed', note: habits.weekNotes[`${key}:${date}`] }
   })
 }
 
@@ -219,6 +222,7 @@ onUnmounted(() => socketDisconnect?.())
                 v-for="(day, i) in dayStrip(h)"
                 :key="i"
                 class="flex flex-col items-center gap-0.5"
+                :title="day.note ? `“${day.note}”` : undefined"
               >
                 <div
                   class="w-7 h-7 rounded-md flex items-center justify-center"

@@ -12,8 +12,9 @@ const group = useGroupStore()
 const habits = useHabitsStore()
 const store = useProposalsStore()
 
-const tab = ref('catalogo') // 'catalogo' | 'propuestas'
+const tab = ref('catalogo') // 'catalogo' | 'propuestas' | 'historial'
 const loading = ref(true)
+const historyLoaded = ref(false)
 const proposing = ref(null) // habitID currently being proposed
 const proposeErr = ref('')
 const proposeOk = ref(null) // habitID of last successful proposal
@@ -38,6 +39,24 @@ const PROPOSAL_LABEL = {
   remove_habit: 'Quitar hábito',
   kick_member: 'Expulsar miembro',
   delete_group: 'Disolver grupo',
+}
+
+const STATUS_BADGE = {
+  approved: { label: 'APROBADA', class: 'bg-sage-soft text-sage-deep' },
+  rejected: { label: 'RECHAZADA', class: 'bg-coral-soft text-coral-deep' },
+  expired: { label: 'EXPIRÓ', class: 'bg-cream-2 text-ink-faint' },
+}
+
+// Carga perezosa: el historial solo se pide al abrir su tab.
+async function openHistory() {
+  tab.value = 'historial'
+  if (historyLoaded.value || !group.group?.id) return
+  try {
+    await store.loadResolved(group.group.id)
+    historyLoaded.value = true
+  } catch (_) {
+    // el empty-state del tab cubre el fallo; reintenta al volver a entrar
+  }
 }
 
 function habitName(habitID) {
@@ -146,6 +165,13 @@ onMounted(async () => {
           >
             {{ store.proposals.length }}
           </span>
+        </button>
+        <button
+          class="flex-1 rounded-[10px] py-2 text-sm font-semibold transition-all"
+          :class="tab === 'historial' ? 'bg-paper shadow-flat text-ink' : 'text-ink-soft'"
+          @click="openHistory"
+        >
+          Historial
         </button>
       </div>
 
@@ -342,6 +368,50 @@ onMounted(async () => {
             >
               ✓ Ya votaste
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Historial de decisiones ──────────────────────────────────────── -->
+      <div v-else-if="tab === 'historial'">
+        <div
+          v-if="!store.resolved.length"
+          class="rounded-card bg-paper shadow-flat py-14 text-center"
+        >
+          <p class="text-eyebrow text-ink-faint mb-2">SIN HISTORIAL</p>
+          <p class="font-serif text-xl font-semibold text-ink mb-1">Nada decidido aún</p>
+          <p class="text-sm text-ink-soft mt-1">Las propuestas cerradas aparecerán aquí.</p>
+        </div>
+
+        <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+          <div
+            v-for="p in store.resolved"
+            :key="p.id"
+            class="rounded-card bg-surface border border-hairline p-5"
+          >
+            <div class="flex items-start justify-between gap-2 mb-3">
+              <div>
+                <span class="text-eyebrow text-ink-soft">
+                  {{ PROPOSAL_LABEL[p.type] ?? p.type }}
+                </span>
+                <p v-if="p.habit_id" class="font-semibold text-sm text-ink mt-0.5">
+                  {{ habitName(p.habit_id) }}
+                </p>
+                <p v-else-if="p.target_user_id" class="font-semibold text-sm text-ink mt-0.5">
+                  {{ memberName(p.target_user_id) }}
+                </p>
+              </div>
+              <span
+                class="rounded-full text-[10px] font-bold px-2.5 py-1 flex-shrink-0"
+                :class="STATUS_BADGE[p.status]?.class ?? 'bg-cream-2 text-ink-faint'"
+              >
+                {{ STATUS_BADGE[p.status]?.label ?? p.status }}
+              </span>
+            </div>
+            <p class="text-xs text-ink-soft">
+              {{ p.vote_count }} de {{ p.member_count }} votos a favor ·
+              {{ new Date(p.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }) }}
+            </p>
           </div>
         </div>
       </div>

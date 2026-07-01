@@ -4,6 +4,7 @@ import { RouterView, RouterLink, useRoute } from 'vue-router'
 import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
+import GroupSwitcher from '@/components/GroupSwitcher.vue'
 
 const route = useRoute()
 const isPublic = computed(
@@ -81,6 +82,10 @@ const mainClass = computed(() => (isPublic.value ? '' : 'pb-20 lg:pb-0 lg:pl-64'
         <RouterLink to="/today" aria-label="Dydi — inicio">
           <BrandWordmark size="md" />
         </RouterLink>
+      </div>
+
+      <div class="px-4 pb-4">
+        <GroupSwitcher />
       </div>
 
       <nav class="flex-1 px-3 space-y-1">

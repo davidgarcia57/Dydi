@@ -2,6 +2,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { api } from '@/api'
 
+// Recuerda el último grupo activo para no rebotar siempre al primero de la lista.
+const ACTIVE_GROUP_KEY = 'dydi.activeGroup'
+
 export const useGroupStore = defineStore('group', () => {
   const group = ref(null) // { id, name, invite_code, created_at }
   const members = ref([]) // [{ user_id, display_name, ... }]
@@ -18,15 +21,25 @@ export const useGroupStore = defineStore('group', () => {
     const { members: mems, ...groupData } = data
     group.value = groupData
     members.value = mems ?? []
+    localStorage.setItem(ACTIVE_GROUP_KEY, groupData.id)
   }
 
-  // Loads the first group automatically. Returns true if a group was found.
+  // Loads the remembered (or first) group automatically. Returns true if found.
   async function autoLoad() {
     if (group.value?.id) return true
     await loadMyGroups()
     if (!myGroups.value?.length) return false
-    await loadGroup(myGroups.value[0].id)
+    const remembered = localStorage.getItem(ACTIVE_GROUP_KEY)
+    const target = myGroups.value.find((g) => g.id === remembered) ?? myGroups.value[0]
+    await loadGroup(target.id)
     return true
+  }
+
+  // Cambia de grupo activo. El caller recarga la página para que todas las
+  // vistas y el WebSocket se reconecten contra el grupo nuevo.
+  async function switchGroup(id) {
+    if (id === group.value?.id) return
+    await loadGroup(id)
   }
 
   async function createGroup(name) {
@@ -36,7 +49,8 @@ export const useGroupStore = defineStore('group', () => {
     })
     group.value = data
     members.value = []
-    myGroups.value = [data]
+    myGroups.value = [...myGroups.value.filter((g) => g.id !== data.id), data]
+    localStorage.setItem(ACTIVE_GROUP_KEY, data.id)
     return data
   }
 
@@ -46,7 +60,9 @@ export const useGroupStore = defineStore('group', () => {
       body: JSON.stringify({ invite_code: inviteCode }),
     })
     await loadGroup(groupID)
-    myGroups.value = [group.value]
+    if (!myGroups.value.find((g) => g.id === groupID)) {
+      myGroups.value = [...myGroups.value, group.value]
+    }
   }
 
   async function leaveGroup() {
@@ -60,6 +76,7 @@ export const useGroupStore = defineStore('group', () => {
     members.value = []
     myGroups.value = []
     onlineMembers.value = new Set()
+    localStorage.removeItem(ACTIVE_GROUP_KEY)
   }
 
   // Reassign the ref (not mutate in place) so Vue's reactivity fires and the
@@ -84,6 +101,7 @@ export const useGroupStore = defineStore('group', () => {
     loadMyGroups,
     loadGroup,
     autoLoad,
+    switchGroup,
     createGroup,
     joinGroup,
     leaveGroup,

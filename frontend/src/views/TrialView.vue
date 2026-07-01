@@ -25,6 +25,26 @@ const sugText = ref('')
 const sugEmoji = ref('')
 const confirmComplete = ref(null) // debt.id pendiente de confirmación
 const completing = ref(null)
+const showHistory = ref(false)
+const historyLoaded = ref(false)
+
+const DEBT_STATUS_BADGE = {
+  completed: { label: 'CUMPLIDA', class: 'bg-sage-soft text-sage-deep' },
+  forgiven: { label: 'PERDONADA', class: 'bg-amber-soft text-amber-deep' },
+  expired: { label: 'EXPIRÓ', class: 'bg-cream-2 text-ink-faint' },
+}
+
+// Carga perezosa del historial de deudas al abrirlo por primera vez.
+async function toggleHistory() {
+  showHistory.value = !showHistory.value
+  if (!showHistory.value || historyLoaded.value || !group.group?.id) return
+  try {
+    await penalties.loadResolvedDebts(group.group.id)
+    historyLoaded.value = true
+  } catch (_) {
+    // el empty-state cubre el fallo; reintenta al volver a abrir
+  }
+}
 
 // ── Wheel animation ───────────────────────────────────────────────────────────
 const spinDeg = ref(0)
@@ -450,6 +470,57 @@ onMounted(async () => {
             </button>
           </div>
         </div>
+      </section>
+
+      <!-- Historial de deudas -->
+      <section class="mt-7">
+        <button
+          class="flex items-center gap-2 text-eyebrow text-ink-soft mb-3 active:opacity-70"
+          @click="toggleHistory"
+        >
+          HISTORIAL
+          <span class="text-ink-faint">{{ showHistory ? '▲' : '▼' }}</span>
+        </button>
+
+        <template v-if="showHistory">
+          <div
+            v-if="!penalties.resolvedDebts.length"
+            class="rounded-card bg-surface border border-hairline px-4 py-5 text-center text-sm text-ink-soft"
+          >
+            Sin deudas pasadas. El historial del squad aparecerá aquí.
+          </div>
+
+          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              v-for="debt in penalties.resolvedDebts"
+              :key="debt.id"
+              class="rounded-card bg-surface border border-hairline p-4"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <div
+                    class="w-7 h-7 rounded-full flex items-center justify-center text-paper text-[10px] font-bold opacity-70"
+                    :class="avatarBg(memberName(debt.debtor_id))"
+                  >
+                    {{ initials(memberName(debt.debtor_id)) }}
+                  </div>
+                  <span class="text-xs font-semibold text-ink">{{
+                    memberName(debt.debtor_id)
+                  }}</span>
+                </div>
+                <span
+                  class="rounded-full text-[10px] font-bold px-2.5 py-1"
+                  :class="DEBT_STATUS_BADGE[debt.status]?.class ?? 'bg-cream-2 text-ink-faint'"
+                >
+                  {{ DEBT_STATUS_BADGE[debt.status]?.label ?? debt.status }}
+                </span>
+              </div>
+              <p class="text-sm text-ink-soft">
+                {{ debt.punishment_emoji ?? '' }} {{ debt.punishment_text }}
+              </p>
+            </div>
+          </div>
+        </template>
       </section>
     </template>
 

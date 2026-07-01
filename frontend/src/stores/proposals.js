@@ -5,6 +5,7 @@ import { api } from '@/api'
 export const useProposalsStore = defineStore('proposals', () => {
   const catalog = ref([]) // Habit[] from /api/habits
   const proposals = ref([]) // Proposal[] for current group
+  const resolved = ref([]) // Proposal[] cerradas (aprobadas/rechazadas/expiradas)
   const voted = ref(new Set()) // proposalIDs the user has already voted on
   const currentGroupID = ref(null) // remembered so vote() can re-fetch the list
 
@@ -18,6 +19,11 @@ export const useProposalsStore = defineStore('proposals', () => {
     proposals.value = list
     // Sync voted set from server — survives page reloads
     voted.value = new Set(list.filter((p) => p.user_voted).map((p) => p.id))
+  }
+
+  // Historial de decisiones del squad (últimas 30 cerradas).
+  async function loadResolved(groupID) {
+    resolved.value = await api(`/api/groups/${groupID}/proposals?status=resolved`)
   }
 
   async function propose(groupID, type, { habitID = null, targetUserID = null } = {}) {
@@ -55,8 +61,20 @@ export const useProposalsStore = defineStore('proposals', () => {
 
   function reset() {
     proposals.value = []
+    resolved.value = []
     voted.value = new Set()
   }
 
-  return { catalog, proposals, voted, loadCatalog, loadProposals, propose, vote, reset }
+  return {
+    catalog,
+    proposals,
+    resolved,
+    voted,
+    loadCatalog,
+    loadProposals,
+    loadResolved,
+    propose,
+    vote,
+    reset,
+  }
 })

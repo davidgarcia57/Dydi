@@ -14,6 +14,7 @@ export const useHabitsStore = defineStore('habits', () => {
   const todayCheckins = ref([])
   const streaks = ref({}) // { [userID]: maxCurrentStreak }
   const weekHistory = ref({}) // { "userID:habitID": Set<"YYYY-MM-DD"> }
+  const weekNotes = ref({}) // { "userID:habitID:YYYY-MM-DD": note }
 
   async function loadToday(groupID) {
     todayCheckins.value = await api(`/api/habits/checkins/${groupID}/today?date=${localDateISO()}`)
@@ -26,11 +27,14 @@ export const useHabitsStore = defineStore('habits', () => {
     from.setDate(to.getDate() - 6)
     const list = await api(`/api/habits/history/${groupID}?from=${dateISO(from)}&to=${dateISO(to)}`)
     const map = {}
+    const notes = {}
     for (const e of list ?? []) {
       const key = `${e.user_id}:${e.habit_id}`
       ;(map[key] ??= new Set()).add(e.checked_on)
+      if (e.note) notes[`${key}:${e.checked_on}`] = e.note
     }
     weekHistory.value = map
+    weekNotes.value = notes
   }
 
   async function loadStreaks(userID) {
@@ -66,6 +70,7 @@ export const useHabitsStore = defineStore('habits', () => {
     todayCheckins,
     streaks,
     weekHistory,
+    weekNotes,
     loadToday,
     loadWeekHistory,
     loadStreaks,

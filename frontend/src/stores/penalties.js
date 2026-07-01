@@ -4,6 +4,7 @@ import { api } from '@/api'
 
 export const usePenaltiesStore = defineStore('penalties', () => {
   const debts = ref([])
+  const resolvedDebts = ref([])
   const eligible = ref([])
   const openEntries = ref([])
   const activeEntry = ref(null)
@@ -11,6 +12,11 @@ export const usePenaltiesStore = defineStore('penalties', () => {
 
   async function loadDebts(groupID) {
     debts.value = await api(`/api/penalties/${groupID}/debts`)
+  }
+
+  // Historial: cumplidas, perdonadas y expiradas (las activas viven en debts).
+  async function loadResolvedDebts(groupID) {
+    resolvedDebts.value = await api(`/api/penalties/${groupID}/debts?status=resolved`)
   }
 
   async function loadEligible(groupID) {
@@ -106,11 +112,13 @@ export const usePenaltiesStore = defineStore('penalties', () => {
 
   return {
     debts,
+    resolvedDebts,
     eligible,
     openEntries,
     activeEntry,
     suggestions,
     loadDebts,
+    loadResolvedDebts,
     loadEligible,
     loadOpenEntries,
     enterEntry,
