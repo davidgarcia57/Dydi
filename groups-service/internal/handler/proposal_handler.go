@@ -107,7 +107,14 @@ func (h *ProposalHandler) ListProposals(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	proposals, err := db.ListOpenProposals(r.Context(), h.pool, groupID, userID)
+	// ?status=resolved lista las cerradas (aprobadas/rechazadas/expiradas)
+	// para que el grupo pueda auditar decisiones pasadas.
+	var proposals []model.Proposal
+	if r.URL.Query().Get("status") == "resolved" {
+		proposals, err = db.ListResolvedProposals(r.Context(), h.pool, groupID, userID)
+	} else {
+		proposals, err = db.ListOpenProposals(r.Context(), h.pool, groupID, userID)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return

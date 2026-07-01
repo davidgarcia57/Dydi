@@ -141,6 +141,46 @@ func ListOpenProposals(ctx context.Context, pool *pgxpool.Pool, groupID, userID 
 	return proposals, rows.Err()
 }
 
+// ListResolvedProposals returns the group's closed proposals (newest first,
+// capped at 30) so the squad can audit past decisions. An 'open' proposal past
+// its deadline is presented as 'expired' even if no vote closed it lazily yet.
+func ListResolvedProposals(ctx context.Context, pool *pgxpool.Pool, groupID, userID string) ([]model.Proposal, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT p.id, p.group_id, p.proposer_id, p.type, p.habit_id, p.target_user_id,
+		        CASE WHEN p.status = 'open' AND p.expires_at <= NOW() THEN 'expired'
+		             ELSE p.status END AS status,
+		        p.created_at, p.expires_at,
+		        COUNT(pv.voter_id) AS vote_count,
+		        (SELECT COUNT(*) FROM proposal_eligible_voters WHERE proposal_id = p.id) AS member_count,
+		        EXISTS(SELECT 1 FROM proposal_votes WHERE proposal_id = p.id AND voter_id = $2) AS user_voted
+		 FROM proposals p
+		 LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id AND pv.approved = TRUE
+		 WHERE p.group_id = $1 AND (p.status <> 'open' OR p.expires_at <= NOW())
+		 GROUP BY p.id
+		 ORDER BY p.created_at DESC
+		 LIMIT 30`,
+		groupID, userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	proposals := make([]model.Proposal, 0)
+	for rows.Next() {
+		var p model.Proposal
+		if err := rows.Scan(
+			&p.ID, &p.GroupID, &p.ProposerID, &p.Type, &p.HabitID, &p.TargetUserID,
+			&p.Status, &p.CreatedAt, &p.ExpiresAt, &p.VoteCount, &p.MemberCount,
+			&p.UserVoted,
+		); err != nil {
+			return nil, err
+		}
+		proposals = append(proposals, p)
+	}
+	return proposals, rows.Err()
+}
+
 func HasVoted(ctx context.Context, pool *pgxpool.Pool, proposalID, voterID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dydi/habits-service/internal/db"
+	"github.com/dydi/habits-service/internal/model"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -479,7 +480,13 @@ func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	debts, err := db.GetActiveDebts(r.Context(), h.pool, groupID)
+	// ?status=resolved lista el historial (cumplidas/perdonadas/expiradas).
+	var debts []model.Debt
+	if r.URL.Query().Get("status") == "resolved" {
+		debts, err = db.GetResolvedDebts(r.Context(), h.pool, groupID)
+	} else {
+		debts, err = db.GetActiveDebts(r.Context(), h.pool, groupID)
+	}
 	if err != nil {
 		log.Printf("GetActiveDebts: debts query failed: group=%s err=%v", groupID, err)
 		writeError(w, http.StatusInternalServerError, "db error")

@@ -38,9 +38,10 @@ type TodayCheckin struct {
 // CheckinHistoryDay is one (member, habit, day-they-checked-in) tuple, used to
 // build the real 7-day strips in the squad view instead of faking past days.
 type CheckinHistoryDay struct {
-	UserID    string `json:"user_id"`
-	HabitID   string `json:"habit_id"`
-	CheckedOn string `json:"checked_on"` // YYYY-MM-DD
+	UserID    string  `json:"user_id"`
+	HabitID   string  `json:"habit_id"`
+	CheckedOn string  `json:"checked_on"` // YYYY-MM-DD
+	Note      *string `json:"note,omitempty"`
 }
 
 type Streak struct {

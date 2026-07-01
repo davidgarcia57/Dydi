@@ -173,7 +173,7 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID, d
 // within [from, to]. The frontend groups these into per-member 7-day strips.
 func GetCheckinHistory(ctx context.Context, pool *pgxpool.Pool, groupID, from, to string) ([]model.CheckinHistoryDay, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT uh.user_id, uh.habit_id, to_char(c.checked_on, 'YYYY-MM-DD')
+		`SELECT uh.user_id, uh.habit_id, to_char(c.checked_on, 'YYYY-MM-DD'), c.note
 		 FROM memberships gm
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
 		 JOIN checkins   c  ON c.user_habit_id = uh.id
@@ -189,7 +189,7 @@ func GetCheckinHistory(ctx context.Context, pool *pgxpool.Pool, groupID, from, t
 	history := make([]model.CheckinHistoryDay, 0)
 	for rows.Next() {
 		var d model.CheckinHistoryDay
-		if err := rows.Scan(&d.UserID, &d.HabitID, &d.CheckedOn); err != nil {
+		if err := rows.Scan(&d.UserID, &d.HabitID, &d.CheckedOn, &d.Note); err != nil {
 			return nil, err
 		}
 		history = append(history, d)
@@ -608,6 +608,35 @@ func GetActiveDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]
 	}
 	defer rows.Close()
 
+	return collectDebts(rows)
+}
+
+// GetResolvedDebts returns the group's settled debts (newest first, capped at
+// 50): completed, forgiven, and expired ones. A 'pending' debt past expires_at
+// is presented as 'expired' — nothing flips the column, it just lapses.
+func GetResolvedDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Debt, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT id, roulette_entry_id, group_id, debtor_id, week_start,
+		        winning_suggestion_id, punishment_text, punishment_emoji,
+		        scope,
+		        CASE WHEN status = 'pending' AND expires_at <= CURRENT_DATE THEN 'expired'
+		             ELSE status END AS status,
+		        completed_at, expires_at, created_at
+		 FROM debts
+		 WHERE group_id = $1 AND (status <> 'pending' OR expires_at <= CURRENT_DATE)
+		 ORDER BY created_at DESC
+		 LIMIT 50`,
+		groupID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return collectDebts(rows)
+}
+
+func collectDebts(rows pgx.Rows) ([]model.Debt, error) {
 	debts := make([]model.Debt, 0)
 	for rows.Next() {
 		var d model.Debt
