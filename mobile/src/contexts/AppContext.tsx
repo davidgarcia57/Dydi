@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { api } from '../../lib/api';
+import { setupCheckinReminder, notifyRouletteOpened } from '../notifications';
 
 // Recuerda el último grupo activo para no rebotar siempre al primero.
 const ACTIVE_GROUP_KEY = 'dydi.activeGroup';
@@ -509,6 +510,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (group?.id) {
       loadAllData();
+      setupCheckinReminder();
     }
   }, [group?.id]);
 
@@ -600,6 +602,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               setOpenEntries(prev =>
                 prev.find(e => e.id === entryPayload.id) ? prev : [entryPayload, ...prev]
               );
+              const isMe = entryPayload.debtor_id === session?.user?.id;
+              const name =
+                members.find(m => m.user_id === entryPayload.debtor_id)?.display_name ??
+                'un miembro';
+              notifyRouletteOpened(name, isMe);
               break;
             }
             case 'roulette_result':
