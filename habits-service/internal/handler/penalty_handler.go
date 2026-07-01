@@ -20,6 +20,11 @@ import (
 
 const suggestionWindowHours = 48
 
+// spinGraceHours is how long after the suggestion deadline the spin stays
+// exclusive to the debtor. Past the grace period any group member may spin,
+// so a roulette can never die unspun because the debtor ghosted the app.
+const spinGraceHours = 24
+
 // Punishment is one entry of the penance catalog (punishments.json). It is the
 // fallback source when a roulette spins with zero member suggestions, so the
 // offender still gets a penance and nobody who complied is ever punished.
@@ -150,17 +155,51 @@ func (h *PenaltyHandler) OpenRoulette(w http.ResponseWriter, r *http.Request) {
 	weekStart := db.CurrentWeekStart().Format("2006-01-02")
 	deadline := time.Now().UTC().Add(suggestionWindowHours * time.Hour)
 
-	entry, err := db.GetOrCreateRouletteEntry(r.Context(), h.pool, body.GroupID, body.DebtorID, weekStart, deadline)
+	entry, created, err := db.GetOrCreateRouletteEntry(r.Context(), h.pool, body.GroupID, body.DebtorID, weekStart, deadline)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
 	}
 
+	if created {
+		go h.notifyRealtime(body.GroupID, "roulette_start", entry)
+	}
 	writeJSON(w, http.StatusCreated, entry)
 }
 
+// GetOpenRoulettes lists the group's not-yet-spun roulette entries so every
+// member can find an open roulette and jump in to suggest (or spin, after the
+// grace period) — without this, only whoever opened it could ever reach it.
+func (h *PenaltyHandler) GetOpenRoulettes(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	groupID := chi.URLParam(r, "groupID")
+
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, groupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
+	entries, err := db.GetOpenRouletteEntries(r.Context(), h.pool, groupID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	writeJSON(w, http.StatusOK, entries)
+}
+
 // SubmitSuggestion adds a punishment suggestion to a roulette entry.
-// Any group member (including the debtor) can submit one suggestion per entry.
+// Any group member except the debtor can submit one suggestion per entry —
+// the squad writes the penance, never the offender themselves.
 func (h *PenaltyHandler) SubmitSuggestion(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
@@ -177,6 +216,11 @@ func (h *PenaltyHandler) SubmitSuggestion(w http.ResponseWriter, r *http.Request
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	if entry.DebtorID == userID {
+		writeError(w, http.StatusForbidden, "the debtor cannot suggest their own punishment")
 		return
 	}
 
@@ -261,10 +305,12 @@ func (h *PenaltyHandler) GetSuggestions(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, suggestions)
 }
 
-// Spin picks a random suggestion and assigns the debt. Only the debtor themselves
-// can spin, and only after the suggestion deadline has passed.
-// If no suggestions were submitted, a penance is drawn from the shared catalog
-// (crypto/rand) and assigned to the offender alone.
+// Spin picks a random suggestion and assigns the debt, after the suggestion
+// deadline has passed. The debtor spins their own roulette; once the grace
+// period (spinGraceHours) expires, any group member may spin in their place so
+// the roulette never dies unspun. If no suggestions were submitted, a penance
+// is drawn from the shared catalog (crypto/rand) and assigned to the offender
+// alone.
 func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {
@@ -285,8 +331,19 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if entry.DebtorID != userID {
-		writeError(w, http.StatusForbidden, "only the debtor can spin their own roulette")
-		return
+		member, err := db.IsMemberOfGroup(r.Context(), h.pool, entry.GroupID, userID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "db error")
+			return
+		}
+		if !member {
+			writeError(w, http.StatusForbidden, "not a member of this group")
+			return
+		}
+		if time.Now().Before(entry.SuggestionDeadline.Add(spinGraceHours * time.Hour)) {
+			writeError(w, http.StatusForbidden, "only the debtor can spin until the grace period ends")
+			return
+		}
 	}
 	if entry.SpunAt != nil {
 		writeError(w, http.StatusConflict, "already spun for this entry")
@@ -375,6 +432,31 @@ func (h *PenaltyHandler) Spin(w http.ResponseWriter, r *http.Request) {
 
 	go h.notifyRealtime(entry.GroupID, "roulette_result", debt)
 	writeJSON(w, http.StatusCreated, debt)
+}
+
+// CompleteDebt lets the debtor mark their own pending debt as fulfilled,
+// closing the penance loop instead of letting the debt silently expire.
+func (h *PenaltyHandler) CompleteDebt(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	debtID := chi.URLParam(r, "debtID")
+
+	debt, err := db.CompleteDebt(r.Context(), h.pool, debtID, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "pending debt not found for this user")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	go h.notifyRealtime(debt.GroupID, "debt_updated", debt)
+	writeJSON(w, http.StatusOK, debt)
 }
 
 func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) {

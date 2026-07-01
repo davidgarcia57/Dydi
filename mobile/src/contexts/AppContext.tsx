@@ -62,11 +62,13 @@ interface Proposal {
 
 interface Debt {
   id: string;
+  roulette_entry_id?: string;
   group_id: string;
   debtor_id: string;
   punishment_text: string;
   punishment_emoji?: string;
   scope: 'personal' | 'collective';
+  status?: 'pending' | 'completed' | 'expired' | 'forgiven';
   expires_at: string;
 }
 
@@ -74,6 +76,7 @@ interface RouletteEntry {
   id: string;
   group_id: string;
   debtor_id: string;
+  debtor_name?: string;
   suggestion_deadline: string;
   spun_at?: string;
 }
@@ -121,14 +124,18 @@ interface AppContextType {
   // Penalties state
   debts: Debt[];
   eligible: Member[];
+  openEntries: RouletteEntry[];
   activeEntry: RouletteEntry | null;
   suggestions: Suggestion[];
   loadDebts: (groupID: string) => Promise<void>;
   loadEligible: (groupID: string) => Promise<void>;
+  loadOpenEntries: (groupID: string) => Promise<void>;
+  enterEntry: (entry: RouletteEntry) => void;
   openRoulette: (groupID: string, debtorID: string) => Promise<RouletteEntry>;
   loadSuggestions: (entryID: string) => Promise<void>;
   submitSuggestion: (entryID: string, text: string, emoji?: string | null) => Promise<Suggestion>;
   spin: (entryID: string) => Promise<any>;
+  completeDebt: (debtID: string) => Promise<Debt>;
   clearEntry: () => void;
 
   // Shared state
@@ -162,6 +169,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Penalties State
   const [debts, setDebts] = useState<Debt[]>([]);
   const [eligible, setEligible] = useState<Member[]>([]);
+  const [openEntries, setOpenEntries] = useState<RouletteEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<RouletteEntry | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 
@@ -243,6 +251,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setVoted(new Set());
     setDebts([]);
     setEligible([]);
+    setOpenEntries([]);
     setActiveEntry(null);
     setSuggestions([]);
   }
@@ -352,12 +361,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setEligible(data || []);
   }
 
+  // Ruletas abiertas y sin girar: visibles para TODO el grupo, aunque la
+  // elegibilidad de la semana ya haya expirado (re-abrirlas daría 409).
+  async function loadOpenEntries(groupID: string) {
+    const data = await api(`/api/penalties/${groupID}/roulette`);
+    setOpenEntries(data || []);
+  }
+
+  // Entra a una ruleta ya abierta sin re-abrirla vía POST.
+  function enterEntry(entry: RouletteEntry) {
+    setActiveEntry(entry);
+  }
+
   async function openRoulette(groupID: string, debtorID: string): Promise<RouletteEntry> {
     const data = await api('/api/penalties/roulette', {
       method: 'POST',
       body: JSON.stringify({ group_id: groupID, debtor_id: debtorID }),
     });
     setActiveEntry(data);
+    setOpenEntries(prev => (prev.find(e => e.id === data.id) ? prev : [data, ...prev]));
     return data;
   }
 
@@ -382,7 +404,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Add spun_at timestamp to local activeEntry
     setActiveEntry(prev => prev ? { ...prev, spun_at: new Date().toISOString() } : null);
-    
+    setOpenEntries(prev => prev.filter(e => e.id !== entryID));
+
     const added = Array.isArray(result) ? result : [result];
     setDebts(prev => {
       const next = [...prev];
@@ -393,8 +416,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return next;
     });
-    
+
     return result;
+  }
+
+  // El deudor marca su propia deuda como cumplida; sale de las activas.
+  async function completeDebt(debtID: string): Promise<Debt> {
+    const debt = await api(`/api/penalties/debts/${debtID}/complete`, { method: 'POST' });
+    setDebts(prev => prev.filter(d => d.id !== debt.id));
+    return debt;
   }
 
   function clearEntry() {
@@ -414,6 +444,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loadProposals(group.id),
         loadDebts(group.id),
         loadEligible(group.id),
+        loadOpenEntries(group.id),
       ]);
       
       // Load streaks for all group members
@@ -517,12 +548,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               });
               break;
             }
+            case 'roulette_start': {
+              const entryPayload = msg.payload as RouletteEntry;
+              setOpenEntries(prev =>
+                prev.find(e => e.id === entryPayload.id) ? prev : [entryPayload, ...prev]
+              );
+              break;
+            }
             case 'roulette_result':
             case 'collective_punishment': {
               const roulettePayload = msg.payload;
               setActiveEntry(prev => prev ? { ...prev, spun_at: new Date().toISOString() } : null);
               const addedDebts = Array.isArray(roulettePayload) ? roulettePayload : [roulettePayload];
-              
+
               setDebts(prev => {
                 const next = [...prev];
                 for (const d of addedDebts) {
@@ -532,6 +570,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
                 return next;
               });
+              setOpenEntries(prev =>
+                prev.filter(e => !addedDebts.some((d: Debt) => d.roulette_entry_id === e.id))
+              );
               break;
             }
             case 'debt_created': {
@@ -542,6 +583,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
                 return prev;
               });
+              break;
+            }
+            case 'debt_updated': {
+              const debtPayload = msg.payload as Debt;
+              // Las deudas activas solo listan status=pending: al resolverse, sale.
+              setDebts(prev =>
+                debtPayload.status !== 'pending'
+                  ? prev.filter(d => d.id !== debtPayload.id)
+                  : prev.map(d => (d.id === debtPayload.id ? debtPayload : d))
+              );
               break;
             }
             default:
@@ -623,14 +674,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         debts,
         eligible,
+        openEntries,
         activeEntry,
         suggestions,
         loadDebts,
         loadEligible,
+        loadOpenEntries,
+        enterEntry,
         openRoulette,
         loadSuggestions,
         submitSuggestion,
         spin,
+        completeDebt,
         clearEntry,
 
         loading,

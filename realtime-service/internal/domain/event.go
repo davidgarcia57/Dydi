@@ -10,6 +10,7 @@ const (
 	EventRouletteStart  = "roulette_start"
 	EventRouletteResult = "roulette_result"
 	EventDebtCreated    = "debt_created"
+	EventDebtUpdated    = "debt_updated"
 )
 
 type Event struct {

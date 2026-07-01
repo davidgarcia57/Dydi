@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/dydi/habits-service/internal/model"
@@ -400,22 +401,61 @@ func scanEntry(row pgx.Row) (*model.RouletteEntry, error) {
 }
 
 // GetOrCreateRouletteEntry inserts a roulette_entry if it does not exist yet,
-// then returns it. deadline sets when the suggestion window closes.
-// Accepts DBTX so it can run inside a transaction.
-func GetOrCreateRouletteEntry(ctx context.Context, dbtx DBTX, groupID, debtorID, weekStart string, deadline time.Time) (*model.RouletteEntry, error) {
-	if _, err := dbtx.Exec(ctx,
+// then returns it plus whether this call created it (so the caller can
+// broadcast roulette_start exactly once). deadline sets when the suggestion
+// window closes. Accepts DBTX so it can run inside a transaction.
+func GetOrCreateRouletteEntry(ctx context.Context, dbtx DBTX, groupID, debtorID, weekStart string, deadline time.Time) (*model.RouletteEntry, bool, error) {
+	entry, err := scanEntry(dbtx.QueryRow(ctx,
 		`INSERT INTO roulette_entries (group_id, debtor_id, week_start, suggestion_deadline)
-		 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+		 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
+		 RETURNING id, group_id, debtor_id, week_start, suggestion_deadline, spun_at, created_at`,
 		groupID, debtorID, weekStart, deadline,
-	); err != nil {
-		return nil, err
+	))
+	if err == nil {
+		return entry, true, nil
 	}
-	return scanEntry(dbtx.QueryRow(ctx,
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, err
+	}
+	entry, err = scanEntry(dbtx.QueryRow(ctx,
 		`SELECT id, group_id, debtor_id, week_start, suggestion_deadline, spun_at, created_at
 		 FROM roulette_entries
 		 WHERE group_id = $1 AND debtor_id = $2 AND week_start = $3`,
 		groupID, debtorID, weekStart,
 	))
+	return entry, false, err
+}
+
+// GetOpenRouletteEntries returns the group's unspun roulette entries (newest
+// first) with the debtor's display name, so clients can list open roulettes
+// even after the debtor's current-week eligibility has expired.
+func GetOpenRouletteEntries(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.OpenRouletteEntry, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT e.id, e.group_id, e.debtor_id, e.week_start, e.suggestion_deadline,
+		        e.spun_at, e.created_at, u.display_name
+		 FROM roulette_entries e
+		 JOIN users u ON u.id = e.debtor_id
+		 WHERE e.group_id = $1 AND e.spun_at IS NULL
+		 ORDER BY e.created_at DESC`,
+		groupID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]model.OpenRouletteEntry, 0)
+	for rows.Next() {
+		var e model.OpenRouletteEntry
+		if err := rows.Scan(
+			&e.ID, &e.GroupID, &e.DebtorID, &e.WeekStart,
+			&e.SuggestionDeadline, &e.SpunAt, &e.CreatedAt, &e.DebtorName,
+		); err != nil {
+			return nil, err
+		}
+		entries = append(entries, e)
+	}
+	return entries, rows.Err()
 }
 
 func GetRouletteEntry(ctx context.Context, pool *pgxpool.Pool, entryID string) (*model.RouletteEntry, error) {
@@ -534,6 +574,21 @@ func CreateDebt(ctx context.Context, dbtx DBTX, entryID, groupID, debtorID, week
 		           winning_suggestion_id, punishment_text, punishment_emoji,
 		           scope, status, completed_at, expires_at, created_at`,
 		entryID, groupID, debtorID, weekStart, suggestionID, text, emoji,
+	))
+}
+
+// CompleteDebt marks the debtor's own pending debt as completed. Returns
+// pgx.ErrNoRows when the debt does not exist, belongs to someone else or was
+// already resolved.
+func CompleteDebt(ctx context.Context, pool *pgxpool.Pool, debtID, debtorID string) (*model.Debt, error) {
+	return scanDebt(pool.QueryRow(ctx,
+		`UPDATE debts
+		 SET status = 'completed', completed_at = NOW()
+		 WHERE id = $1 AND debtor_id = $2 AND status = 'pending'
+		 RETURNING id, roulette_entry_id, group_id, debtor_id, week_start,
+		           winning_suggestion_id, punishment_text, punishment_emoji,
+		           scope, status, completed_at, expires_at, created_at`,
+		debtID, debtorID,
 	))
 }
 

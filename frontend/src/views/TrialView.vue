@@ -3,7 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { usePenaltiesStore } from '@/stores/penalties'
+import { showToast } from '@/composables/useToast'
 import PageContainer from '@/components/ui/PageContainer.vue'
+
+// Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
+// miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
+const SPIN_GRACE_MS = 24 * 3_600_000
 
 const auth = useAuthStore()
 const group = useGroupStore()
@@ -18,6 +23,8 @@ const spinResult = ref(null)
 const showForm = ref(false)
 const sugText = ref('')
 const sugEmoji = ref('')
+const confirmComplete = ref(null) // debt.id pendiente de confirmación
+const completing = ref(null)
 
 // ── Wheel animation ───────────────────────────────────────────────────────────
 const spinDeg = ref(0)
@@ -29,11 +36,22 @@ const deadlinePassed = computed(() =>
   entry.value ? new Date() > new Date(entry.value.suggestion_deadline) : false
 )
 const isDebtor = computed(() => entry.value?.debtor_id === auth.user?.id)
-const canSpin = computed(() => isDebtor.value && deadlinePassed.value && !entry.value?.spun_at)
+const graceOver = computed(() =>
+  entry.value
+    ? Date.now() > new Date(entry.value.suggestion_deadline).getTime() + SPIN_GRACE_MS
+    : false
+)
+const canSpin = computed(
+  () =>
+    deadlinePassed.value && !entry.value?.spun_at && (isDebtor.value || graceOver.value)
+)
 const hasSuggested = computed(() =>
   penalties.suggestions.some((s) => s.suggester_id === auth.user?.id)
 )
-const canSuggest = computed(() => !deadlinePassed.value && !hasSuggested.value)
+// El deudor nunca escribe su propia penitencia: la propone el resto del squad.
+const canSuggest = computed(
+  () => !deadlinePassed.value && !hasSuggested.value && !isDebtor.value
+)
 
 const deadlineLabel = computed(() => {
   if (!entry.value) return ''
@@ -51,9 +69,32 @@ const debtorName = computed(() => {
   return (
     group.members.find((m) => m.user_id === entry.value.debtor_id)?.display_name ??
     penalties.eligible.find((m) => m.user_id === entry.value.debtor_id)?.display_name ??
+    entry.value.debtor_name ??
     'miembro'
   )
 })
+
+// Miembros en el bote que aún no tienen ruleta abierta (los que ya la tienen
+// aparecen en la sección "Ruletas abiertas").
+const eligibleWithoutEntry = computed(() =>
+  penalties.eligible.filter(
+    (m) => !penalties.openEntries.some((e) => e.debtor_id === m.user_id)
+  )
+)
+
+function entryCountdown(e) {
+  const diff = new Date(e.suggestion_deadline) - new Date()
+  if (diff <= 0) return '¡Lista para girar!'
+  const hrs = Math.floor(diff / 3_600_000)
+  const mins = Math.floor((diff % 3_600_000) / 60_000)
+  if (hrs >= 24) return `Sugerencias por ${Math.floor(hrs / 24)}d ${hrs % 24}h`
+  if (hrs > 0) return `Sugerencias por ${hrs}h ${mins}min`
+  return `Sugerencias por ${mins}min`
+}
+
+function entryDebtorName(e) {
+  return e.debtor_name ?? memberName(e.debtor_id)
+}
 
 const spinDebts = computed(() =>
   spinResult.value ? (Array.isArray(spinResult.value) ? spinResult.value : [spinResult.value]) : []
@@ -121,6 +162,38 @@ async function openRoulette(member) {
     error.value = e?.error ?? 'No se pudo abrir la ruleta'
   } finally {
     loading.value = false
+  }
+}
+
+// Entra a una ruleta ya abierta (sin POST: re-abrir exige elegibilidad vigente).
+async function enterEntry(e) {
+  loading.value = true
+  error.value = null
+  try {
+    penalties.enterEntry(e)
+    await penalties.loadSuggestions(e.id)
+    view.value = 'entry'
+  } catch (err) {
+    error.value = err?.error ?? 'No se pudo abrir la ruleta'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function completeDebt(debt) {
+  if (confirmComplete.value !== debt.id) {
+    confirmComplete.value = debt.id
+    return
+  }
+  completing.value = debt.id
+  try {
+    await penalties.completeDebt(debt.id)
+    showToast('Penitencia cumplida 💪')
+  } catch (e) {
+    error.value = e?.error ?? 'No se pudo marcar la deuda'
+  } finally {
+    completing.value = null
+    confirmComplete.value = null
   }
 }
 
@@ -213,7 +286,11 @@ function backToList() {
 onMounted(async () => {
   await group.autoLoad()
   if (group.group?.id) {
-    await Promise.all([penalties.loadEligible(group.group.id), penalties.loadDebts(group.group.id)])
+    await Promise.all([
+      penalties.loadEligible(group.group.id),
+      penalties.loadDebts(group.group.id),
+      penalties.loadOpenEntries(group.group.id),
+    ])
   }
 })
 </script>
@@ -237,22 +314,59 @@ onMounted(async () => {
         {{ error }}
       </div>
 
+      <!-- Ruletas abiertas: cualquiera del squad puede entrar a sugerir -->
+      <section v-if="penalties.openEntries.length" class="mb-7">
+        <h2 class="text-eyebrow mb-3">RULETAS ABIERTAS</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div
+            v-for="e in penalties.openEntries"
+            :key="e.id"
+            class="rounded-card shadow-flat bg-surface p-4 flex items-center gap-3 border-l-4 border-l-terracotta"
+          >
+            <div
+              class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-paper text-sm font-bold"
+              :class="avatarBg(entryDebtorName(e))"
+            >
+              {{ initials(entryDebtorName(e)) }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm text-ink truncate">{{ entryDebtorName(e) }}</p>
+              <p class="text-xs text-ink-soft mt-0.5">{{ entryCountdown(e) }}</p>
+            </div>
+            <button
+              class="rounded-pill bg-terracotta text-paper px-4 py-2 text-xs font-bold active:opacity-80 transition-opacity flex-shrink-0"
+              :disabled="loading"
+              @click="enterEntry(e)"
+            >
+              {{ loading ? '...' : 'Entrar →' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- En deuda esta semana -->
       <section class="mb-7">
         <h2 class="text-eyebrow mb-3">EN EL BOTE ESTA SEMANA</h2>
 
         <div
-          v-if="!penalties.eligible.length"
+          v-if="!eligibleWithoutEntry.length"
           class="rounded-card border border-sage/30 bg-sage-soft px-4 py-8 text-center"
         >
-          <p class="text-4xl mb-3">🎉</p>
-          <p class="text-sm font-semibold text-sage-deep">Squad limpio esta semana</p>
-          <p class="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</p>
+          <template v-if="penalties.openEntries.length">
+            <p class="text-4xl mb-3">🎡</p>
+            <p class="text-sm font-semibold text-sage-deep">Todos los del bote ya tienen ruleta</p>
+            <p class="text-xs text-ink-soft mt-1">Entra arriba a proponer su penitencia.</p>
+          </template>
+          <template v-else>
+            <p class="text-4xl mb-3">🎉</p>
+            <p class="text-sm font-semibold text-sage-deep">Squad limpio esta semana</p>
+            <p class="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</p>
+          </template>
         </div>
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div
-            v-for="m in penalties.eligible"
+            v-for="m in eligibleWithoutEntry"
             :key="m.user_id"
             class="rounded-card shadow-flat bg-surface p-4 flex items-center gap-3"
           >
@@ -315,6 +429,25 @@ onMounted(async () => {
             <p class="text-sm font-semibold text-ink">
               {{ debt.punishment_emoji ?? '' }} {{ debt.punishment_text }}
             </p>
+            <button
+              v-if="debt.debtor_id === auth.user?.id"
+              class="mt-3 w-full rounded-pill py-2 text-xs font-bold transition-colors"
+              :class="
+                confirmComplete === debt.id
+                  ? 'bg-sage-deep text-paper'
+                  : 'border border-sage-deep text-sage-deep'
+              "
+              :disabled="completing === debt.id"
+              @click="completeDebt(debt)"
+            >
+              {{
+                completing === debt.id
+                  ? 'Guardando…'
+                  : confirmComplete === debt.id
+                    ? '¿Seguro? El squad lo verá'
+                    : '✓ Ya cumplí mi penitencia'
+              }}
+            </button>
           </div>
         </div>
       </section>
@@ -517,6 +650,13 @@ onMounted(async () => {
             </template>
 
             <div
+              v-else-if="!deadlinePassed && isDebtor"
+              class="rounded-card bg-surface border border-hairline px-4 py-3 text-sm text-ink-soft text-center"
+            >
+              Tu squad escribe tus penitencias… tú solo giras. 😈
+            </div>
+
+            <div
               v-else-if="!deadlinePassed && hasSuggested"
               class="rounded-pill bg-sage-soft text-sage-deep px-4 py-3 text-sm font-semibold text-center"
             >
@@ -547,7 +687,7 @@ onMounted(async () => {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            {{ spinning ? 'Girando…' : '⊕ Girar la ruleta' }}
+            {{ spinning ? 'Girando…' : isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}` }}
           </button>
 
           <div
@@ -555,7 +695,9 @@ onMounted(async () => {
             class="rounded-card bg-amber-soft border border-amber/30 p-4 text-center"
           >
             <p class="text-sm font-semibold text-amber-deep">Esperando que {{ debtorName }} gire</p>
-            <p class="text-xs text-ink-soft mt-1">La ventana de sugerencias ya cerró.</p>
+            <p class="text-xs text-ink-soft mt-1">
+              Si no gira en 24h, cualquiera del squad podrá girar por él.
+            </p>
           </div>
 
           <div

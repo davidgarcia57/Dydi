@@ -67,6 +67,15 @@ type RouletteEntry struct {
 	CreatedAt          time.Time  `json:"created_at"`
 }
 
+// OpenRouletteEntry is a not-yet-spun roulette entry plus the debtor's display
+// name, returned by GET /penalties/{groupID}/roulette so every member can find
+// an open roulette (and suggest or spin) without re-opening it — re-opening
+// requires current-week eligibility, which expires when the week rolls over.
+type OpenRouletteEntry struct {
+	RouletteEntry
+	DebtorName string `json:"debtor_name"`
+}
+
 // PunishmentSuggestion is submitted by a group member for a specific RouletteEntry.
 // One suggestion per member per entry (enforced by DB unique constraint).
 type PunishmentSuggestion struct {

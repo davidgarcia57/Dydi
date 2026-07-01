@@ -93,6 +93,28 @@ func TestSpin_MissingUserID(t *testing.T) {
 	}
 }
 
+func TestGetOpenRoulettes_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/penalties/group-123/roulette", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestCompleteDebt_MissingUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPost, "/penalties/debts/debt-123/complete", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
 // TestRequireInternalToken pins the gateway↔services trust boundary: with the
 // secret configured, application routes are unreachable without it.
 func TestRequireInternalToken(t *testing.T) {

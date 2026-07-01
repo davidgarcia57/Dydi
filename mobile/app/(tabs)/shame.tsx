@@ -16,6 +16,10 @@ import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
 
+// Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
+// miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
+const SPIN_GRACE_MS = 24 * 3_600_000;
+
 const WHEEL_COLORS = [
   '#C26F4D',
   '#A8C39A',
@@ -80,14 +84,18 @@ export default function ShameScreen() {
     members,
     debts,
     eligible,
+    openEntries,
     activeEntry,
     suggestions,
     loadDebts,
     loadEligible,
+    loadOpenEntries,
+    enterEntry,
     openRoulette,
     loadSuggestions,
     submitSuggestion,
     spin,
+    completeDebt,
     clearEntry,
   } = useApp();
 
@@ -102,6 +110,10 @@ export default function ShameScreen() {
   const [sugText, setSugText] = useState('');
   const [sugEmoji, setSugEmoji] = useState('');
 
+  // Complete-debt confirm state
+  const [confirmComplete, setConfirmComplete] = useState<string | null>(null);
+  const [completing, setCompleting] = useState<string | null>(null);
+
   // Wheel animation refs
   const spinValueRef = useRef(new Animated.Value(0)).current;
   const currentAngleRef = useRef(0);
@@ -112,7 +124,7 @@ export default function ShameScreen() {
       if (!group?.id) return;
       setLoading(true);
       try {
-        await Promise.all([loadEligible(group.id), loadDebts(group.id)]);
+        await Promise.all([loadEligible(group.id), loadDebts(group.id), loadOpenEntries(group.id)]);
       } catch (err) {
         console.error(err);
       } finally {
@@ -132,9 +144,14 @@ export default function ShameScreen() {
     return activeEntry?.debtor_id === user?.id;
   }, [activeEntry, user?.id]);
 
+  const graceOver = useMemo(() => {
+    if (!activeEntry) return false;
+    return Date.now() > new Date(activeEntry.suggestion_deadline).getTime() + SPIN_GRACE_MS;
+  }, [activeEntry]);
+
   const canSpin = useMemo(() => {
-    return isDebtor && deadlinePassed && !activeEntry?.spun_at;
-  }, [isDebtor, deadlinePassed, activeEntry]);
+    return deadlinePassed && !activeEntry?.spun_at && (isDebtor || graceOver);
+  }, [isDebtor, deadlinePassed, graceOver, activeEntry]);
 
   const hasSuggested = useMemo(() => {
     return suggestions.some((s) => s.suggester_id === user?.id);
@@ -168,6 +185,25 @@ export default function ShameScreen() {
     return members.find((m) => m.user_id === id)?.display_name ?? 'Alguien';
   };
 
+  // Miembros en el bote que aún no tienen ruleta abierta (los que ya la tienen
+  // aparecen en la sección "Ruletas abiertas").
+  const eligibleWithoutEntry = useMemo(
+    () => eligible.filter((m) => !openEntries.some((e) => e.debtor_id === m.user_id)),
+    [eligible, openEntries]
+  );
+
+  function entryCountdown(e: any) {
+    const diff = new Date(e.suggestion_deadline).getTime() - Date.now();
+    if (diff <= 0) return '¡Lista para girar!';
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    if (hrs >= 24) return `Sugerencias por ${Math.floor(hrs / 24)}d ${hrs % 24}h`;
+    if (hrs > 0) return `Sugerencias por ${hrs}h ${mins}min`;
+    return `Sugerencias por ${mins}min`;
+  }
+
+  const entryDebtorName = (e: any) => e.debtor_name ?? getMemberName(e.debtor_id);
+
   const activeSuggestions = useMemo(() => {
     return suggestions.length >= 2 ? suggestions : Array.from({ length: 8 });
   }, [suggestions]);
@@ -196,6 +232,39 @@ export default function ShameScreen() {
       setError(e?.error ?? 'No se pudo abrir la ruleta');
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Entra a una ruleta ya abierta sin re-abrirla (POST exige elegibilidad vigente).
+  async function handleEnterEntry(entry: any) {
+    if (loading) return;
+    setLoading(true);
+    setError('');
+    try {
+      enterEntry(entry);
+      await loadSuggestions(entry.id);
+      setView('entry');
+    } catch (e: any) {
+      setError(e?.error ?? 'No se pudo abrir la ruleta');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCompleteDebt(debt: any) {
+    if (confirmComplete !== debt.id) {
+      setConfirmComplete(debt.id);
+      return;
+    }
+    setCompleting(debt.id);
+    setError('');
+    try {
+      await completeDebt(debt.id);
+    } catch (e: any) {
+      setError(e?.error ?? 'No se pudo marcar la deuda');
+    } finally {
+      setCompleting(null);
+      setConfirmComplete(null);
     }
   }
 
@@ -270,6 +339,7 @@ export default function ShameScreen() {
     if (group?.id) {
       loadEligible(group.id);
       loadDebts(group.id);
+      loadOpenEntries(group.id);
     }
   }
 
@@ -323,19 +393,56 @@ export default function ShameScreen() {
               </View>
             ) : null}
 
+            {/* Ruletas abiertas: cualquiera del squad puede entrar a sugerir */}
+            {openEntries.length > 0 && (
+              <View className="mb-6">
+                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">RULETAS ABIERTAS</Text>
+                <View className="gap-2.5">
+                  {openEntries.map((e) => (
+                    <View key={e.id} className="rounded-3xl bg-paper border border-hairline border-l-4 border-l-terracotta p-4 flex-row items-center gap-3 shadow-sm">
+                      <View className={`w-10 h-10 rounded-full items-center justify-center ${getAvatarBg(entryDebtorName(e))}`}>
+                        <Text className="text-paper text-sm font-bold">{getInitials(entryDebtorName(e))}</Text>
+                      </View>
+                      <View className="flex-1 min-w-0">
+                        <Text className="font-semibold text-sm text-ink truncate">{entryDebtorName(e)}</Text>
+                        <Text className="text-xs text-ink-soft mt-0.5">{entryCountdown(e)}</Text>
+                      </View>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        onPress={() => handleEnterEntry(e)}
+                        className="rounded-full bg-terracotta px-4 py-2"
+                      >
+                        <Text className="text-paper text-xs font-bold">Entrar →</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {/* En el Bote Section */}
             <View className="mb-6">
               <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">EN EL BOTE ESTA SEMANA</Text>
-              
-              {eligible.length === 0 ? (
+
+              {eligibleWithoutEntry.length === 0 ? (
                 <View className="rounded-3xl border border-sage/30 bg-sage-soft/30 p-6 items-center justify-center shadow-sm">
-                  <Text className="text-4xl mb-3">🎉</Text>
-                  <Text className="text-sm font-bold text-sage-deep">Squad limpio esta semana</Text>
-                  <Text className="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</Text>
+                  {openEntries.length > 0 ? (
+                    <>
+                      <Text className="text-4xl mb-3">🎡</Text>
+                      <Text className="text-sm font-bold text-sage-deep">Todos los del bote ya tienen ruleta</Text>
+                      <Text className="text-xs text-ink-soft mt-1">Entra arriba a proponer su penitencia.</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text className="text-4xl mb-3">🎉</Text>
+                      <Text className="text-sm font-bold text-sage-deep">Squad limpio esta semana</Text>
+                      <Text className="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</Text>
+                    </>
+                  )}
                 </View>
               ) : (
                 <View className="gap-2.5">
-                  {eligible.map((m) => (
+                  {eligibleWithoutEntry.map((m) => (
                     <View key={m.user_id} className="rounded-3xl bg-paper border border-hairline p-4 flex-row items-center gap-3 shadow-sm">
                       <View className={`w-10 h-10 rounded-full items-center justify-center ${getAvatarBg(m.display_name)}`}>
                         <Text className="text-paper text-sm font-bold">{getInitials(m.display_name)}</Text>
@@ -389,6 +496,30 @@ export default function ShameScreen() {
                       <Text className="text-sm font-semibold text-ink pl-1">
                         {debt.punishment_emoji ?? ''} {debt.punishment_text}
                       </Text>
+                      {debt.debtor_id === user?.id && (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          disabled={completing === debt.id}
+                          onPress={() => handleCompleteDebt(debt)}
+                          className={`mt-3 rounded-full py-2 items-center ${
+                            confirmComplete === debt.id
+                              ? 'bg-sage-deep'
+                              : 'border border-sage-deep bg-paper'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-bold ${
+                              confirmComplete === debt.id ? 'text-paper' : 'text-sage-deep'
+                            }`}
+                          >
+                            {completing === debt.id
+                              ? 'Guardando…'
+                              : confirmComplete === debt.id
+                                ? '¿Seguro? El squad lo verá'
+                                : '✓ Ya cumplí mi penitencia'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -583,6 +714,14 @@ export default function ShameScreen() {
                     )
                   )}
 
+                  {(!deadlinePassed && isDebtor) && (
+                    <View className="rounded-3xl bg-surface border border-hairline py-3 px-4 items-center justify-center">
+                      <Text className="text-xs text-ink-soft text-center">
+                        Tu squad escribe tus penitencias… tú solo giras. 😈
+                      </Text>
+                    </View>
+                  )}
+
                   {(!deadlinePassed && hasSuggested) && (
                     <View className="rounded-full bg-sage-soft py-3 items-center justify-center">
                       <Text className="text-sage-deep font-semibold text-xs">✓ Ya propusiste tu penitencia</Text>
@@ -604,14 +743,18 @@ export default function ShameScreen() {
                         <Text className="text-paper font-bold text-sm">Girando…</Text>
                       </View>
                     ) : (
-                      <Text className="text-paper font-bold text-sm">⊕ Girar la ruleta</Text>
+                      <Text className="text-paper font-bold text-sm">
+                        {isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}`}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 ) : (
                   (deadlinePassed && !isDebtor && !activeEntry.spun_at) && (
                     <View className="w-full rounded-3xl bg-amber-soft/40 border border-amber/30 p-4 items-center mb-10">
                       <Text className="text-sm font-semibold text-amber-deep">Esperando que {debtorName} gire</Text>
-                      <Text className="text-[11px] text-ink-soft mt-1 text-center">La ventana de sugerencias ya cerró.</Text>
+                      <Text className="text-[11px] text-ink-soft mt-1 text-center">
+                        Si no gira en 24h, cualquiera del squad podrá girar por él.
+                      </Text>
                     </View>
                   )
                 )}

@@ -107,11 +107,13 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		catalog := handler.LoadPunishmentCatalog(os.Getenv("PUNISHMENT_CATALOG_PATH"))
 		penalties := handler.NewPenaltyHandler(pool, os.Getenv("REALTIME_SERVICE_URL"), catalog)
 		r.Get("/penalties/{groupID}/eligible", penalties.GetEligible)
+		r.Get("/penalties/{groupID}/roulette", penalties.GetOpenRoulettes)
 		r.Post("/penalties/roulette", penalties.OpenRoulette)
 		r.Post("/penalties/roulette/{entryID}/suggestions", penalties.SubmitSuggestion)
 		r.Get("/penalties/roulette/{entryID}/suggestions", penalties.GetSuggestions)
 		r.Post("/penalties/roulette/{entryID}/spin", penalties.Spin)
 		r.Get("/penalties/{groupID}/debts", penalties.GetActiveDebts)
+		r.Post("/penalties/debts/{debtID}/complete", penalties.CompleteDebt)
 
 		// Internal: called by groups-service when a proposal is approved.
 		r.Post("/internal/proposals/apply", habits.ApplyProposal)

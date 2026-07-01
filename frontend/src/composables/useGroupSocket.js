@@ -21,9 +21,11 @@ export function useGroupSocket(groupID) {
     streak_update: (msg) => habitsStore.updateStreak(msg.payload),
     member_online: (msg) => groupStore.setMemberOnline(msg.userID),
     member_offline: (msg) => groupStore.setMemberOffline(msg.userID),
+    roulette_start: (msg) => penaltiesStore.addOpenEntry(msg.payload),
     roulette_result: (msg) => penaltiesStore.setRouletteResult(msg.payload),
     collective_punishment: (msg) => penaltiesStore.setRouletteResult(msg.payload),
     debt_created: (msg) => penaltiesStore.addDebt(msg.payload),
+    debt_updated: (msg) => penaltiesStore.updateDebt(msg.payload),
   }
 
   let ws = null
