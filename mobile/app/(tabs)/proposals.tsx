@@ -22,18 +22,22 @@ export default function ProposalsScreen() {
   const router = useRouter();
   const {
     group,
+    members,
     catalog,
     proposals,
+    resolvedProposals,
     voted,
     todayCheckins,
     loadCatalog,
     loadProposals,
+    loadResolvedProposals,
     propose,
     vote,
   } = useApp();
 
-  const [tab, setTab] = useState<'catalogo' | 'propuestas'>('catalogo');
+  const [tab, setTab] = useState<'catalogo' | 'propuestas' | 'historial'>('catalogo');
   const [loading, setLoading] = useState(true);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [proposingID, setProposingID] = useState<string | null>(null);
   const [proposeErr, setProposeErr] = useState('');
   const [proposeOkID, setProposeOkID] = useState<string | null>(null);
@@ -75,6 +79,28 @@ export default function ProposalsScreen() {
 
   function getHabitName(habitID: string) {
     return catalog.find((h) => h.id === habitID)?.name ?? habitID;
+  }
+
+  function getMemberName(userID: string) {
+    return members.find((m) => m.user_id === userID)?.display_name ?? 'Miembro';
+  }
+
+  const STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+    approved: { label: 'APROBADA', bg: 'bg-sage-soft', text: 'text-sage-deep' },
+    rejected: { label: 'RECHAZADA', bg: 'bg-coral-soft', text: 'text-coral-deep' },
+    expired: { label: 'EXPIRÓ', bg: 'bg-cream-2', text: 'text-ink-faint' },
+  };
+
+  // Carga perezosa: el historial solo se pide al abrir su tab.
+  async function openHistory() {
+    setTab('historial');
+    if (historyLoaded || !group?.id) return;
+    try {
+      await loadResolvedProposals(group.id);
+      setHistoryLoaded(true);
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   function getVoteProgress(p: any) {
@@ -174,6 +200,16 @@ export default function ProposalsScreen() {
                 <Text className="text-paper text-[8px] font-bold">{proposals.length}</Text>
               </View>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={openHistory}
+            className={`flex-1 py-2 rounded-[10px] items-center ${tab === 'historial' ? 'bg-paper shadow-sm' : ''}`}
+          >
+            <Text className={`text-sm font-semibold ${tab === 'historial' ? 'text-ink' : 'text-ink-soft'}`}>
+              Historial
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -306,11 +342,15 @@ export default function ProposalsScreen() {
                           <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
                             {PROPOSAL_LABEL[p.type] ?? p.type}
                           </Text>
-                          {p.habit_id && (
+                          {p.habit_id ? (
                             <Text className="font-semibold text-sm text-ink mt-0.5">
                               {getHabitName(p.habit_id)}
                             </Text>
-                          )}
+                          ) : p.target_user_id ? (
+                            <Text className="font-semibold text-sm text-ink mt-0.5">
+                              {getMemberName(p.target_user_id)}
+                            </Text>
+                          ) : null}
                         </View>
                         <View className="rounded-full bg-amber-soft px-2.5 py-0.5">
                           <Text className="text-[9px] font-bold text-amber-deep">ABIERTA</Text>
@@ -358,6 +398,55 @@ export default function ProposalsScreen() {
                           <Text className="text-sage-deep font-bold text-xs">✓ Ya votaste</Text>
                         </View>
                       )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Historial Tab */}
+        {tab === 'historial' && (
+          <View className="mb-8">
+            {resolvedProposals.length === 0 ? (
+              <View className="rounded-3xl bg-paper border border-hairline py-12 items-center justify-center shadow-sm">
+                <Text className="text-[10px] font-bold text-ink-faint tracking-wider uppercase mb-2">SIN HISTORIAL</Text>
+                <Text className="font-serif text-xl font-semibold text-ink mb-1">Nada decidido aún</Text>
+                <Text className="text-xs text-ink-soft text-center mt-1">Las propuestas cerradas aparecerán aquí.</Text>
+              </View>
+            ) : (
+              <View className="gap-3">
+                {resolvedProposals.map((p) => {
+                  const badge = STATUS_BADGE[p.status ?? ''] ?? {
+                    label: (p.status ?? '').toUpperCase(),
+                    bg: 'bg-cream-2',
+                    text: 'text-ink-faint',
+                  };
+                  return (
+                    <View key={p.id} className="rounded-3xl bg-surface border border-hairline p-5">
+                      <View className="flex-row items-start justify-between gap-2 mb-2">
+                        <View className="flex-1">
+                          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+                            {PROPOSAL_LABEL[p.type] ?? p.type}
+                          </Text>
+                          {p.habit_id ? (
+                            <Text className="font-semibold text-sm text-ink mt-0.5">
+                              {getHabitName(p.habit_id)}
+                            </Text>
+                          ) : p.target_user_id ? (
+                            <Text className="font-semibold text-sm text-ink mt-0.5">
+                              {getMemberName(p.target_user_id)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View className={`rounded-full px-2.5 py-0.5 ${badge.bg}`}>
+                          <Text className={`text-[9px] font-bold ${badge.text}`}>{badge.label}</Text>
+                        </View>
+                      </View>
+                      <Text className="text-xs text-ink-soft">
+                        {p.vote_count} de {p.member_count} votos a favor
+                      </Text>
                     </View>
                   );
                 })}

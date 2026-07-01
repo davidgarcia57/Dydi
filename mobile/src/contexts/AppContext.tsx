@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { api } from '../../lib/api';
+
+// Recuerda el último grupo activo para no rebotar siempre al primero.
+const ACTIVE_GROUP_KEY = 'dydi.activeGroup';
 
 // Date utility functions
 function dateISO(d: Date) {
@@ -54,6 +58,8 @@ interface Proposal {
   group_id: string;
   type: 'add_habit' | 'remove_habit' | 'kick_member' | 'delete_group';
   habit_id?: string;
+  target_user_id?: string;
+  status?: string;
   vote_count: number;
   member_count: number;
   created_at: string;
@@ -97,6 +103,7 @@ interface AppContextType {
   myGroups: { id: string; name: string }[];
   loadMyGroups: () => Promise<void>;
   loadGroup: (id: string) => Promise<void>;
+  switchGroup: (id: string) => Promise<void>;
   autoLoad: () => Promise<boolean>;
   createGroup: (name: string) => Promise<Group>;
   joinGroup: (groupID: string, inviteCode: string) => Promise<void>;
@@ -115,19 +122,28 @@ interface AppContextType {
   // Proposals state
   catalog: Habit[];
   proposals: Proposal[];
+  resolvedProposals: Proposal[];
   voted: Set<string>;
   loadCatalog: () => Promise<void>;
   loadProposals: (groupID: string) => Promise<void>;
-  propose: (groupID: string, type: string, habitID?: string | null) => Promise<Proposal>;
+  loadResolvedProposals: (groupID: string) => Promise<void>;
+  propose: (
+    groupID: string,
+    type: string,
+    habitID?: string | null,
+    targetUserID?: string | null
+  ) => Promise<Proposal>;
   vote: (proposalID: string, approved: boolean) => Promise<void>;
 
   // Penalties state
   debts: Debt[];
+  resolvedDebts: Debt[];
   eligible: Member[];
   openEntries: RouletteEntry[];
   activeEntry: RouletteEntry | null;
   suggestions: Suggestion[];
   loadDebts: (groupID: string) => Promise<void>;
+  loadResolvedDebts: (groupID: string) => Promise<void>;
   loadEligible: (groupID: string) => Promise<void>;
   loadOpenEntries: (groupID: string) => Promise<void>;
   enterEntry: (entry: RouletteEntry) => void;
@@ -164,10 +180,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Proposals State
   const [catalog, setCatalog] = useState<Habit[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [resolvedProposals, setResolvedProposals] = useState<Proposal[]>([]);
   const [voted, setVoted] = useState<Set<string>>(new Set());
 
   // Penalties State
   const [debts, setDebts] = useState<Debt[]>([]);
+  const [resolvedDebts, setResolvedDebts] = useState<Debt[]>([]);
   const [eligible, setEligible] = useState<Member[]>([]);
   const [openEntries, setOpenEntries] = useState<RouletteEntry[]>([]);
   const [activeEntry, setActiveEntry] = useState<RouletteEntry | null>(null);
@@ -195,21 +213,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const { members: mems, ...groupData } = data;
     setGroup(groupData);
     setMembers(mems || []);
+    AsyncStorage.setItem(ACTIVE_GROUP_KEY, groupData.id).catch(() => {});
+  }
+
+  // Cambia de grupo activo; el useEffect sobre group.id recarga datos y WS.
+  async function switchGroup(id: string) {
+    if (id === group?.id) return;
+    await loadGroup(id);
   }
 
   async function autoLoad(): Promise<boolean> {
     if (group?.id) return true;
-    
+
     // Fetch user groups
     const data = await api('/api/groups');
     const groupsList = data || [];
     setMyGroups(groupsList);
-    
+
     if (groupsList.length === 0) {
       return false;
     }
-    
-    await loadGroup(groupsList[0].id);
+
+    const remembered = await AsyncStorage.getItem(ACTIVE_GROUP_KEY).catch(() => null);
+    const target = groupsList.find((g: any) => g.id === remembered) ?? groupsList[0];
+    await loadGroup(target.id);
     return true;
   }
 
@@ -220,7 +247,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     setGroup(data);
     setMembers([]);
-    setMyGroups([data]);
+    setMyGroups(prev => [...prev.filter(g => g.id !== data.id), { id: data.id, name: data.name }]);
+    AsyncStorage.setItem(ACTIVE_GROUP_KEY, data.id).catch(() => {});
     return data;
   }
 
@@ -230,7 +258,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       body: JSON.stringify({ invite_code: inviteCode }),
     });
     await loadGroup(groupID);
-    setMyGroups([{ id: groupID, name: group?.name || 'My Group' }]);
+    // Refresca la lista completa; el nombre real viene del servidor.
+    loadMyGroups().catch(() => {});
   }
 
   async function leaveGroup() {
@@ -240,6 +269,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   function resetGroup() {
+    AsyncStorage.removeItem(ACTIVE_GROUP_KEY).catch(() => {});
     setGroup(null);
     setMembers([]);
     setMyGroups([]);
@@ -315,10 +345,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setVoted(new Set(list.filter((p: Proposal) => p.user_voted).map((p: Proposal) => p.id)));
   }
 
-  async function propose(groupID: string, type: string, habitID: string | null = null): Promise<Proposal> {
+  async function loadResolvedProposals(groupID: string) {
+    const data = await api(`/api/groups/${groupID}/proposals?status=resolved`);
+    setResolvedProposals(data || []);
+  }
+
+  async function propose(
+    groupID: string,
+    type: string,
+    habitID: string | null = null,
+    targetUserID: string | null = null
+  ): Promise<Proposal> {
     const body: any = { type };
     if (habitID) body.habit_id = habitID;
-    
+    if (targetUserID) body.target_user_id = targetUserID;
+
     const p = await api(`/api/groups/${groupID}/proposals`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -354,6 +395,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   async function loadDebts(groupID: string) {
     const data = await api(`/api/penalties/${groupID}/debts`);
     setDebts(data || []);
+  }
+
+  // Historial: cumplidas, perdonadas y expiradas (las activas viven en debts).
+  async function loadResolvedDebts(groupID: string) {
+    const data = await api(`/api/penalties/${groupID}/debts?status=resolved`);
+    setResolvedDebts(data || []);
   }
 
   async function loadEligible(groupID: string) {
@@ -650,6 +697,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         myGroups,
         loadMyGroups,
         loadGroup,
+        switchGroup,
         autoLoad,
         createGroup,
         joinGroup,
@@ -666,18 +714,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         catalog,
         proposals,
+        resolvedProposals,
         voted,
         loadCatalog,
         loadProposals,
+        loadResolvedProposals,
         propose,
         vote,
 
         debts,
+        resolvedDebts,
         eligible,
         openEntries,
         activeEntry,
         suggestions,
         loadDebts,
+        loadResolvedDebts,
         loadEligible,
         loadOpenEntries,
         enterEntry,

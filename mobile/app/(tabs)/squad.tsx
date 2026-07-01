@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
+import { api } from '../../lib/api';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -39,15 +41,88 @@ function getAvatarBg(name = '') {
 
 export default function SquadScreen() {
   const router = useRouter();
-  const { signOut, user } = useAuth();
-  const { group, members, leaveGroup } = useApp();
-  
+  const { signOut, user, updateDisplayName } = useAuth();
+  const { group, members, myGroups, loadMyGroups, switchGroup, leaveGroup, propose } = useApp();
+
   const [copied, setCopied] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
+  // Perfil
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
+
+  // Kick
+  const [confirmKick, setConfirmKick] = useState<string | null>(null);
+  const [kicking, setKicking] = useState<string | null>(null);
+  const [kickMsg, setKickMsg] = useState('');
+
+  // Switcher
+  const [switching, setSwitching] = useState<string | null>(null);
+
   const displayUserName = user?.user_metadata?.display_name || user?.email || 'Tú';
+
+  useEffect(() => {
+    setNameInput(user?.user_metadata?.display_name || '');
+  }, [user?.user_metadata?.display_name]);
+
+  useEffect(() => {
+    if (!myGroups.length) loadMyGroups();
+  }, []);
+
+  async function handleSaveName() {
+    const name = nameInput.trim();
+    if (!name || savingName || name === user?.user_metadata?.display_name) return;
+    setSavingName(true);
+    setProfileMsg('');
+    try {
+      await updateDisplayName(name);
+      // Sincroniza public.users para que el resto del squad vea el nombre nuevo.
+      await api('/api/users/sync', {
+        method: 'POST',
+        body: JSON.stringify({ display_name: name, avatar_url: null }),
+      });
+      setProfileMsg('✓ Nombre actualizado');
+    } catch (e: any) {
+      setProfileMsg(e?.error ?? e?.message ?? 'No se pudo actualizar');
+    } finally {
+      setSavingName(false);
+      setTimeout(() => setProfileMsg(''), 2500);
+    }
+  }
+
+  async function handleSwitchGroup(id: string) {
+    if (switching || id === group?.id) return;
+    setSwitching(id);
+    try {
+      await switchGroup(id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching(null);
+    }
+  }
+
+  async function handleKick(member: any) {
+    if (confirmKick !== member.user_id) {
+      setConfirmKick(member.user_id);
+      return;
+    }
+    if (!group?.id) return;
+    setKicking(member.user_id);
+    setKickMsg('');
+    try {
+      await propose(group.id, 'kick_member', null, member.user_id);
+      setKickMsg(`Propuesta creada: expulsar a ${member.display_name}. El squad vota en "Votar".`);
+    } catch (e: any) {
+      setKickMsg(e?.error ?? 'No se pudo crear la propuesta');
+    } finally {
+      setKicking(null);
+      setConfirmKick(null);
+    }
+  }
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -109,6 +184,87 @@ export default function SquadScreen() {
       </View>
 
       <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
+        {/* Perfil */}
+        <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm">
+          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3">TU PERFIL</Text>
+          <View className="flex-row items-center gap-3 mb-3">
+            <View className={`w-12 h-12 rounded-full items-center justify-center ${getAvatarBg(displayUserName)}`}>
+              <Text className="text-paper text-base font-bold">{getInitials(displayUserName)}</Text>
+            </View>
+            <View className="flex-1 min-w-0">
+              <Text className="font-semibold text-sm text-ink truncate">{displayUserName}</Text>
+              <Text className="text-xs text-ink-soft truncate mt-0.5">{user?.email}</Text>
+            </View>
+          </View>
+          <View className="flex-row gap-2">
+            <TextInput
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="Tu nombre"
+              placeholderTextColor="#A89C89"
+              maxLength={40}
+              className="flex-1 rounded-xl border border-hairline bg-cream-2 px-3 py-2.5 text-sm text-ink"
+            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              disabled={savingName || !nameInput.trim() || nameInput.trim() === (user?.user_metadata?.display_name || '')}
+              onPress={handleSaveName}
+              className={`rounded-full px-4 items-center justify-center ${
+                savingName || !nameInput.trim() || nameInput.trim() === (user?.user_metadata?.display_name || '')
+                  ? 'bg-cream-2'
+                  : 'bg-sage-deep'
+              }`}
+            >
+              {savingName ? (
+                <ActivityIndicator size="small" color="#5C7650" />
+              ) : (
+                <Text
+                  className={`text-xs font-bold ${
+                    !nameInput.trim() || nameInput.trim() === (user?.user_metadata?.display_name || '')
+                      ? 'text-ink-faint'
+                      : 'text-paper'
+                  }`}
+                >
+                  Guardar
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {profileMsg ? (
+            <Text className="text-xs font-semibold text-sage-deep mt-2">{profileMsg}</Text>
+          ) : null}
+        </View>
+
+        {/* Mis grupos (switcher) */}
+        {myGroups.length > 1 && (
+          <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm">
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3">MIS GRUPOS</Text>
+            <View className="gap-2">
+              {myGroups.map((g) => (
+                <TouchableOpacity
+                  key={g.id}
+                  activeOpacity={0.8}
+                  onPress={() => handleSwitchGroup(g.id)}
+                  className={`rounded-2xl border px-4 py-3 flex-row items-center justify-between ${
+                    g.id === group?.id ? 'border-sage-deep bg-sage-soft/30' : 'border-hairline bg-cream-2'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${g.id === group?.id ? 'text-sage-deep' : 'text-ink'}`}
+                  >
+                    {g.name}
+                  </Text>
+                  {switching === g.id ? (
+                    <ActivityIndicator size="small" color="#5C7650" />
+                  ) : g.id === group?.id ? (
+                    <Text className="text-xs font-bold text-sage-deep">Activo</Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
         {group ? (
           <>
             {/* Squad Info Card */}
@@ -145,7 +301,9 @@ export default function SquadScreen() {
             </View>
 
             {/* Members Section */}
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">MIEMBROS DEL SQUAD ({members.length + 1})</Text>
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">
+              MIEMBROS DEL SQUAD ({members.filter((m) => m.user_id !== user?.id).length + 1})
+            </Text>
             
             <View className="gap-2 mb-6">
               {/* Me */}
@@ -160,17 +318,47 @@ export default function SquadScreen() {
               </View>
 
               {/* Others */}
-              {members.map((member) => (
-                <View key={member.user_id} className="rounded-3xl bg-paper border border-hairline p-4 flex-row items-center gap-3">
-                  <View className={`w-10 h-10 rounded-full items-center justify-center ${getAvatarBg(member.display_name)}`}>
-                    <Text className="text-paper text-sm font-bold">{getInitials(member.display_name)}</Text>
+              {members
+                .filter((m) => m.user_id !== user?.id)
+                .map((member) => (
+                  <View key={member.user_id} className="rounded-3xl bg-paper border border-hairline p-4 flex-row items-center gap-3">
+                    <View className={`w-10 h-10 rounded-full items-center justify-center ${getAvatarBg(member.display_name)}`}>
+                      <Text className="text-paper text-sm font-bold">{getInitials(member.display_name)}</Text>
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <Text className="font-semibold text-sm text-ink truncate">{member.display_name}</Text>
+                    </View>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      disabled={kicking === member.user_id}
+                      onPress={() => handleKick(member)}
+                      className={`rounded-full px-3 py-1.5 border ${
+                        confirmKick === member.user_id
+                          ? 'bg-coral-deep border-coral-deep'
+                          : 'bg-paper border-hairline'
+                      }`}
+                    >
+                      <Text
+                        className={`text-[10px] font-bold ${
+                          confirmKick === member.user_id ? 'text-paper' : 'text-ink-faint'
+                        }`}
+                      >
+                        {kicking === member.user_id
+                          ? '…'
+                          : confirmKick === member.user_id
+                            ? '¿Proponer expulsión?'
+                            : 'Expulsar'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
-                  <View className="flex-1 min-w-0">
-                    <Text className="font-semibold text-sm text-ink truncate">{member.display_name}</Text>
-                  </View>
-                </View>
-              ))}
+                ))}
             </View>
+
+            {kickMsg ? (
+              <View className="rounded-3xl bg-amber-soft/40 border border-amber/30 px-4 py-3 mb-5">
+                <Text className="text-xs font-semibold text-amber-deep">{kickMsg}</Text>
+              </View>
+            ) : null}
 
             {/* Leave Group Section */}
             {!confirmLeave ? (

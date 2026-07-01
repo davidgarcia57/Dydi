@@ -344,16 +344,21 @@ export default function TodayScreen() {
           {myCheckins.length > 0 ? (
             <View className="gap-2.5 mb-4">
               {myCheckins.map((c) => (
-                <View key={c.habit_id} className="flex-row items-center gap-2 flex-wrap">
-                  <Text className="text-sm font-semibold text-ink">{c.habit_name}</Text>
-                  {c.scheduled_time && (
-                    <View className="rounded-full bg-hairline px-2 py-0.5">
-                      <Text className="text-[10px] text-ink-soft font-medium">{c.scheduled_time}</Text>
+                <View key={c.habit_id}>
+                  <View className="flex-row items-center gap-2 flex-wrap">
+                    <Text className="text-sm font-semibold text-ink">{c.habit_name}</Text>
+                    {c.scheduled_time && (
+                      <View className="rounded-full bg-hairline px-2 py-0.5">
+                        <Text className="text-[10px] text-ink-soft font-medium">{c.scheduled_time}</Text>
+                      </View>
+                    )}
+                    <View className={`rounded-full px-2 py-0.5 ${STATUS_PILL[c.status]?.cls || 'bg-hairline'}`}>
+                      <Text className="text-[10px] font-bold">{STATUS_PILL[c.status]?.label || c.status}</Text>
                     </View>
-                  )}
-                  <View className={`rounded-full px-2 py-0.5 ${STATUS_PILL[c.status]?.cls || 'bg-hairline'}`}>
-                    <Text className="text-[10px] font-bold">{STATUS_PILL[c.status]?.label || c.status}</Text>
                   </View>
+                  {c.note ? (
+                    <Text className="text-xs text-ink-soft italic mt-0.5">“{c.note}”</Text>
+                  ) : null}
                 </View>
               ))}
             </View>

@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  updateDisplayName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signOut: async () => {},
+  updateDisplayName: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -49,8 +51,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Actualiza el display_name en Supabase Auth y refresca la sesión local.
+  const updateDisplayName = async (name: string) => {
+    const { data, error } = await supabase.auth.updateUser({ data: { display_name: name } });
+    if (error) throw error;
+    if (data.user) {
+      setSession(prev => (prev ? { ...prev, user: data.user } : prev));
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signOut }}>
+    <AuthContext.Provider
+      value={{ session, user: session?.user ?? null, loading, signOut, updateDisplayName }}
+    >
       {children}
     </AuthContext.Provider>
   );

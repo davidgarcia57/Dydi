@@ -83,11 +83,13 @@ export default function ShameScreen() {
     group,
     members,
     debts,
+    resolvedDebts,
     eligible,
     openEntries,
     activeEntry,
     suggestions,
     loadDebts,
+    loadResolvedDebts,
     loadEligible,
     loadOpenEntries,
     enterEntry,
@@ -113,6 +115,28 @@ export default function ShameScreen() {
   // Complete-debt confirm state
   const [confirmComplete, setConfirmComplete] = useState<string | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
+
+  // Historial de deudas (carga perezosa)
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  const DEBT_STATUS_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+    completed: { label: 'CUMPLIDA', bg: 'bg-sage-soft', text: 'text-sage-deep' },
+    forgiven: { label: 'PERDONADA', bg: 'bg-amber-soft', text: 'text-amber-deep' },
+    expired: { label: 'EXPIRÓ', bg: 'bg-cream-2', text: 'text-ink-faint' },
+  };
+
+  async function toggleHistory() {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (!next || historyLoaded || !group?.id) return;
+    try {
+      await loadResolvedDebts(group.id);
+      setHistoryLoaded(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   // Wheel animation refs
   const spinValueRef = useRef(new Animated.Value(0)).current;
@@ -524,6 +548,51 @@ export default function ShameScreen() {
                   ))}
                 </View>
               )}
+            </View>
+
+            {/* Historial de deudas */}
+            <View className="mb-10">
+              <TouchableOpacity activeOpacity={0.7} onPress={toggleHistory} className="flex-row items-center gap-2 mb-3 px-1">
+                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">HISTORIAL</Text>
+                <Text className="text-[10px] text-ink-faint">{showHistory ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+
+              {showHistory &&
+                (resolvedDebts.length === 0 ? (
+                  <View className="rounded-3xl bg-surface border border-hairline py-6 px-4 items-center justify-center">
+                    <Text className="text-xs text-ink-soft text-center">
+                      Sin deudas pasadas. El historial del squad aparecerá aquí.
+                    </Text>
+                  </View>
+                ) : (
+                  <View className="gap-2.5">
+                    {resolvedDebts.map((debt) => {
+                      const badge = DEBT_STATUS_BADGE[debt.status ?? ''] ?? {
+                        label: (debt.status ?? '').toUpperCase(),
+                        bg: 'bg-cream-2',
+                        text: 'text-ink-faint',
+                      };
+                      return (
+                        <View key={debt.id} className="rounded-3xl bg-surface border border-hairline p-4">
+                          <View className="flex-row items-center justify-between mb-2">
+                            <View className="flex-row items-center gap-2">
+                              <View className={`w-6 h-6 rounded-full items-center justify-center opacity-70 ${getAvatarBg(getMemberName(debt.debtor_id))}`}>
+                                <Text className="text-paper text-[8px] font-bold">{getInitials(getMemberName(debt.debtor_id))}</Text>
+                              </View>
+                              <Text className="text-xs font-bold text-ink">{getMemberName(debt.debtor_id)}</Text>
+                            </View>
+                            <View className={`rounded-full px-2.5 py-0.5 ${badge.bg}`}>
+                              <Text className={`text-[9px] font-bold ${badge.text}`}>{badge.label}</Text>
+                            </View>
+                          </View>
+                          <Text className="text-sm text-ink-soft pl-1">
+                            {debt.punishment_emoji ?? ''} {debt.punishment_text}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
             </View>
           </ScrollView>
         </>
