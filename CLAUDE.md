@@ -115,10 +115,12 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service
   `/internal/*` (incluido el handshake `/ws` y `realtime → groups` para verificar
   membresía). Los servicios **no arrancan sin él** (fail-closed); en tests, al
   estar vacío, el middleware se vuelve no-op.
-- **Keep-alive**: un ping a `gateway/health` despierta a los 3 servicios vía
-  goroutines (env `*_SERVICE_URL`). Render free se duerme a los 15 min; para
-  fiabilidad usar un pinger externo (cron-job.org/UptimeRobot), no GitHub
-  Actions (sus crons se retrasan >15 min).
+- **Keep-alive**: un `POST` a `/ops/wake` del gateway (protegido por el header `X-Wake-Token`)
+  despierta a los 3 servicios vía goroutines (env `*_SERVICE_URL`). Render free se duerme a los 15 min; para
+  fiabilidad usar un pinger externo (cron-job.org configurado con método POST y el token
+  en los headers), no GitHub Actions (sus crons se retrasan >15 min). El token de wake-up
+  NUNCA debe exponerse en el frontend, URLs ni logs. El endpoint `/health` es de
+  liveness puro y no propaga llamadas.
 
 ## Stack
 

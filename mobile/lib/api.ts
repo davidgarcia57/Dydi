@@ -4,13 +4,15 @@ const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://dydi-25hj.onrender.com'
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-const MAX_RETRIES = 3;
+const MAX_ATTEMPTS = 3;
 const PER_ATTEMPT_TIMEOUT = 30_000; // ms
 
-export async function api(path: string, options: RequestInit = {}, retries = MAX_RETRIES): Promise<any> {
+export async function api(path: string, options: RequestInit = {}, attempts = MAX_ATTEMPTS): Promise<any> {
   let lastErr: any = null;
+  const method = (options.method ?? 'GET').toUpperCase();
+  const isSafeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(method);
 
-  for (let i = 0; i < retries; i++) {
+  for (let i = 0; i < attempts; i++) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT);
     
@@ -46,10 +48,12 @@ export async function api(path: string, options: RequestInit = {}, retries = MAX
         const err = { status: res.status, ...(body || {}) };
         
         // Render free-tier cold-start triggers 502/503/504 which are worth retrying.
-        if (res.status >= 502 && res.status <= 504 && i < retries - 1) {
-          lastErr = err;
-          await delay(Math.min(1000 * Math.pow(2, i), 8000));
-          continue;
+        if (res.status >= 502 && res.status <= 504 && i < attempts - 1) {
+          if (isSafeMethod) {
+            lastErr = err;
+            await delay(Math.min(1000 * Math.pow(2, i), 8000));
+            continue;
+          }
         }
         throw err;
       }
@@ -58,7 +62,7 @@ export async function api(path: string, options: RequestInit = {}, retries = MAX
     } catch (err: any) {
       // Retry transient transport / abort failures
       const isTransient = err instanceof TypeError || err?.name === 'AbortError';
-      if (!isTransient || i === retries - 1) throw err;
+      if (!isTransient || i === attempts - 1 || !isSafeMethod) throw err;
       lastErr = err;
       await delay(Math.min(1000 * Math.pow(2, i), 8000));
     } finally {
