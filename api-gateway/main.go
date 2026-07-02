@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -66,39 +68,76 @@ func setupRouter() *chi.Mux {
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		// Wake every backend service in the background. Each lives on a separate
-		// Render account, so this 12-min ping is what keeps them off the
-		// free-tier 15-min sleep. Failures are LOGGED (not silent) so a missing
-		// or wrong *_SERVICE_URL surfaces instead of quietly dropping a service.
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	wakeMu := &sync.Mutex{}
+	wakeInProgress := false
+	wakeLimiter := apimiddleware.NewRateLimiter(1.0, 2.0) // 1 req/s, burst 2
+
+	r.With(apimiddleware.RateLimit(wakeLimiter)).Post("/ops/wake", func(w http.ResponseWriter, r *http.Request) {
+		expectedToken := os.Getenv("WAKE_TOKEN")
+		if expectedToken == "" {
+			http.Error(w, "wake-up disabled: WAKE_TOKEN not configured", http.StatusInternalServerError)
+			return
+		}
+
+		providedToken := r.Header.Get("X-Wake-Token")
+		if providedToken == "" || subtle.ConstantTimeCompare([]byte(providedToken), []byte(expectedToken)) != 1 {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		wakeMu.Lock()
+		if wakeInProgress {
+			wakeMu.Unlock()
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte("already in progress"))
+			return
+		}
+		wakeInProgress = true
+		wakeMu.Unlock()
+
 		services := map[string]string{
 			"groups":   os.Getenv("GROUPS_SERVICE_URL"),
 			"habits":   os.Getenv("HABITS_SERVICE_URL"),
 			"realtime": os.Getenv("REALTIME_SERVICE_URL"),
 		}
 
-		for name, u := range services {
-			if u == "" {
-				log.Printf("keep-alive: %s_SERVICE_URL is empty — that service will NOT be kept awake", name)
-				continue
-			}
-			go func(name, serviceURL string) {
-				// 45s is enough to cover a Render cold start of the target.
-				client := &http.Client{Timeout: 45 * time.Second}
-				resp, err := client.Get(serviceURL + "/health")
-				if err != nil {
-					log.Printf("keep-alive: failed to wake %s (%s): %v", name, serviceURL, err)
-					return
-				}
-				if resp.StatusCode != http.StatusOK {
-					log.Printf("keep-alive: %s (%s) returned %d", name, serviceURL, resp.StatusCode)
-				}
-				_ = resp.Body.Close()
-			}(name, u)
-		}
+		go func() {
+			defer func() {
+				wakeMu.Lock()
+				wakeInProgress = false
+				wakeMu.Unlock()
+			}()
 
-		// Respond immediately so we never hit Render's 30s request timeout.
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
+			var wg sync.WaitGroup
+			for name, u := range services {
+				if u == "" {
+					log.Printf("keep-alive: %s_SERVICE_URL is empty — skipped", name)
+					continue
+				}
+				wg.Add(1)
+				go func(serviceName, serviceURL string) {
+					defer wg.Done()
+					client := &http.Client{Timeout: 45 * time.Second}
+					resp, err := client.Get(serviceURL + "/health")
+					if err != nil {
+						log.Printf("keep-alive: failed to wake %s (%s): %v", serviceName, serviceURL, err)
+						return
+					}
+					if resp.StatusCode != http.StatusOK {
+						log.Printf("keep-alive: %s (%s) returned %d", serviceName, serviceURL, resp.StatusCode)
+					}
+					_ = resp.Body.Close()
+				}(name, u)
+			}
+			wg.Wait()
+		}()
+
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte("accepted"))
 	})
 
 	r.Route("/api", func(r chi.Router) {

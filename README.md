@@ -113,6 +113,21 @@ dydi/
 └── verify.sh          # Suite de validación total CI
 ```
 
+## 🛡 Garantías de Confiabilidad y Red
+
+Dydi implementa estrategias específicas para operar de forma resiliente en infraestructuras gratuitas (como Render Free Tier):
+
+### Política de Reintentos (Mobile)
+- Las operaciones de lectura (`GET`, `HEAD`, `OPTIONS`) se reintentan automáticamente (hasta 3 veces) ante errores transitorios o errores de servidor (502, 503, 504), mitigando fallos por cold starts.
+- Las operaciones con efectos secundarios (`POST`, `PUT`, `PATCH`, `DELETE`) **no se reintentan automáticamente**. Esto previene la duplicación accidental de penalizaciones o grupos creados en caso de que el backend haya completado la solicitud pero la respuesta se haya perdido por un fallo de red transitorio.
+
+### Mantenimiento de Actividad (Wake-Up)
+Para evitar los periodos de inactividad de 15 minutos en Render, Dydi cuenta con un modelo de Wake-Up centralizado:
+- `GET /health` en el API Gateway sirve estrictamente como "liveness check" y no interactúa con ningún otro servicio de backend.
+- `POST /ops/wake` es un endpoint protegido por un secreto (`X-Wake-Token`) que despierta todos los microservicios en segundo plano.
+- **Configuración del Cron:** El cronjob externo debe enviar una petición `POST` a `/ops/wake` con el header `X-Wake-Token: <WAKE_TOKEN>`.
+> **Nota para el despliegue:** Proveedores como la herramienta de cron interna de Render solo soportan peticiones `GET` sin headers. Para llamar a `/ops/wake`, debes usar un servicio externo compatible con `POST` y headers personalizados (por ejemplo, [cron-job.org](https://cron-job.org/) o un Github Actions workflow).
+
 ---
 
 ## ⚠️ Estado y Limitaciones

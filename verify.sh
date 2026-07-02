@@ -74,10 +74,10 @@ verify_frontend() {
 }
 
 verify_mobile() {
-  green "Movil - tsc --noEmit"
+  green "Movil - tsc --noEmit y tests"
   docker run --rm -v "$ROOT/mobile":/src -v "$ROOT/.npmcache":/root/.npm "$NODE_IMAGE" sh -c '
     cp -r /src /w && cd /w && rm -rf node_modules &&
-    npm ci --legacy-peer-deps --prefer-offline && npx tsc --noEmit' \
+    npm ci --legacy-peer-deps --prefer-offline && npm install --no-save jest jest-expo @types/jest @react-native/jest-preset && npx tsc --noEmit && npx jest' \
     || fail "mobile"
 }
 
