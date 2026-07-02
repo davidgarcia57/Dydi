@@ -332,9 +332,7 @@ onUnmounted(() => {
               >
                 {{ STATUS_PILL[c.status]?.label ?? c.status }}
               </span>
-              <p v-if="c.note" class="w-full text-xs text-ink-soft italic mt-0.5">
-                “{{ c.note }}”
-              </p>
+              <p v-if="c.note" class="w-full text-xs text-ink-soft italic mt-0.5">“{{ c.note }}”</p>
             </div>
           </div>
           <p v-else class="text-sm text-ink-soft mb-4">

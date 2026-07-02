@@ -5,6 +5,7 @@ import { useGroupStore } from '@/stores/group'
 import { usePenaltiesStore } from '@/stores/penalties'
 import { showToast } from '@/composables/useToast'
 import PageContainer from '@/components/ui/PageContainer.vue'
+import { Dices, PartyPopper } from 'lucide-vue-next'
 
 // Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
 // miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
@@ -62,16 +63,13 @@ const graceOver = computed(() =>
     : false
 )
 const canSpin = computed(
-  () =>
-    deadlinePassed.value && !entry.value?.spun_at && (isDebtor.value || graceOver.value)
+  () => deadlinePassed.value && !entry.value?.spun_at && (isDebtor.value || graceOver.value)
 )
 const hasSuggested = computed(() =>
   penalties.suggestions.some((s) => s.suggester_id === auth.user?.id)
 )
 // El deudor nunca escribe su propia penitencia: la propone el resto del squad.
-const canSuggest = computed(
-  () => !deadlinePassed.value && !hasSuggested.value && !isDebtor.value
-)
+const canSuggest = computed(() => !deadlinePassed.value && !hasSuggested.value && !isDebtor.value)
 
 const deadlineLabel = computed(() => {
   if (!entry.value) return ''
@@ -97,9 +95,7 @@ const debtorName = computed(() => {
 // Miembros en el bote que aún no tienen ruleta abierta (los que ya la tienen
 // aparecen en la sección "Ruletas abiertas").
 const eligibleWithoutEntry = computed(() =>
-  penalties.eligible.filter(
-    (m) => !penalties.openEntries.some((e) => e.debtor_id === m.user_id)
-  )
+  penalties.eligible.filter((m) => !penalties.openEntries.some((e) => e.debtor_id === m.user_id))
 )
 
 function entryCountdown(e) {
@@ -354,7 +350,7 @@ onMounted(async () => {
               <p class="text-xs text-ink-soft mt-0.5">{{ entryCountdown(e) }}</p>
             </div>
             <button
-              class="rounded-pill bg-terracotta text-paper px-4 py-2 text-xs font-bold active:opacity-80 transition-opacity flex-shrink-0"
+              class="rounded-pill bg-terracotta text-paper px-4 py-2 text-xs font-bold transition-all duration-200 hover:opacity-90 active:scale-95 active:opacity-80 flex-shrink-0"
               :disabled="loading"
               @click="enterEntry(e)"
             >
@@ -373,12 +369,12 @@ onMounted(async () => {
           class="rounded-card border border-sage/30 bg-sage-soft px-4 py-8 text-center"
         >
           <template v-if="penalties.openEntries.length">
-            <p class="text-4xl mb-3">🎡</p>
+            <Dices class="w-12 h-12 mx-auto mb-3 text-sage-deep opacity-80" />
             <p class="text-sm font-semibold text-sage-deep">Todos los del bote ya tienen ruleta</p>
             <p class="text-xs text-ink-soft mt-1">Entra arriba a proponer su penitencia.</p>
           </template>
           <template v-else>
-            <p class="text-4xl mb-3">🎉</p>
+            <PartyPopper class="w-12 h-12 mx-auto mb-3 text-sage-deep opacity-80" />
             <p class="text-sm font-semibold text-sage-deep">Squad limpio esta semana</p>
             <p class="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</p>
           </template>
@@ -401,7 +397,7 @@ onMounted(async () => {
               <p class="text-xs text-ink-soft mt-0.5">Falló esta semana</p>
             </div>
             <button
-              class="rounded-pill bg-terracotta text-paper px-4 py-2 text-xs font-bold active:opacity-80 transition-opacity flex-shrink-0"
+              class="rounded-pill bg-terracotta text-paper px-4 py-2 text-xs font-bold transition-all duration-200 hover:opacity-90 active:scale-95 active:opacity-80 flex-shrink-0"
               :disabled="loading"
               @click="openRoulette(m)"
             >
@@ -681,7 +677,7 @@ onMounted(async () => {
             <template v-if="canSuggest">
               <button
                 v-if="!showForm"
-                class="w-full rounded-pill border border-sage-deep text-sage-deep py-3 font-bold text-sm active:opacity-80 transition-opacity"
+                class="w-full rounded-pill border border-sage-deep text-sage-deep py-3 font-bold text-sm transition-all duration-200 hover:opacity-90 active:scale-95 active:opacity-80"
                 @click="showForm = true"
               >
                 + Proponer penitencia
@@ -758,7 +754,9 @@ onMounted(async () => {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            {{ spinning ? 'Girando…' : isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}` }}
+            {{
+              spinning ? 'Girando…' : isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}`
+            }}
           </button>
 
           <div

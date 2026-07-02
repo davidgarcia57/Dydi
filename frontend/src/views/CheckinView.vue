@@ -6,6 +6,7 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import WaterBottle from '@/components/ui/WaterBottle.vue'
 import HabitIcon from '@/components/ui/HabitIcon.vue'
+import { Flame } from 'lucide-vue-next'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -223,7 +224,7 @@ async function submit() {
         <button
           v-for="h in myPending"
           :key="h.habit_id"
-          class="w-full rounded-card bg-paper shadow-card p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-transform"
+          class="w-full rounded-card bg-paper shadow-card p-5 text-left flex items-center gap-4 active:scale-[0.98] transition-all duration-200 hover:opacity-90"
           @click="pick(h)"
         >
           <div
@@ -417,10 +418,10 @@ async function submit() {
       <div class="relative rounded-card bg-paper shadow-card px-8 py-6 mb-10 w-full max-w-xs">
         <!-- +1 badge -->
         <div
-          class="absolute -top-3 -right-2 rounded-full bg-terracotta text-paper text-xs font-bold px-2.5 py-1 shadow-flat transition-all duration-500"
+          class="absolute -top-3 -right-2 flex items-center gap-0.5 rounded-full bg-terracotta text-paper text-xs font-bold px-2.5 py-1 shadow-flat transition-all duration-500"
           :class="showPlus ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'"
         >
-          +1 🔥
+          +1 <Flame class="w-3.5 h-3.5" />
         </div>
 
         <p class="text-eyebrow mb-2">TU RACHA</p>

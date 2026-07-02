@@ -63,8 +63,7 @@ function dayStrip(checkin) {
 
   return DAY_LABELS.map((label, i) => {
     if (i > todayIdx) return { label, status: 'future' }
-    if (i === todayIdx)
-      return { label, status: checkin?.status ?? 'pending', note: checkin?.note }
+    if (i === todayIdx) return { label, status: checkin?.status ?? 'pending', note: checkin?.note }
     // Past day: real history — a check-in that date means done, otherwise missed.
     const date = dateForIdx(i, todayIdx)
     const done = dates ? dates.has(date) : false

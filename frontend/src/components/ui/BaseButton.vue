@@ -33,7 +33,7 @@ const SIZES = {
 
 const classes = computed(() => [
   'inline-flex items-center justify-center gap-2 rounded-pill font-bold',
-  'transition-all active:opacity-80 active:scale-[0.99]',
+  'transition-all duration-200 ease-out hover:opacity-90 active:opacity-80 active:scale-[0.98]',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50 focus-visible:ring-offset-2 focus-visible:ring-offset-cream',
   'disabled:opacity-60 disabled:pointer-events-none',
   VARIANTS[props.variant],

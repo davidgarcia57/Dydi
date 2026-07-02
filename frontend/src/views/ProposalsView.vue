@@ -410,7 +410,12 @@ onMounted(async () => {
             </div>
             <p class="text-xs text-ink-soft">
               {{ p.vote_count }} de {{ p.member_count }} votos a favor ·
-              {{ new Date(p.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }) }}
+              {{
+                new Date(p.created_at).toLocaleDateString('es-MX', {
+                  month: 'short',
+                  day: 'numeric',
+                })
+              }}
             </p>
           </div>
         </div>
