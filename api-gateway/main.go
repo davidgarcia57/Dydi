@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -56,12 +57,34 @@ func main() {
 	}
 	log.Println("api-gateway stopped")
 }
+
+// envFloat lee un float de env; con valor ausente, malformado o no positivo
+// regresa el default (el limiter no acepta tasas ≤ 0).
+func envFloat(key string, fallback float64) float64 {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	f, err := strconv.ParseFloat(raw, 64)
+	if err != nil || f <= 0 {
+		log.Printf("%s=%q inválido, usando default %v", key, raw, fallback)
+		return fallback
+	}
+	return f
+}
+
 func setupRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(apimiddleware.CORS)
 
-	limiter := apimiddleware.NewRateLimiter(5.0, 20.0)
+	// El limiter agrupa por X-User-ID, así que las corridas k6 (todos los VUs
+	// con la misma cuenta loadtest) comparten UNA cubeta: para el experimento
+	// se suben estos valores por env en Render. Producción usa los defaults.
+	limiter := apimiddleware.NewRateLimiter(
+		envFloat("RATE_LIMIT_RPS", 5.0),
+		envFloat("RATE_LIMIT_BURST", 20.0),
+	)
 
 	// /metrics is unauthenticated and lives at the root (not under /api) so a
 	// Prometheus scraper / Grafana Cloud agent can read P95 latency.

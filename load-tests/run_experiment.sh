@@ -116,7 +116,9 @@ K6_ARGS=(run
 [ "$RAW" -eq 1 ] && K6_ARGS+=(--out "csv=/lt/results/${STAMP}-peak${PEAK}-rep${REP}/raw.csv")
 
 K6_EXIT=0
-docker run --rm -i --network host -v "$LT":/lt -w /lt grafana/k6 \
+# --user: el contenedor de k6 corre como uid 12345 y no puede escribir
+# summary.json en results/ (propiedad del usuario del host).
+docker run --rm -i --network host --user "$(id -u):$(id -g)" -v "$LT":/lt -w /lt grafana/k6 \
   "${K6_ARGS[@]}" k6_stress_test.js 2>&1 | tee "$DIR/k6_output.txt" || K6_EXIT=$?
 
 # 3) Cierra el scraper con gracia y reporta.

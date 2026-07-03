@@ -278,3 +278,28 @@ func TestOpsWakeCleanupOnDownstreamFailure(t *testing.T) {
 		return rec.Code == http.StatusAccepted && rec.Body.String() == "accepted"
 	})
 }
+
+// -- envFloat (config del rate limiter) -----------------------------------------
+
+func TestEnvFloat(t *testing.T) {
+	cases := []struct {
+		name string
+		val  string
+		want float64
+	}{
+		{"vacío regresa default", "", 5.0},
+		{"entero válido", "250", 250},
+		{"decimal válido", "0.5", 0.5},
+		{"malformado regresa default", "abc", 5.0},
+		{"cero regresa default", "0", 5.0},
+		{"negativo regresa default", "-3", 5.0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("RATE_LIMIT_RPS", tc.val)
+			if got := envFloat("RATE_LIMIT_RPS", 5.0); got != tc.want {
+				t.Fatalf("envFloat(%q) = %v, want %v", tc.val, got, tc.want)
+			}
+		})
+	}
+}
