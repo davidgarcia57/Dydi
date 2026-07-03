@@ -25,6 +25,10 @@ coverage/
 # Docker / logs
 *.log
 
+# Load tests (datos por entorno / resultados de corridas — no se versionan)
+load-tests/loadtest_groups.json
+load-tests/results/
+
 # IDE
 .vscode/
 .idea/

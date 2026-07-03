@@ -1,48 +1,90 @@
-# Pruebas de Estrés (Load Testing) con k6
+# Pruebas de estrés (k6) — experimento de la tesis
 
-Este directorio contiene los scripts para poner a prueba la resiliencia y el consumo de recursos de la arquitectura de microservicios de Dydi (Tesis / Actividad 1.4 y 1.5).
+Todo lo necesario para las corridas del paper: sembrar datos, meter carga
+(rampas de WebSockets + HTTP) y capturar la telemetría de los 4 servicios.
+**Nada se instala local**: k6 y psql corren vía Docker (regla del proyecto).
 
-## Requisitos
+## Los 5 archivos
 
-1. Descargar e instalar [k6 de Grafana](https://k6.io/docs/get-started/installation/).
-2. Asegúrate de tener los microservicios corriendo (ya sea en local con Docker o desplegados en Render).
-3. Necesitas un **Token JWT válido** y un **ID de Grupo válido**.
+| Archivo | Qué hace |
+|---|---|
+| `seed.sh` | Siembra N grupos `loadtest-*` en Supabase con el usuario de prueba como miembro (el handshake WS valida membresía — sin esto, todo da 403). Exporta los UUIDs a `loadtest_groups.json`. |
+| `token.sh` | Imprime un JWT fresco de la cuenta loadtest (password grant contra Supabase Auth). Se acabó copiar tokens del navegador. |
+| `k6_stress_test.js` | La prueba: rampa de WS hasta `PEAK` repartida entre los grupos sembrados + tráfico HTTP constante para el P95. |
+| `scrape_metrics.sh` | Muestrea `/metrics` de los 4 servicios cada 5s → CSV (RAM, CPU, goroutines, pool de pgx, WS caídos). Un scrape fallido también se registra: si el servicio muere por OOM, ese hueco ES el dato. |
+| `run_experiment.sh` | Una corrida completa y reproducible: scraper + k6 + artefactos en `results/<fecha>-peak<N>-rep<M>/`. |
 
-## ¿Cómo obtener el Token JWT?
+## Paso 0 — Configurar `.env` (una sola vez)
 
-1. Entra a tu frontend de Dydi e inicia sesión.
-2. Abre la consola del navegador (F12) -> pestaña Application / Local Storage.
-3. Copia el token de la llave que guarda Supabase (ej. `sb-*-auth-token`).
-4. Ve al dashboard de Dydi, selecciona un grupo y copia el UUID de la URL.
+1. Registra una cuenta DEDICADA en la app (ej. `loadtest@...`). No uses tu
+   cuenta personal: el seed le cuelga ~1000 grupos a su UI.
+2. Agrega al `.env` (ver `.env.example`): `LOADTEST_EMAIL`, `LOADTEST_PASSWORD`
+   y las 4 `LOADTEST_*_URL` de Render.
 
-## Ejecución del Experimento
+Con eso, todo lo demás se resuelve solo (uuid, token, targets).
 
-Abre tu terminal en esta carpeta y ejecuta el siguiente comando, reemplazando las variables con tus datos reales:
-
-```bash
-k6 run \
-  -e WS_URL=wss://tu-api-gateway.onrender.com \
-  -e GROUP_ID=c73bcdcc-2669-4bf6-81d3-e4ae73fb11fd \
-  -e TOKEN=eyJhbGciOiJIUzI1NiIs... \
-  k6_stress_test.js
-```
-
-### Exportar Datos para las Gráficas (Tesis)
-
-Para que puedas construir las gráficas de dispersión (Conexiones vs Latencia), puedes exportar la salida a un archivo CSV que luego puedes abrir en Excel o Python (Matplotlib/Pandas):
+## Paso 1 — Sembrar (una sola vez, o tras un `down`)
 
 ```bash
-k6 run --out csv=resultados_tesis.csv -e WS_URL=... -e GROUP_ID=... -e TOKEN=... k6_stress_test.js
+./load-tests/seed.sh up -n 1000        # resuelve el uuid vía LOADTEST_EMAIL
+./load-tests/seed.sh up -n 50 --dry-run   # ensayo: valida todo y hace ROLLBACK
 ```
 
-### ¿Qué sucederá?
+Regla: `PEAK / grupos ≤ 8` (tope de conexiones por sala). 1000 grupos aguantan
+PEAK=5000 sobrado. Al terminar TODO el experimento: `./load-tests/seed.sh down`
+(borra SOLO los grupos con `invite_code` `LOADTEST-%`).
 
-k6 inyectará usuarios virtuales en "rampas":
-1. Subirá a 100 usuarios en 30s.
-2. Escalará a 1,000 en 1m.
-3. Escalará a 2,500 en 2m.
-4. Escalará a 5,000 en 3m.
+## Paso 2 — Correr
 
-Mientras tanto, debes monitorear la plataforma (Docker stats o el Dashboard de Render) para ver **el consumo exacto de Memoria RAM (MB) y CPU (%)**. 
+```bash
+# Contra Render (targets y token salen del .env):
+./load-tests/run_experiment.sh -p 5000 -r 1
 
-Según la hipótesis, en algún punto antes de las 5,000 conexiones, los 512 MB de Render se llenarán, provocando un *OOM Kill* (reinicio). Esto generará errores en k6 que se registrarán en la métrica `ws_dropped_rate`, demostrando exactamente cuál es la capacidad límite de la arquitectura Go hiper-optimizada en un entorno gratuito.
+# Piloto local (docker-compose arriba; targets explícitos ganan al .env):
+./load-tests/run_experiment.sh -p 100 -r 0 \
+  gateway=http://localhost:8080 groups=http://localhost:8082 \
+  habits=http://localhost:8083 realtime=http://localhost:8084
+
+# Token manual si prefieres (o si la cuenta loadtest no está en .env):
+DYDI_JWT=<token> ./load-tests/run_experiment.sh -p 5000 -r 1
+```
+
+Cada corrida deja en `results/<fecha>-peak<N>-rep<M>/`:
+`metadata.json` (qué se corrió y contra qué commit) · `metrics.csv` (serie de
+tiempo del servidor) · `summary.json` (agregados de k6: P95, error rate, checks)
+· `k6_output.txt`. Con `--raw` además todos los datapoints de k6 (pesa mucho).
+
+## La matriz del paper
+
+4 niveles × **mínimo 3 repeticiones** por nivel, en horarios similares (una
+sola corrida en free tier tiene demasiado ruido para revisión por pares):
+
+```bash
+for rep in 1 2 3; do
+  for peak in 100 1000 2500 5000; do
+    ./load-tests/run_experiment.sh -p $peak -r $rep   # token fresco por corrida
+    sleep 600   # reposo: que la memoria regrese a su línea base
+  done
+done
+```
+
+Consejos para que los datos salgan limpios:
+
+- **Despierta los servicios antes** (`curl gateway/health` y espera ~1 min): el
+  cold start de Render contamina la primera rampa si no es lo que quieres medir.
+  (O mídelo a propósito en una corrida aparte — `realtime_cold_start_seconds` ya
+  se captura.)
+- Deja **~10 min de reposo** entre corridas para que los servicios regresen a
+  su línea base de memoria.
+- El JWT caduca ~1h; `run_experiment.sh` acuña uno fresco por corrida vía
+  `token.sh`, así que no hay que renovar nada a mano.
+- `k6` saliendo con error por *threshold reventado* NO invalida la corrida: para
+  la hipótesis, encontrar el límite es el resultado.
+
+## Qué esperar (hipótesis)
+
+k6 inyecta la rampa 100 → 1000 → 2500 → 5000 VUs (~9 min). Según la hipótesis,
+antes de las 5000 conexiones los 512 MB de Render se llenan → OOM kill → k6 lo
+registra en `ws_dropped_rate` y el scraper en `process_resident_memory_bytes` +
+`scrape_error`. Ese cruce de series (RAM del servidor vs. conexiones vs. drops)
+es la gráfica central del paper.

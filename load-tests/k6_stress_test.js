@@ -2,6 +2,7 @@ import ws from 'k6/ws';
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate, Counter } from 'k6/metrics';
+import { SharedArray } from 'k6/data';
 
 // =============================================================
 // Dydi — prueba de carga (tesis)
@@ -13,12 +14,17 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 //   2) http_p95   : tráfico HTTP constante a la API REST mientras los WS cargan,
 //      para medir el P95 de latencia del camino REST bajo estrés.
 //
+// ⚠️ PRERREQUISITO: el handshake WS valida membresía contra groups-service
+// (fail-closed), así que los grupos deben EXISTIR y el usuario del TOKEN debe
+// ser miembro activo de todos. Antes de correr:
+//   ./load-tests/seed.sh up -u <uuid-del-usuario-del-token> -n 1000
+// Eso genera load-tests/loadtest_groups.json, que este script reparte entre VUs.
+//
 // Variables (pásalas con -e):
 //   -e BASE_URL=https://api-gateway.onrender.com   (HTTP)
 //   -e WS_URL=wss://api-gateway.onrender.com        (WebSocket)
-//   -e TOKEN=<JWT de Supabase de un usuario real>   (ver nota abajo)
-//   -e GROUP_COUNT=1000   (cuántas salas distintas; mantén PEAK/GROUP_COUNT < 8)
-//   -e PEAK=5000          (usuarios WS pico)
+//   -e TOKEN=<JWT de Supabase del usuario sembrado> (ver nota abajo)
+//   -e PEAK=5000          (usuarios WS pico; mantén PEAK/grupos ≤ 8)
 //
 // Cómo sacar el TOKEN: entra a la app, abre DevTools → Console y corre
 //   (await window.supabase?.auth.getSession())   — o copia el header
@@ -27,6 +33,16 @@ import { Trend, Rate, Counter } from 'k6/metrics';
 //
 // Exportar resultados:  k6 run --out json=resultados.json k6_stress_test.js
 // =============================================================
+
+// UUIDs reales sembrados por seed.sh (SharedArray: una sola copia en memoria
+// aunque haya 5000 VUs).
+const GROUPS = new SharedArray('loadtest groups', function () {
+  try {
+    return JSON.parse(open('./loadtest_groups.json'));
+  } catch (e) {
+    return []; // setup() aborta con mensaje claro
+  }
+});
 
 // --- MÉTRICAS PERSONALIZADAS (para las gráficas de la tesis) ---
 const wsConnectTime  = new Trend('ws_connect_time', true); // ms hasta el 'open'
@@ -39,7 +55,6 @@ const BASE_URL    = __ENV.BASE_URL || 'http://localhost:8080';
 const WS_URL      = __ENV.WS_URL   || 'ws://localhost:8080';
 const TOKEN       = __ENV.TOKEN    || 'TU_JWT_TOKEN_AQUI';
 const PEAK        = parseInt(__ENV.PEAK || '5000', 10);
-const GROUP_COUNT = parseInt(__ENV.GROUP_COUNT || '1000', 10);
 
 const authHeaders = { headers: { Authorization: `Bearer ${TOKEN}` } };
 
@@ -80,12 +95,29 @@ export const options = {
   },
 };
 
+// Aborta ANTES de la rampa si falta el seed o los grupos no alcanzan:
+// correr 9 minutos para medir puros 403/409 no genera datos útiles.
+export function setup() {
+  if (GROUPS.length === 0) {
+    throw new Error(
+      'loadtest_groups.json vacío o ausente — corre primero: ./load-tests/seed.sh up -u <uuid> -n 1000'
+    );
+  }
+  const worstCase = Math.ceil(PEAK / GROUPS.length);
+  if (worstCase > 8) {
+    throw new Error(
+      `PEAK=${PEAK} sobre ${GROUPS.length} grupos = ${worstCase} conexiones/grupo, ` +
+        'pero el server topa a 8 — siembra más grupos (seed.sh up -n <más>)'
+    );
+  }
+}
+
 // --- ESCENARIO 1: WebSocket ---
 export function wsConnect() {
   // Reparte cada VU en una sala distinta para no chocar con el tope de 8/grupo.
-  // El handshake WS no valida membresía (solo JWT válido + cupo en la sala),
-  // así que un solo token sirve para muchas salas y el groupID puede ser libre.
-  const groupID = `loadtest-${__VU % GROUP_COUNT}`;
+  // El handshake valida que el usuario del TOKEN sea miembro activo del grupo
+  // (realtime → groups, fail-closed), por eso los UUIDs vienen del seed.
+  const groupID = GROUPS[__VU % GROUPS.length];
   const url = `${WS_URL}/ws/${groupID}?token=${TOKEN}`;
 
   const start = Date.now(); // medir el handshake completo (antes de connect)
@@ -118,7 +150,12 @@ export function wsConnect() {
     });
   });
 
-  check(res, { 'WS handshake 101': (r) => r && r.status === 101 });
+  const ok = check(res, { 'WS handshake 101': (r) => r && r.status === 101 });
+  if (!ok) {
+    // Rechazo en el handshake (403 membresía, 409 sala llena, timeout de cold
+    // start u OOM): nunca dispara 'open' ni 'error', hay que contarlo aquí.
+    wsDroppedRate.add(true);
+  }
 }
 
 // --- ESCENARIO 2: HTTP (mide P95 del camino REST bajo carga) ---
