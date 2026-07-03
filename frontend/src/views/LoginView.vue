@@ -20,6 +20,27 @@ const form = reactive({
   confirmPassword: '',
 })
 
+const showPassword = ref(false)
+
+const strengthCriteria = computed(() => {
+  const p = form.password
+  return {
+    length: p.length >= 6,
+    uppercase: /[A-Z]/.test(p),
+    lowercase: /[a-z]/.test(p),
+    number: /[0-9]/.test(p),
+  }
+})
+
+const isPasswordStrong = computed(() => {
+  return (
+    strengthCriteria.value.length &&
+    strengthCriteria.value.uppercase &&
+    strengthCriteria.value.lowercase &&
+    strengthCriteria.value.number
+  )
+})
+
 const isRegister = computed(() => mode.value === 'register')
 const title = computed(() => (isRegister.value ? 'Crea tu cuenta' : 'Inicia sesión'))
 const submitLabel = computed(() => {
@@ -63,9 +84,15 @@ function translateAuthError(error) {
 
 async function submit() {
   resetFeedback()
-  if (isRegister.value && form.password !== form.confirmPassword) {
-    errorMessage.value = 'Las contraseñas no coinciden.'
-    return
+  if (isRegister.value) {
+    if (!isPasswordStrong.value) {
+      errorMessage.value = 'La contraseña no cumple con los requisitos de seguridad.'
+      return
+    }
+    if (form.password !== form.confirmPassword) {
+      errorMessage.value = 'Las contraseñas no coinciden.'
+      return
+    }
   }
   loading.value = true
   try {
@@ -217,16 +244,154 @@ const fieldInput =
 
           <div class="flex flex-col gap-1.5">
             <label for="password" class="text-[0.8125rem] font-semibold text-ink">Contraseña</label>
-            <input
-              id="password"
-              v-model="form.password"
-              type="password"
-              autocomplete="current-password"
-              minlength="6"
-              required
-              :class="fieldInput"
-              placeholder="Mínimo 6 caracteres"
-            />
+            <div class="relative">
+              <input
+                id="password"
+                v-model="form.password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
+                minlength="6"
+                required
+                :class="fieldInput + ' pr-10'"
+                placeholder="Mínimo 6 caracteres"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft hover:text-sage-deep transition-colors focus:outline-none"
+                :aria-label="showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                @click="showPassword = !showPassword"
+              >
+                <!-- SVG Ocultar -->
+                <svg
+                  v-if="showPassword"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                  <path
+                    d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"
+                  />
+                  <path
+                    d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"
+                  />
+                  <line x1="2" x2="22" y1="2" y2="22" />
+                </svg>
+                <!-- SVG Mostrar -->
+                <svg
+                  v-else
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Indicadores de seguridad -->
+            <ul
+              v-if="isRegister && form.password"
+              class="mt-1 flex flex-col gap-1.5 p-3 bg-surface rounded-xl border border-hairline animate-fade-in"
+            >
+              <li
+                class="flex items-center gap-2 text-[0.75rem]"
+                :class="strengthCriteria.length ? 'text-sage-deep font-medium' : 'text-ink-soft'"
+              >
+                <svg
+                  v-if="strengthCriteria.length"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <div v-else class="w-3.5 h-3.5 border border-current rounded-full opacity-40"></div>
+                Mínimo 6 caracteres
+              </li>
+              <li
+                class="flex items-center gap-2 text-[0.75rem]"
+                :class="strengthCriteria.uppercase ? 'text-sage-deep font-medium' : 'text-ink-soft'"
+              >
+                <svg
+                  v-if="strengthCriteria.uppercase"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <div v-else class="w-3.5 h-3.5 border border-current rounded-full opacity-40"></div>
+                Al menos 1 mayúscula
+              </li>
+              <li
+                class="flex items-center gap-2 text-[0.75rem]"
+                :class="strengthCriteria.lowercase ? 'text-sage-deep font-medium' : 'text-ink-soft'"
+              >
+                <svg
+                  v-if="strengthCriteria.lowercase"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <div v-else class="w-3.5 h-3.5 border border-current rounded-full opacity-40"></div>
+                Al menos 1 minúscula
+              </li>
+              <li
+                class="flex items-center gap-2 text-[0.75rem]"
+                :class="strengthCriteria.number ? 'text-sage-deep font-medium' : 'text-ink-soft'"
+              >
+                <svg
+                  v-if="strengthCriteria.number"
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <div v-else class="w-3.5 h-3.5 border border-current rounded-full opacity-40"></div>
+                Al menos 1 número
+              </li>
+            </ul>
           </div>
 
           <div v-if="isRegister" class="flex flex-col gap-1.5">
@@ -236,7 +401,7 @@ const fieldInput =
             <input
               id="confirmPassword"
               v-model="form.confirmPassword"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               autocomplete="new-password"
               minlength="6"
               required
