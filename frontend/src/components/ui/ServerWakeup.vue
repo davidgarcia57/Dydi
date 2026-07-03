@@ -1,8 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 
 const showWakeup = ref(false)
 const wokeUp = ref(false)
+const auth = useAuthStore()
 
 onMounted(async () => {
   // Damos 1.5 segundos de gracia; si responde rápido, no mostramos el loader
@@ -13,16 +15,28 @@ onMounted(async () => {
   try {
     const BASE = import.meta.env.VITE_API_URL
 
-    // Hacemos pings al health endpoint cada 2s hasta que esté arriba
+    // Esperamos a que los servicios estén arriba (Gateway y Backend real)
     for (let i = 0; i < 20; i++) {
       try {
-        const res = await fetch(`${BASE}/health`)
-        if (res.ok) {
+        let res
+        if (auth.session?.access_token) {
+          // Lectura autenticada segura para verificar backend real (groups-service)
+          res = await fetch(`${BASE}/api/groups`, {
+            headers: { Authorization: `Bearer ${auth.session.access_token}` },
+          })
+        } else {
+          // Fallback a /health si no hay sesión iniciada
+          res = await fetch(`${BASE}/health`)
+        }
+
+        // 2xx y 4xx indican que el servidor está despierto procesando requests
+        // 401 en /api/groups no provoca cold-start loop
+        if (res.ok || res.status < 500) {
           wokeUp.value = true
           break
         }
       } catch (e) {
-        // Error de red, el gateway probablemente sigue arrancando
+        // Error de red o timeout
       }
       await new Promise((r) => setTimeout(r, 2000))
     }

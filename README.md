@@ -1,265 +1,141 @@
 # Dydi
 
-SaaS de accountability social donde grupos de amigos rastrean habitos diarios y gamifican las consecuencias. Proyecto academico UTD Integradora 2026.
+**La plataforma de accountability social donde grupos de amigos rastrean hábitos diarios y gamifican las consecuencias.**
+
+Dydi no es un tracker individual. Es una experiencia de grupo en tiempo real donde fallar en tus rutinas implica enfrentarte a la ruleta semanal de penitencias elegidas por tus propios amigos.
 
 ---
 
-## Que hace Dydi
+## 🎯 Qué es Dydi
 
-Un usuario crea un grupo, invita a sus amigos (maximo 8), y entre todos proponen y votan que habitos quieren rastrear juntos (ej. "30 min de ejercicio", "leer 20 paginas"). Cada dia, cada miembro hace check-in de sus habitos. El sabado, quien haya fallado entra a la ruleta de penitencias: el grupo vota que castigo le toca y se sortea de forma aleatoria entre las opciones aprobadas. La deuda caduca automaticamente al final de la semana siguiente si no se cumple.
+En Dydi, el compromiso es público (para tu squad):
+1. **Crear squad e invitar:** Un usuario funda un grupo y trae a sus amigos (máx. 8).
+2. **Proponer y votar:** En equipo, proponen qué hábitos quieren rastrear (ej. "30 min de código", "leer 20 páginas").
+3. **Check-ins diarios:** Cada miembro reporta su cumplimiento; el progreso se sincroniza al instante en las pantallas de todos.
+4. **Consecuencias (La Ruleta):** Quien falla durante la semana entra al sorteo del sábado. El grupo vota un castigo y la ruleta decide el resultado final.
 
 ---
 
-## Arquitectura
+## 📸 Evidencia Visual
 
-```text
-frontend/           -> Vue 3 + Vite + Tailwind        (Vercel)
-api-gateway/        -> Go 1.24 + chi v5               (Render - Cuenta 1)
-groups-service/     -> Go 1.24 + chi v5               (Render - Cuenta 2)
-habits-service/     -> Go 1.24 + chi v5               (Render - Cuenta 3)
-realtime-service/   -> Go 1.24 + WebSocket            (Render - Cuenta 4)
-mobile/             -> Expo + React Native            (APK via EAS)
+*(Las capturas se encuentran disponibles en la carpeta [`docs/screenshots/`](docs/screenshots/README.md). Se incluirán visualizaciones reales en cuanto el ambiente despliegue con datos de prueba).*
+
+---
+
+## 🛠 Stack Tecnológico
+
+Dydi es un monorepositorio con despliegue en contenedores:
+
+- **Frontend Web:** Vue 3, Vite, TailwindCSS (Responsive, optimizado para interacciones rápidas).
+- **Mobile App:** Expo / React Native (Compartiendo los mismos endpoints y flujos).
+- **Backend / Microservicios:** Go 1.24 con `chi v5`.
+- **Tiempo Real:** WebSockets (Hub centralizado en Go).
+- **Base de Datos & Auth:** Supabase (PostgreSQL + JWT OAuth).
+- **Infraestructura Local:** Docker Compose.
+
+---
+
+## 🏗 Arquitectura
+
+Dydi utiliza un enfoque de microservicios, diseñado académicamente para explorar patrones de enrutamiento y concurrencia.
+
+```mermaid
+flowchart LR
+    Clients[Web / Mobile] -->|HTTP / WS| Gateway[API Gateway]
+    Gateway --> Groups[Groups Service]
+    Gateway --> Habits[Habits Service]
+    Gateway --> Realtime[Realtime WS]
+    
+    Groups & Habits -.-> Realtime
+    Groups & Habits <--> DB[(Supabase DB)]
 ```
+> 👉 [Lee la documentación detallada de Arquitectura y Trade-offs](docs/architecture.md).
 
-Auth y base de datos viven en Supabase cloud. El unico punto de entrada publico es `api-gateway`.
+### Decisiones Técnicas Destacadas
 
----
-
-## Requisitos
-
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) con WSL2 habilitado
-- Git
-- Credenciales del proyecto Supabase cloud (pedir al lider del proyecto)
-
-No necesitas Go ni Node instalados localmente; Docker los provee.
+* **API Gateway & Límites:** Un solo punto de entrada que expone los recursos unificados. Los servicios Go operan de forma aislada y se especializan por dominio.
+* **Seguridad sin latencia:** El API Gateway verifica el JWT usando JWKS de Supabase. Luego inyecta un `INTERNAL_TOKEN` en las llamadas proxeada. Los microservicios confían ciegamente en este token, ahorrando validaciones costosas.
+* **Tiempo Real Efectivo:** El servicio `realtime` maneja un pool de WebSockets puro en Go. Cuando `habits-service` guarda un check-in, le notifica internamente al hub para hacer el broadcast al instante.
+* **Docker First:** Ningún desarrollador necesita instalar Go o Node. El flujo entero de `docker-compose.yml` monta los volúmenes, logrando un hot-reload idéntico en cualquier OS.
 
 ---
 
-## Configuracion Inicial Local
+## 🧪 Calidad y Verificación
 
-### 1. Clonar el repositorio
+Dydi usa una suite de integración robusta que espeja el CI: el script `verify.sh`. Todo corre en contenedores efímeros sin depender de entornos locales ensuciados.
 
-```bash
-git clone <url-del-repo>
-cd dydi
-```
+Al correr `./verify.sh`, Dydi ejecuta:
+- **Go:** `gofmt`, `go vet`, `golangci-lint` (linter estricto), `go build`, y `go test -race` (detector de condiciones de carrera).
+- **Frontend:** `eslint`, format check, `npm test` y el build de producción.
+- **Mobile:** Typecheck estricto con `tsc --noEmit`.
 
-### 2. Variables de entorno
-
-Crea un archivo `.env` en la **raíz del proyecto** copiándolo del ejemplo:
-```bash
-cp .env.example .env
-```
-
-Llena las variables de la raíz con las credenciales del proyecto Supabase cloud:
-
-| Variable | Donde encontrarla |
-|---|---|
-| `DATABASE_URL` | Supabase → Project Settings → Database → Connection string |
-| `SUPABASE_JWKS_URL` | `https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json` |
-| `VITE_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key |
-| `INTERNAL_TOKEN` | Genéralo con `openssl rand -hex 32`. Protege las llamadas gateway-a-servicios y servicio-a-servicio |
-
-> **Sobre `INTERNAL_TOKEN`:** es un secreto compartido que autentica las llamadas
-> del `api-gateway` hacia los servicios y las llamadas internas entre servicios
-> (`/internal/broadcast`, `/internal/proposals/apply`, etc.). Debe tener el
-> **mismo valor exacto** en `api-gateway`, `groups-service`, `habits-service` y
-> `realtime-service`: el gateway lo estampa en cada request proxeada y los
-> servicios lo exigen antes de confiar en `X-User-ID`. Si los valores no
-> coinciden, las llamadas se rechazan con 401. En local con Docker Compose basta
-> ponerlo una vez en el `.env` de la raíz; en Render hay que configurarlo en las
-> env vars de los 4 servicios.
-
-> **Nota para despliegues o ejecución nativa:** Cada microservicio (`api-gateway`, `groups-service`, etc.) tiene su propio `.env.example`. Estos son necesarios si vas a correr los servicios con `go run main.go` o para configurar las variables en **Render**. Si solo vas a usar Docker Compose, el `.env` de la raíz es suficiente, ya que `docker-compose.yml` gestiona las rutas internas automáticamente.
-> 
-> Nunca subas archivos `.env` al repositorio.
-
-### 3. Levantar todos los servicios
-
-```bash
-docker compose up --build
-```
-
-La primera vez tarda varios minutos descargando imagenes. Las siguientes son mucho mas rapidas.
-
-### 4. Probar login y registro
-
-```text
-http://localhost:5173/#/login
-```
+Los PRs no se aprueban si estas pruebas fallan.
 
 ---
 
-## Puertos Locales
+## 🚀 Instalación Local
 
-| Servicio | URL |
-|---|---|
-| Frontend | http://localhost:5173 |
-| API Gateway | http://localhost:8080 |
-| groups-service | http://localhost:8082 |
-| habits-service | http://localhost:8083 |
-| realtime-service | http://localhost:8084 |
+Solo necesitas Docker y credenciales de Supabase (las cuales debes solicitar al equipo, o crear tu propio proyecto en Supabase).
 
-La base de datos es Supabase cloud — no hay postgres local.
+1. **Clonar y configurar**
+   ```bash
+   git clone <url> && cd dydi
+   cp .env.example .env
+   # Llena el .env con las URLs de tu Supabase y un INTERNAL_TOKEN aleatorio
+   ```
 
----
+2. **Levantar los servicios**
+   ```bash
+   docker compose up --build
+   ```
 
-## Verificar Servicios
+3. **Acceder**
+   * Frontend: http://localhost:5173
+   * API Gateway: http://localhost:8080
 
-```bash
-docker compose ps
-```
-
-Todos los servicios deben aparecer como `Up`. Tambien puedes probar los health checks:
-
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8082/health
-curl http://localhost:8083/health
-curl http://localhost:8084/health
-```
-
-Los 4 servicios exponen además `/metrics` (formato Prometheus) para medir latencia
-P95, cold start de WebSocket y consistencia de entrega de eventos — útil para las
-métricas del paper. Ej: `curl http://localhost:8080/metrics`.
+> Consulta la [Guía de Contribución](CONTRIBUTING.md) para más comandos, scripts de atajo y detalles del flujo de Git.
 
 ---
 
-## Verificar Cambios (`verify.sh`)
-
-Go y Node no están instalados localmente — todo corre en Docker. `verify.sh`
-ejecuta la **suite completa, la misma que el CI**: por cada servicio Go corre
-`gofmt`, `go vet`, `go build`, `go test -race` y `golangci-lint`; en el frontend
-`lint`, `format:check`, `build` y `test`; en el móvil `tsc --noEmit`.
-
-```bash
-./verify.sh                    # todo (4 Go + frontend + móvil)
-./verify.sh go                 # solo los 4 servicios Go
-./verify.sh go:habits-service  # un solo servicio Go
-./verify.sh frontend           # solo el frontend
-./verify.sh mobile             # solo el typecheck del móvil
-```
-
-> En Windows, córrelo desde WSL: `wsl -d ubuntu bash -lc './verify.sh'`
-> (Git Bash mangea las rutas de los volúmenes Docker).
-
-Déjalo **todo verde** antes de abrir un PR. Para iterar levantando un solo
-servicio en vez de verificar:
-
-```bash
-docker compose build <servicio>   # ej. docker compose build habits-service
-docker compose up -d <servicio>
-docker compose logs -f <servicio>
-```
-
----
-
-## Atajos De Desarrollo (`scripts/`)
-
-Para inspeccionar el sistema sin abrir el front (corre desde WSL; usan Docker/curl
-y leen `.env`, no instalan nada):
-
-| Atajo | Qué hace |
-|---|---|
-| `./scripts/q.sh "SELECT …"` | Query **read-only** a la BD de Supabase (la sesión va forzada a solo-lectura; un write falla). `-f archivo.sql` para correr un archivo. |
-| `./scripts/hit.sh GET habits /habits` | Golpea un servicio backend **directo** (estampa `X-Internal-Token` + `X-User-ID`, sin JWT). Para el gateway: `DYDI_JWT=<token> ./scripts/hit.sh GET gateway /groups`. |
-| `./scripts/logs.sh habits -f` | Tail de logs (slog JSON) de un servicio del compose. Alias: `gateway`/`groups`/`habits`/`realtime`. |
-
----
-
-## Despliegue en Producción (Render Free Tier)
-
-El backend se despliega en la capa gratuita de Render: **un microservicio por
-cuenta**, los 4 apuntando a este mismo monorepo.
-
-### Configuración de build de cada servicio en Render
-
-Como el monorepo comparte el módulo `shared/`, los Dockerfiles de `groups`,
-`habits` y `realtime` se construyen desde la **raíz** del repo:
-
-| Campo (Render → Settings → Build) | Valor |
-|---|---|
-| **Root Directory** | *(vacío)* |
-| **Docker Build Context Directory** | `.` |
-| **Dockerfile Path** | `<servicio>/Dockerfile` — ej. `habits-service/Dockerfile` |
-
-> ⚠️ **El `Dockerfile Path` debe coincidir EXACTO con el nombre de la carpeta**
-> (`habits-service`, **con "s"**). Un typo como `habit-service/Dockerfile` no
-> existe → Render falla el build **en silencio** y el servicio sigue sirviendo la
-> última imagen que sí compiló (que puede ser de OTRO servicio). Síntoma clásico:
-> el servicio responde `/health` 200 pero **todas** sus rutas de app dan **404**.
-> Para saber qué binario corre realmente una URL:
-> `curl https://<url>/<ruta-conocida>` debe dar **401** (la ruta existe y pide el
-> token interno), no 404.
-
-El `api-gateway` es la excepción: su Dockerfile no usa `shared/`, así que su build
-context es `./api-gateway` con el `Dockerfile` por defecto. Además, en sus env
-vars necesita las **URLs públicas** de los otros 3 servicios:
-
-| Env var (api-gateway) | Apunta a |
-|---|---|
-| `GROUPS_SERVICE_URL` | URL pública de `groups-service` |
-| `HABITS_SERVICE_URL` | URL pública de `habits-service` |
-| `REALTIME_SERVICE_URL` | URL pública de `realtime-service` |
-| `INTERNAL_TOKEN` | mismo valor que en los 3 servicios |
-
-### Keep-Awake (límite de 15 min de inactividad)
-
-Para lidiar con el límite de inactividad de 15 minutos de Render, el proyecto cuenta con dos mecanismos:
-
-1. **Despertar en Paralelo:** El endpoint `/health` del `api-gateway` hace peticiones asíncronas a los demás microservicios (`groups`, `habits`, `realtime`) para despertarlos simultáneamente sin agotar el timeout de Render.
-2. **Cron Job (Keep-Awake):** 
-   - Se recomienda configurar un job gratuito en [cron-job.org](https://cron-job.org) que haga un ping HTTP GET a `https://<tu-api-gateway>.onrender.com/health` cada **12 minutos** durante las horas de mayor tráfico.
-   - Esto mantiene despiertos a **todos** los servicios automáticamente gracias a la arquitectura del Gateway.
-   - *(Opcional)* Existe un workflow de respaldo en `.github/workflows/keep-awake.yml` que cumple esta misma función, pero consume minutos de GitHub Actions.
-
-> **Recuerda al desplegar:** configura `INTERNAL_TOKEN` con el **mismo valor** en
-> las env vars de `api-gateway`, `groups-service`, `habits-service` y
-> `realtime-service` en Render. Sin él (o con valores distintos), el gateway no
-> arranca o los servicios rechazan las llamadas con 401.
-
----
-
-## Flujo De Trabajo En Equipo
-
-1. Crea tu rama desde `main`: `git checkout -b feature/nombre-feature`
-2. Trabaja en el directorio del servicio que te corresponde
-3. Corre `./verify.sh` localmente y déjalo **todo verde**
-4. Abre un Pull Request a `main`
-5. GitHub Actions corre la misma suite (`verify.sh`) en los jobs **Go**, **Frontend** y **Mobile**
-6. Merge solo cuando **CI Success** (el job-gate que agrupa a todos) esté en verde
-
-> El único check requerido en branch protection es **CI Success**; así renombrar
-> o agregar jobs no rompe los PRs.
-
-Cada servicio se despliega de forma independiente. No modifiques archivos fuera de tu directorio sin avisar al equipo.
-
----
-
-## Estructura Del Proyecto
+## 📂 Estructura del Repositorio
 
 ```text
 dydi/
-|-- .env.example              -> variables de entorno raiz (api-gateway)
-|-- docker-compose.yml        -> orquestacion local
-|-- api-gateway/              -> unico punto de entrada publico
-|-- groups-service/           -> grupos, membresias y propuestas de habitos
-|-- habits-service/           -> habitos, check-ins, rachas y penitencias
-|-- realtime-service/         -> WebSocket hub para eventos en tiempo real
-|-- frontend/                 -> Vue 3 SPA (web)
-|-- mobile/                   -> app Expo / React Native (APK)
-|-- scripts/                  -> atajos de dev (q.sh / hit.sh / logs.sh)
-|-- verify.sh                 -> suite de verificacion en Docker (== CI)
-|-- .github/                  -> CI (verify.sh), build del APK, keep-awake
-`-- supabase/
-    `-- migrations/           -> schema de la base de datos (fuente de verdad)
+├── api-gateway/       # Entrada única, validador de JWT
+├── groups-service/    # Lógica de squads y membresías
+├── habits-service/    # Check-ins, rachas y ruleta
+├── realtime-service/  # Hub WebSocket
+├── frontend/          # Vue 3 SPA
+├── mobile/            # React Native app (Expo)
+├── docs/              # Arquitectura e imágenes
+├── supabase/          # Migraciones y esquema BD
+├── scripts/           # Herramientas dev (hits directos, logs)
+└── verify.sh          # Suite de validación total CI
 ```
+
+## 🛡 Garantías de Confiabilidad y Red
+
+Dydi implementa estrategias específicas para operar de forma resiliente en infraestructuras gratuitas (como Render Free Tier):
+
+### Política de Reintentos (Mobile)
+- Las operaciones de lectura (`GET`, `HEAD`, `OPTIONS`) se reintentan automáticamente (hasta 3 veces) ante errores transitorios o errores de servidor (502, 503, 504), mitigando fallos por cold starts.
+- Las operaciones con efectos secundarios (`POST`, `PUT`, `PATCH`, `DELETE`) **no se reintentan automáticamente**. Esto previene la duplicación accidental de penalizaciones o grupos creados en caso de que el backend haya completado la solicitud pero la respuesta se haya perdido por un fallo de red transitorio.
+
+### Mantenimiento de Actividad (Wake-Up)
+Para evitar los periodos de inactividad de 15 minutos en Render, Dydi cuenta con un modelo de Wake-Up centralizado:
+- `GET /health` en el API Gateway sirve estrictamente como "liveness check" y no interactúa con ningún otro servicio de backend.
+- `POST /ops/wake` es un endpoint protegido por un secreto (`X-Wake-Token`) que despierta todos los microservicios en segundo plano.
+- **Configuración del Cron:** El cronjob externo debe enviar una petición `POST` a `/ops/wake` con el header `X-Wake-Token: <WAKE_TOKEN>`.
+> **Nota para el despliegue:** Proveedores como la herramienta de cron interna de Render solo soportan peticiones `GET` sin headers. Para llamar a `/ops/wake`, debes usar un servicio externo compatible con `POST` y headers personalizados (por ejemplo, [cron-job.org](https://cron-job.org/) o un Github Actions workflow).
 
 ---
 
-## Variables De Entorno Por Servicio
+## ⚠️ Estado y Limitaciones
 
-Cada servicio tiene su propio `.env.example` con las variables necesarias para correrlo de forma independiente o configurar Render.
+* Dydi es un proyecto académico UTD (2026).
+* Al ser la versión Free-Tier en Render, los microservicios duermen a los 15 min de inactividad, lo que produce un cold start notorio en el primer request.
+* Actualmente no se permiten adjuntos de fotos como evidencia de hábitos (es basado en confianza social o reportes).
 
-Nunca subas archivos `.env` al repositorio.
+---
+
+© 2026 DYDI · UTD Integradora

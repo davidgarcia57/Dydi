@@ -13,6 +13,7 @@ services:
       # Shared secret the gateway stamps on every proxied request so the backend
       # services can trust it came through here (JWT already validated).
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      WAKE_TOKEN: ${WAKE_TOKEN}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
       interval: 10s

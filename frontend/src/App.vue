@@ -110,7 +110,7 @@ const mainClass = computed(() => (isPublic.value ? '' : 'pb-20 lg:pb-0 lg:pl-64'
         </RouterLink>
       </nav>
 
-      <p class="px-6 py-4 text-[0.7rem] text-ink-faint">© 2025 DYDI · UTD</p>
+      <p class="px-6 py-4 text-[0.7rem] text-ink-faint">© 2026 DYDI · UTD</p>
     </aside>
 
     <!-- ── Contenido ─────────────────────────────────────────────────────── -->
