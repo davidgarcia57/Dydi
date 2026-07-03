@@ -25,9 +25,11 @@ coverage/
 # Docker / logs
 *.log
 
-# Load tests (datos por entorno / resultados de corridas — no se versionan)
+# Load tests: loadtest_groups.json es por-entorno (lo regenera seed.sh).
+# Los resultados SÍ se versionan (reproducibilidad del paper), EXCEPTO los
+# datapoints crudos de k6 (--raw), que pesan cientos de MB.
 load-tests/loadtest_groups.json
-load-tests/results/
+load-tests/results/**/raw.csv
 
 # IDE
 .vscode/
