@@ -242,13 +242,56 @@ superiores.
 
 ### 5.2 Matriz completa
 
-`[PENDIENTE: correr la matriz 4×3 tras el congelamiento de funcionalidades.
-Para cada nivel reportar: mediana de las 3 repeticiones de (a) RAM pico por
-servicio, (b) P95 HTTP, (c) ws_dropped_rate, (d) tiempo de conexión WS;
+La matriz se ejecutó en dos sesiones —un par de niveles por sesión—
+manteniendo las tres repeticiones de cada nivel dentro de la misma ventana
+horaria, como exige §4.4. La primera sesión (niveles 100 y 1 000;
+2026-07-05, 02:08–03:56 UTC; commit `4061dd1`) produjo **6 corridas válidas
+de 6**, sin huecos de scrape en la telemetría.
+
+**Tabla 3 (parcial).** Mediana de las 3 repeticiones por nivel; entre
+paréntesis, mín–máx entre repeticiones.
+
+| Métrica | 100 VUs | 1 000 VUs | 2 500 VUs | 5 000 VUs |
+|---|---:|---:|---:|---:|
+| Peticiones HTTP fallidas | 0.00 % | 0.00 % (0/64 706) | `[PEND.]` | `[PEND.]` |
+| P95 HTTP | 826 ms (790–847) | 1 045 ms (955–1 138) | `[PEND.]` | `[PEND.]` |
+| Conexiones WS caídas | 0.00 % (0–1.92) | 23.87 % (23.59–24.16) | `[PEND.]` | `[PEND.]` |
+| P95 establecimiento WS | 918 ms (894–932) | 19 974 ms (19 817–20 251) | `[PEND.]` | `[PEND.]` |
+| RAM pico api-gateway | 43.6 MB (43.5–43.8) | 238.5 MB (236.8–239.2) | `[PEND.]` | `[PEND.]` |
+| RAM pico realtime | 42.8 MB (36.6–50.7) | 231.3 MB (164.1–293.0) | `[PEND.]` | `[PEND.]` |
+| RAM pico groups | 51.6 MB (51.0–52.3) | 54.8 MB (49.9–60.4) | `[PEND.]` | `[PEND.]` |
+| RAM pico habits | 20.8 MB (20.6–21.0) | 21.5 MB (20.7–21.5) | `[PEND.]` | `[PEND.]` |
+
+Dos observaciones de la primera sesión:
+
+1. **Degradación asimétrica entre planos.** A 1 000 VUs el plano HTTP se
+   degrada pero no falla: 0 de 64 706 peticiones fallidas y un P95 26 % mayor
+   que en el nivel 100 (1 045 ms vs. 826 ms). El plano WebSocket, en cambio,
+   cruza su umbral de servicio: ~1 de cada 4 conexiones se cae y el P95 de
+   establecimiento pasa de ~0.9 s a ~20 s. La dispersión mínima entre
+   repeticiones (23.59–24.16 % de caídas) descarta el ruido de plataforma como
+   explicación: es un límite del sistema, no del entorno.
+
+2. **La presión de memoria se concentra en la ruta WS.** api-gateway y
+   realtime multiplican ×5 su RAM respecto al nivel 100 (44→239 MB y
+   43→231 MB), mientras groups y habits permanecen planos: el gateway paga
+   cada conexión dos veces (proxy cliente↔gateway↔realtime) y realtime
+   sostiene las conexiones persistentes. A 1 000 VUs el servicio más cargado
+   consume 46.6 % del límite de 512 MB; una proyección lineal sitúa el primer
+   OOM kill entre 2 500 y 5 000 VUs — hipótesis que la segunda sesión pone a
+   prueba.
+
+Nota de ventana horaria: el nivel 100 de la matriz reporta un P95 HTTP mayor
+que el del piloto del mismo nivel (826 ms vs. 404 ms, §5.1), ejecutado en otra
+ventana y commit. La diferencia es consistente con la amenaza de "vecinos
+ruidosos" (§7) y refuerza la decisión de reportar dispersión en lugar de
+corridas únicas.
+
+`[PENDIENTE: sesión 2 — niveles 2 500 y 5 000 (3 repeticiones c/u); completar
+Tabla 3;
 - Figura 1: VUs vs. RAM por servicio (con línea horizontal en 512 MB).
 - Figura 2: VUs vs. P95 HTTP y vs. ws_dropped_rate (eje doble).
-- Tabla 3: resumen de la matriz con desviaciones entre repeticiones.
-- Si hubo OOM kill: serie de tiempo de la corrida donde ocurre, mostrando el
+- Si hay OOM kill: serie de tiempo de la corrida donde ocurre, mostrando el
   hueco de scrapes y el disparo de ws_dropped_rate (la "gráfica central").]`
 
 ### 5.3 Arranque en frío
