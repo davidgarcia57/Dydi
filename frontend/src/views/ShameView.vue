@@ -5,6 +5,7 @@ import { api } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
+import { useProposalsStore } from '@/stores/proposals'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import GroupSwitcher from '@/components/GroupSwitcher.vue'
 
@@ -12,10 +13,13 @@ const router = useRouter()
 const auth = useAuthStore()
 const group = useGroupStore()
 const habits = useHabitsStore()
+const proposals = useProposalsStore()
 
 const loggingOut = ref(false)
 const leavingGroup = ref(false)
 const confirmLeave = ref(false)
+const confirmDissolve = ref(false)
+const proposingDissolve = ref(false)
 const confirmDelete = ref(false)
 const deletingAccount = ref(false)
 const loadError = ref(false)
@@ -155,6 +159,21 @@ async function handleDeleteAccount() {
     setFeedback('error', error?.error ?? error?.message ?? 'No pudimos borrar tu cuenta.')
   } finally {
     deletingAccount.value = false
+  }
+}
+
+// Disolver el grupo no es unilateral: se propone y el squad lo vota (mayoría).
+async function proposeDissolve() {
+  proposingDissolve.value = true
+  resetFeedback()
+  try {
+    await proposals.propose(group.group.id, 'delete_group')
+    confirmDissolve.value = false
+    setFeedback('success', 'Propuesta enviada. El squad vota disolver el grupo en Votar.')
+  } catch (error) {
+    setFeedback('error', error?.error ?? error?.message ?? 'No se pudo crear la propuesta.')
+  } finally {
+    proposingDissolve.value = false
   }
 }
 
@@ -422,6 +441,41 @@ onMounted(load)
                 <button
                   class="flex-1 rounded-pill border border-hairline text-ink-soft py-2.5 font-semibold text-sm"
                   @click="confirmLeave = false"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+
+            <div v-if="!confirmDissolve">
+              <button
+                class="w-full rounded-pill border border-coral/40 text-coral-deep py-3 font-semibold text-sm active:opacity-70 transition-opacity"
+                @click="confirmDissolve = true"
+              >
+                Proponer disolver el squad
+              </button>
+            </div>
+            <div v-else class="rounded-card border border-coral/40 bg-coral/5 p-4">
+              <p class="text-sm font-semibold text-ink mb-1">
+                ¿Proponer disolver
+                <span class="text-coral-deep">{{ group.group.name }}</span
+                >?
+              </p>
+              <p class="text-xs text-ink-soft mb-4">
+                No se disuelve de inmediato: el squad lo vota por mayoría. Si gana, el grupo se
+                elimina para todos.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  :disabled="proposingDissolve"
+                  class="flex-1 rounded-pill bg-coral text-paper py-2.5 font-bold text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
+                  @click="proposeDissolve"
+                >
+                  {{ proposingDissolve ? 'Enviando...' : 'Sí, que se vote' }}
+                </button>
+                <button
+                  class="flex-1 rounded-pill border border-hairline text-ink-soft py-2.5 font-semibold text-sm"
+                  @click="confirmDissolve = false"
                 >
                   Cancelar
                 </button>

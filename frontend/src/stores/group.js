@@ -10,6 +10,8 @@ export const useGroupStore = defineStore('group', () => {
   const members = ref([]) // [{ user_id, display_name, ... }]
   const onlineMembers = ref(new Set())
   const myGroups = ref([]) // lightweight list: [{ id, name }]
+  // null = sin socket activo · 'connected' · 'reconnecting' (perdimos el vivo)
+  const realtimeState = ref(null)
 
   async function loadMyGroups() {
     myGroups.value = await api('/api/groups')
@@ -76,7 +78,12 @@ export const useGroupStore = defineStore('group', () => {
     members.value = []
     myGroups.value = []
     onlineMembers.value = new Set()
+    realtimeState.value = null
     localStorage.removeItem(ACTIVE_GROUP_KEY)
+  }
+
+  function setRealtimeState(state) {
+    realtimeState.value = state
   }
 
   // Reassign the ref (not mutate in place) so Vue's reactivity fires and the
@@ -98,6 +105,8 @@ export const useGroupStore = defineStore('group', () => {
     members,
     onlineMembers,
     myGroups,
+    realtimeState,
+    setRealtimeState,
     loadMyGroups,
     loadGroup,
     autoLoad,

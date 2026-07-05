@@ -13,6 +13,7 @@ function localDateISO() {
 export const useHabitsStore = defineStore('habits', () => {
   const todayCheckins = ref([])
   const streaks = ref({}) // { [userID]: maxCurrentStreak }
+  const streakByHabit = ref({}) // { "userID:habitID": currentStreak }
   const weekHistory = ref({}) // { "userID:habitID": Set<"YYYY-MM-DD"> }
   const weekNotes = ref({}) // { "userID:habitID:YYYY-MM-DD": note }
 
@@ -41,6 +42,11 @@ export const useHabitsStore = defineStore('habits', () => {
     const list = await api(`/api/habits/streaks/${userID}`)
     const best = Array.isArray(list) ? list.reduce((max, s) => Math.max(max, s.current ?? 0), 0) : 0
     streaks.value = { ...streaks.value, [userID]: best }
+    if (Array.isArray(list)) {
+      const detail = { ...streakByHabit.value }
+      for (const s of list) detail[`${userID}:${s.habit_id}`] = s.current ?? 0
+      streakByHabit.value = detail
+    }
   }
 
   async function checkin(groupID, habitID, note = '') {
@@ -69,6 +75,7 @@ export const useHabitsStore = defineStore('habits', () => {
   return {
     todayCheckins,
     streaks,
+    streakByHabit,
     weekHistory,
     weekNotes,
     loadToday,

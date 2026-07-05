@@ -7,7 +7,12 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 import { showToast } from '@/composables/useToast'
+import { missedThisWeek } from '@/composables/useWeekStatus'
 import PageContainer from '@/components/ui/PageContainer.vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+import TargetGlyph from '@/components/ui/TargetGlyph.vue'
+import SquadPulse from '@/components/SquadPulse.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -38,17 +43,22 @@ async function shareInvite() {
 const now = ref(new Date())
 let ticker
 
-// Cycle closes every Sunday at midnight (end of week)
-const cycleEnd = computed(() => {
-  const d = new Date()
-  const daysLeft = d.getDay() === 0 ? 7 : 7 - d.getDay()
+// La ruleta despierta el sábado 00:00; sábado y domingo son su fin de semana.
+const isRouletteWeekend = computed(() => {
+  const dow = now.value.getDay()
+  return dow === 6 || dow === 0
+})
+
+const rouletteStart = computed(() => {
+  const d = new Date(now.value)
+  const daysLeft = (6 - d.getDay() + 7) % 7 || 7
   d.setDate(d.getDate() + daysLeft)
   d.setHours(0, 0, 0, 0)
   return d
 })
 
 const countdown = computed(() => {
-  const diff = cycleEnd.value - now.value
+  const diff = rouletteStart.value - now.value
   if (diff <= 0) return { days: '00', hours: '00', mins: '00' }
   const pad = (n) => String(n).padStart(2, '0')
   return {
@@ -56,12 +66,6 @@ const countdown = computed(() => {
     hours: pad(Math.floor((diff % 86_400_000) / 3_600_000)),
     mins: pad(Math.floor((diff % 3_600_000) / 60_000)),
   }
-})
-
-const closingLabel = computed(() => {
-  const d = cycleEnd.value
-  const names = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
-  return `${names[d.getDay()]} 00:00`
 })
 
 const weekNumber = computed(() => {
@@ -82,6 +86,24 @@ const anyMissed = computed(
 )
 
 const myStreak = computed(() => habits.streaks[auth.user?.id] ?? 0)
+
+// Riesgo de ruleta: fallos L–V acumulados esta semana (días pasados sin check-in).
+const myMissed = computed(() => (loaded.value ? missedThisWeek(auth.user?.id ?? '') : 0))
+
+const riskBanner = computed(() => {
+  const n = myMissed.value
+  if (!n) return null
+  if (isRouletteWeekend.value) {
+    return {
+      text: `Estás en el bote con ${n} ${n === 1 ? 'fallo' : 'fallos'} esta semana. La ruleta te espera.`,
+      cta: true,
+    }
+  }
+  if (n === 1) {
+    return { text: 'Llevas 1 fallo esta semana — el sábado entras al bote.', cta: false }
+  }
+  return { text: `${n} fallos esta semana. La ruleta ya te tiene en la lista.`, cta: false }
+})
 
 // ── Squad stats (per member, not per checkin) ─────────────────────────────────
 const stats = computed(() => {
@@ -107,39 +129,9 @@ const progressPct = computed(() => {
 })
 
 // ── Online members ────────────────────────────────────────────────────────────
-const onlineAvatars = computed(() =>
-  group.members.filter((m) => group.onlineMembers.has(m.user_id)).slice(0, 5)
+const onlineCount = computed(
+  () => group.members.filter((m) => group.onlineMembers.has(m.user_id)).length
 )
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const AVATAR_COLORS = [
-  'bg-sage-deep',
-  'bg-terracotta',
-  'bg-sage',
-  'bg-amber',
-  'bg-coral',
-  'bg-ink-soft',
-]
-
-function initials(name = '') {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-}
-
-function avatarBg(name = '') {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-}
-
-const STATUS_PILL = {
-  done: { cls: 'bg-sage-soft text-sage-deep', label: '✓ hoy' },
-  pending: { cls: 'bg-amber-soft text-amber-deep', label: 'pendiente' },
-  missed: { cls: 'bg-coral-soft text-coral-deep', label: '✗ hoy' },
-}
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 let socketDisconnect = null
@@ -153,7 +145,7 @@ async function load() {
       router.replace('/onboarding')
       return
     }
-    await habits.loadToday(group.group.id)
+    await Promise.all([habits.loadToday(group.group.id), habits.loadWeekHistory(group.group.id)])
     const memberIDs = [...new Set(habits.todayCheckins.map((c) => c.user_id))]
     await Promise.all(memberIDs.map((id) => habits.loadStreaks(id)))
     const { disconnect } = useGroupSocket(group.group.id)
@@ -219,34 +211,57 @@ onUnmounted(() => {
         </svg>
       </button>
 
-      <div
-        class="w-9 h-9 rounded-full flex items-center justify-center text-paper text-sm font-bold"
-        :class="avatarBg(auth.user?.user_metadata?.display_name ?? '')"
-      >
-        {{ initials(auth.user?.user_metadata?.display_name ?? auth.user?.email ?? '') }}
-      </div>
+      <BaseAvatar
+        :name="auth.user?.user_metadata?.display_name ?? auth.user?.email ?? ''"
+        size="md"
+      />
     </header>
 
-    <!-- ── Live indicator ─────────────────────────────────────────────────── -->
-    <div v-if="onlineAvatars.length > 0" class="flex items-center gap-2 mb-4">
-      <!-- Stacked avatars -->
-      <div class="flex -space-x-2">
-        <div
-          v-for="m in onlineAvatars"
-          :key="m.user_id"
-          class="w-6 h-6 rounded-full border-2 border-paper flex items-center justify-center text-paper text-[9px] font-bold"
-          :class="avatarBg(m.display_name)"
-        >
-          {{ initials(m.display_name) }}
-        </div>
+    <!-- ── Pulso del squad ────────────────────────────────────────────────── -->
+    <div v-if="group.members.length" class="rounded-card bg-paper shadow-flat p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-eyebrow">EL SQUAD HOY</span>
+        <span v-if="onlineCount" class="inline-flex items-center gap-1 text-eyebrow text-sage-deep">
+          <span class="w-1.5 h-1.5 rounded-full bg-sage-deep animate-pulse"></span>
+          {{ onlineCount }} EN VIVO
+        </span>
       </div>
-      <span class="inline-flex items-center gap-1 text-eyebrow text-sage-deep">
-        <span class="w-1.5 h-1.5 rounded-full bg-sage-deep animate-pulse"></span>
-        EN VIVO
-      </span>
-      <span class="text-xs text-ink-soft">
-        {{ onlineAvatars.length }} compas conectados ahora
-      </span>
+      <SquadPulse />
+    </div>
+
+    <!-- ── Squad de 1: sin amigos no hay accountability ───────────────────── -->
+    <div
+      v-if="loaded && group.members.length === 1"
+      class="rounded-card bg-wash border border-sage-deep/20 p-4 mb-4 flex flex-wrap items-center justify-between gap-3"
+    >
+      <p class="text-sm text-ink">
+        <span class="font-semibold">Un squad de 1 no es accountability.</span>
+        <span class="text-ink-soft"> Invita a tus amigos y que empiece la presión.</span>
+      </p>
+      <button
+        class="rounded-pill bg-sage-deep text-paper px-4 py-2 text-sm font-bold active:opacity-80 transition-opacity"
+        @click="shareInvite"
+      >
+        Invitar →
+      </button>
+    </div>
+
+    <!-- ── En riesgo de ruleta ────────────────────────────────────────────── -->
+    <div
+      v-if="riskBanner"
+      class="rounded-card bg-amber-soft border border-amber/40 p-4 mb-4 flex flex-wrap items-center justify-between gap-3"
+    >
+      <p class="text-sm font-semibold text-amber-deep flex items-center gap-2">
+        <TargetGlyph :size="16" />
+        {{ riskBanner.text }}
+      </p>
+      <RouterLink
+        v-if="riskBanner.cta"
+        to="/ruleta"
+        class="rounded-pill bg-terracotta text-paper px-4 py-2 text-sm font-bold active:opacity-80 transition-opacity"
+      >
+        Ir a la ruleta →
+      </RouterLink>
     </div>
 
     <!-- ── Countdown card ─────────────────────────────────────────────────── -->
@@ -254,11 +269,27 @@ onUnmounted(() => {
       <div class="lg:col-span-2">
         <div class="rounded-card bg-paper shadow-card p-5 mb-4">
           <div class="flex justify-between items-start mb-3">
-            <span class="text-eyebrow">EL CICLO CIERRA EN</span>
-            <span class="text-xs font-semibold text-terracotta">{{ closingLabel }}</span>
+            <span class="text-eyebrow">
+              {{ isRouletteWeekend ? 'LA RULETA ESTÁ DESPIERTA' : 'LA RULETA GIRA EN' }}
+            </span>
+            <span v-if="!isRouletteWeekend" class="text-xs font-semibold text-terracotta">
+              sáb 00:00
+            </span>
           </div>
 
-          <div class="flex items-end gap-2 mb-4">
+          <div v-if="isRouletteWeekend" class="mb-4">
+            <p class="font-serif text-3xl font-semibold text-terracotta leading-tight mb-3">
+              Es fin de semana de penitencias
+            </p>
+            <RouterLink
+              to="/ruleta"
+              class="inline-block rounded-pill bg-terracotta text-paper px-5 py-2.5 text-sm font-bold active:opacity-80 transition-opacity"
+            >
+              Ir a la ruleta →
+            </RouterLink>
+          </div>
+
+          <div v-else class="flex items-end gap-2 mb-4">
             <div class="text-center">
               <p class="font-serif text-5xl font-semibold text-terracotta leading-none">
                 {{ countdown.days }}
@@ -326,12 +357,7 @@ onUnmounted(() => {
               >
                 {{ c.scheduled_time }}
               </span>
-              <span
-                class="rounded-pill px-2.5 py-0.5 text-xs font-semibold"
-                :class="STATUS_PILL[c.status]?.cls ?? 'bg-hairline text-ink-soft'"
-              >
-                {{ STATUS_PILL[c.status]?.label ?? c.status }}
-              </span>
+              <StatusBadge :status="c.status" />
               <p v-if="c.note" class="w-full text-xs text-ink-soft italic mt-0.5">“{{ c.note }}”</p>
             </div>
           </div>
@@ -377,21 +403,11 @@ onUnmounted(() => {
             </RouterLink>
           </div>
 
-          <!-- Online now -->
-          <div v-if="onlineAvatars.length" class="flex items-center gap-2 mb-5">
-            <div class="flex -space-x-2">
-              <div
-                v-for="m in onlineAvatars"
-                :key="m.user_id"
-                class="w-7 h-7 rounded-full border-2 border-paper flex items-center justify-center text-paper text-[10px] font-bold"
-                :class="avatarBg(m.display_name)"
-              >
-                {{ initials(m.display_name) }}
-              </div>
-            </div>
-            <span class="text-xs text-ink-soft">{{ onlineAvatars.length }} en línea</span>
-          </div>
-          <p v-else class="text-xs text-ink-faint mb-5">Nadie conectado ahora mismo.</p>
+          <p class="text-xs mb-5" :class="onlineCount ? 'text-ink-soft' : 'text-ink-faint'">
+            {{
+              onlineCount ? `${onlineCount} en línea ahora mismo` : 'Nadie conectado ahora mismo.'
+            }}
+          </p>
 
           <!-- Squad pulse -->
           <div class="grid grid-cols-3 text-center rounded-card bg-surface overflow-hidden">

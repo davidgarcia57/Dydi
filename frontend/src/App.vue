@@ -5,8 +5,10 @@ import ServerWakeup from '@/components/ui/ServerWakeup.vue'
 import ToastHost from '@/components/ui/ToastHost.vue'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 import GroupSwitcher from '@/components/GroupSwitcher.vue'
+import { useGroupStore } from '@/stores/group'
 
 const route = useRoute()
+const group = useGroupStore()
 const isPublic = computed(
   () => route.meta.public || route.meta.checkinFlow || route.meta.onboarding
 )
@@ -72,6 +74,19 @@ const mainClass = computed(() => (isPublic.value ? '' : 'pb-20 lg:pb-0 lg:pl-64'
   <div class="min-h-screen bg-cream">
     <ServerWakeup />
     <ToastHost />
+
+    <!-- ── Aviso de tiempo real caído ────────────────────────────────────── -->
+    <div
+      v-if="group.realtimeState === 'reconnecting'"
+      class="fixed bottom-20 lg:bottom-6 inset-x-0 z-50 flex justify-center pointer-events-none"
+    >
+      <span
+        class="rounded-pill bg-amber-soft border border-amber/40 text-amber-deep text-xs font-semibold px-4 py-2 shadow-flat animate-fade-in"
+        role="status"
+      >
+        Sin conexión en vivo — reconectando…
+      </span>
+    </div>
 
     <!-- ── Sidebar (escritorio) ──────────────────────────────────────────── -->
     <aside

@@ -318,6 +318,9 @@ onMounted(async () => {
                 <p v-else-if="p.target_user_id" class="font-semibold text-sm text-ink mt-0.5">
                   {{ memberName(p.target_user_id) }}
                 </p>
+                <p v-else-if="p.type === 'delete_group'" class="text-xs text-ink-soft mt-0.5">
+                  Si gana, el grupo se elimina para todos
+                </p>
               </div>
               <span
                 class="rounded-full bg-amber-soft text-amber-deep text-[10px] font-bold px-2.5 py-1 flex-shrink-0"
@@ -399,6 +402,9 @@ onMounted(async () => {
                 </p>
                 <p v-else-if="p.target_user_id" class="font-semibold text-sm text-ink mt-0.5">
                   {{ memberName(p.target_user_id) }}
+                </p>
+                <p v-else-if="p.type === 'delete_group'" class="text-xs text-ink-soft mt-0.5">
+                  Si gana, el grupo se elimina para todos
                 </p>
               </div>
               <span

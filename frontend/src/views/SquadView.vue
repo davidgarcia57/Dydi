@@ -6,7 +6,11 @@ import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 import { showToast } from '@/composables/useToast'
+import { mondayIndex } from '@/composables/useWeekStatus'
 import PageContainer from '@/components/ui/PageContainer.vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+import SparkleGlyph from '@/components/ui/SparkleGlyph.vue'
 
 const auth = useAuthStore()
 const group = useGroupStore()
@@ -32,17 +36,6 @@ const squadRows = computed(() => {
   }
   return Object.values(byUser).sort((a, b) => a.display_name.localeCompare(b.display_name, 'es'))
 })
-
-const COLORS = ['bg-sage-deep', 'bg-terracotta', 'bg-sage', 'bg-amber', 'bg-coral']
-const initials = (n = '') =>
-  n
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
-const avatarBg = (n = '') => COLORS[(n?.charCodeAt(0) ?? 0) % COLORS.length]
 
 // ── 7-day strip (Monday-first) — same data source as TodayView ────────────────
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -78,16 +71,50 @@ const STATUS_STYLE = {
   future: { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
 }
 
-const STATUS_PILL = {
-  done: { cls: 'bg-sage-soft text-sage-deep', label: '✓ hoy' },
-  pending: { cls: 'bg-amber-soft text-amber-deep', label: 'pendiente' },
-  missed: { cls: 'bg-coral-soft text-coral-deep', label: '✗ hoy' },
-}
-
 function memberStatus(row) {
   if (row.habits.every((h) => h.status === 'done')) return 'done'
   if (row.habits.some((h) => h.status === 'pending')) return 'pending'
   return 'missed'
+}
+
+// ── Matriz semanal L–V: filas = miembros, columnas = días ────────────────────
+// El patrón desktop del grupo completo de un vistazo. Solo L–V porque eso es
+// lo que juzga la ruleta; sábado y domingo son su fin de semana.
+const MATRIX_LABELS = ['L', 'M', 'M', 'J', 'V']
+
+const MATRIX_CELL = {
+  done: 'bg-sage text-sage-deep',
+  partial: 'bg-sage/50 text-sage-deep',
+  pending: 'bg-amber text-amber-deep',
+  missed: 'bg-coral text-coral-deep',
+  future: 'border border-dashed border-hairline text-transparent',
+}
+
+const MATRIX_ICON = { done: '✓', partial: '~', missed: '✗' }
+
+function weekMatrixRow(row) {
+  const todayIdx = mondayIndex()
+  return MATRIX_LABELS.map((label, i) => {
+    if (i > todayIdx) return { label, status: 'future' }
+    if (i === todayIdx) return { label, status: memberStatus(row) }
+    const date = dateForIdx(i, todayIdx)
+    let done = 0
+    for (const h of row.habits) {
+      if (habits.weekHistory[`${row.user_id}:${h.habit_id}`]?.has(date)) done++
+    }
+    if (done === row.habits.length) return { label, status: 'done' }
+    return { label, status: done > 0 ? 'partial' : 'missed' }
+  })
+}
+
+// Semana perfecta: todos los días L–V transcurridos (incluido hoy) en verde.
+function isPerfectWeek(row) {
+  if (!row.habits.length) return false
+  const cells = weekMatrixRow(row)
+  return (
+    cells.some((c) => c.status === 'done') &&
+    cells.every((c) => c.status === 'done' || c.status === 'future')
+  )
 }
 
 async function proposeKick(row) {
@@ -161,119 +188,168 @@ onUnmounted(() => socketDisconnect?.())
       <span v-else>Ningún miembro tiene hábitos asignados todavía.</span>
     </div>
 
-    <div v-else class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      <div
-        v-for="row in squadRows"
-        :key="row.user_id"
-        class="rounded-card shadow-flat bg-paper p-4"
-        :class="{ 'ring-2 ring-sage/40': group.onlineMembers.has(row.user_id) }"
-      >
-        <!-- Member header -->
-        <div class="flex items-center gap-3 mb-3">
-          <div class="relative">
-            <div
-              class="w-10 h-10 rounded-full flex items-center justify-center text-paper text-sm font-bold"
-              :class="avatarBg(row.display_name)"
-            >
-              {{ initials(row.display_name) }}
-            </div>
-            <span
-              v-if="group.onlineMembers.has(row.user_id)"
-              class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-sage-deep border-2 border-paper"
-            />
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <div class="flex items-baseline gap-2">
-              <span class="font-semibold text-sm text-ink truncate">{{ row.display_name }}</span>
-              <span class="text-xs text-terracotta font-medium flex-shrink-0">
-                ★ {{ habits.streaks[row.user_id] ?? 0 }}
-              </span>
-            </div>
-            <p v-if="row.user_id === auth.user?.id" class="text-xs text-ink-soft mt-0.5">Tú</p>
-          </div>
-
-          <span
-            v-if="STATUS_PILL[memberStatus(row)]"
-            class="rounded-pill px-2.5 py-1 text-[10px] font-bold flex-shrink-0"
-            :class="STATUS_PILL[memberStatus(row)].cls"
-          >
-            {{ STATUS_PILL[memberStatus(row)].label }}
-          </span>
+    <template v-else>
+      <!-- ── La semana del squad: matriz miembros × L–V ───────────────────── -->
+      <section class="rounded-card bg-paper shadow-card p-4 sm:p-5 mb-5 overflow-x-auto">
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h2 class="text-eyebrow">LA SEMANA DEL SQUAD</h2>
+          <span class="text-[10px] text-ink-faint">L–V cuentan para la ruleta</span>
         </div>
 
-        <!-- One block per assigned habit: name + status + 7-day strip -->
-        <div class="space-y-3">
-          <div v-for="h in row.habits" :key="h.habit_id">
-            <div class="flex justify-between items-center mb-1">
-              <p class="text-xs text-ink-soft truncate">{{ h.habit_name }}</p>
+        <div class="min-w-[19rem]">
+          <!-- Encabezado de días -->
+          <div class="flex items-center gap-3 px-2 mb-1">
+            <div class="w-6 flex-shrink-0" />
+            <span class="flex-1" />
+            <div class="flex gap-1">
               <span
-                v-if="STATUS_PILL[h.status]"
-                class="rounded-pill px-2 py-0.5 text-[10px] font-semibold ml-2 flex-shrink-0"
-                :class="STATUS_PILL[h.status].cls"
+                v-for="(l, i) in MATRIX_LABELS"
+                :key="i"
+                class="w-6 text-center text-[9px] text-ink-faint font-medium"
               >
-                {{ STATUS_PILL[h.status].label }}
+                {{ l }}
               </span>
             </div>
+          </div>
 
-            <div class="flex gap-1">
-              <div
-                v-for="(day, i) in dayStrip(h)"
-                :key="i"
-                class="flex flex-col items-center gap-0.5"
-                :title="day.note ? `“${day.note}”` : undefined"
-              >
-                <div
-                  class="w-7 h-7 rounded-md flex items-center justify-center"
-                  :class="STATUS_STYLE[day.status].strip"
+          <div class="space-y-1">
+            <div
+              v-for="row in squadRows"
+              :key="row.user_id"
+              class="flex items-center gap-3 rounded-xl px-2 py-1.5"
+              :class="{ 'bg-gradient-to-r from-amber-soft/70 to-transparent': isPerfectWeek(row) }"
+            >
+              <BaseAvatar :name="row.display_name" size="sm" />
+              <span class="flex-1 min-w-0 text-xs font-semibold text-ink truncate">
+                {{ row.user_id === auth.user?.id ? 'Tú' : row.display_name }}
+                <span
+                  v-if="isPerfectWeek(row)"
+                  class="text-[10px] font-bold text-amber-deep inline-flex items-center gap-0.5"
                 >
-                  <span
-                    v-if="STATUS_STYLE[day.status].icon"
-                    class="text-xs font-bold"
-                    :class="STATUS_STYLE[day.status].iconColor"
-                  >
-                    {{ STATUS_STYLE[day.status].icon }}
-                  </span>
+                  <SparkleGlyph :size="11" />
+                  semana perfecta
+                </span>
+              </span>
+              <div class="flex gap-1">
+                <div
+                  v-for="(cell, i) in weekMatrixRow(row)"
+                  :key="i"
+                  class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold"
+                  :class="MATRIX_CELL[cell.status]"
+                >
+                  {{ MATRIX_ICON[cell.status] ?? '' }}
                 </div>
-                <span class="text-[9px] text-ink-faint font-medium">{{ day.label }}</span>
               </div>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- Propose kicking this member (never yourself) -->
-        <div v-if="row.user_id !== auth.user?.id" class="mt-3 pt-3 border-t border-hairline">
-          <button
-            v-if="confirmKick !== row.user_id"
-            class="text-xs font-semibold text-ink-faint hover:text-coral-deep transition-colors"
-            @click="confirmKick = row.user_id"
-          >
-            Proponer expulsión
-          </button>
-          <div v-else class="space-y-2">
-            <p class="text-xs text-ink-soft">
-              ¿Proponer expulsar a
-              <span class="font-semibold text-ink">{{ row.display_name }}</span
-              >? El squad lo vota por mayoría.
-            </p>
-            <div class="flex gap-2">
-              <button
-                :disabled="kicking === row.user_id"
-                class="flex-1 rounded-pill bg-coral text-paper py-2 text-xs font-bold disabled:opacity-40 active:opacity-80 transition-opacity"
-                @click="proposeKick(row)"
-              >
-                {{ kicking === row.user_id ? 'Enviando…' : 'Sí, proponer' }}
-              </button>
-              <button
-                class="flex-1 rounded-pill border border-hairline text-ink-soft py-2 text-xs font-semibold active:opacity-70 transition-opacity"
-                @click="confirmKick = null"
-              >
-                Cancelar
-              </button>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div
+          v-for="row in squadRows"
+          :key="row.user_id"
+          class="rounded-card shadow-flat bg-paper p-4"
+          :class="{ 'ring-2 ring-sage/40': group.onlineMembers.has(row.user_id) }"
+        >
+          <!-- Member header -->
+          <div class="flex items-center gap-3 mb-3">
+            <div class="relative">
+              <BaseAvatar :name="row.display_name" size="md" />
+              <span
+                v-if="group.onlineMembers.has(row.user_id)"
+                class="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-sage-deep border-2 border-paper"
+              />
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline gap-2">
+                <span class="font-semibold text-sm text-ink truncate">{{ row.display_name }}</span>
+                <span class="text-xs text-terracotta font-medium flex-shrink-0">
+                  ★ {{ habits.streaks[row.user_id] ?? 0 }}
+                </span>
+              </div>
+              <p v-if="row.user_id === auth.user?.id" class="text-xs text-ink-soft mt-0.5">Tú</p>
+            </div>
+
+            <StatusBadge :status="memberStatus(row)" class="flex-shrink-0" />
+          </div>
+
+          <!-- One block per assigned habit: name + status + 7-day strip -->
+          <div class="space-y-3">
+            <div v-for="h in row.habits" :key="h.habit_id">
+              <div class="flex justify-between items-center gap-2 mb-1">
+                <p class="text-xs text-ink-soft truncate">
+                  {{ h.habit_name }}
+                  <span
+                    v-if="habits.streakByHabit[`${row.user_id}:${h.habit_id}`]"
+                    class="text-terracotta font-semibold"
+                  >
+                    ★ {{ habits.streakByHabit[`${row.user_id}:${h.habit_id}`] }}
+                  </span>
+                </p>
+                <StatusBadge :status="h.status" class="flex-shrink-0" />
+              </div>
+
+              <div class="flex gap-1">
+                <div
+                  v-for="(day, i) in dayStrip(h)"
+                  :key="i"
+                  class="flex flex-col items-center gap-0.5"
+                  :title="day.note ? `“${day.note}”` : undefined"
+                >
+                  <div
+                    class="w-7 h-7 rounded-md flex items-center justify-center"
+                    :class="STATUS_STYLE[day.status].strip"
+                  >
+                    <span
+                      v-if="STATUS_STYLE[day.status].icon"
+                      class="text-xs font-bold"
+                      :class="STATUS_STYLE[day.status].iconColor"
+                    >
+                      {{ STATUS_STYLE[day.status].icon }}
+                    </span>
+                  </div>
+                  <span class="text-[9px] text-ink-faint font-medium">{{ day.label }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Propose kicking this member (never yourself) -->
+          <div v-if="row.user_id !== auth.user?.id" class="mt-3 pt-3 border-t border-hairline">
+            <button
+              v-if="confirmKick !== row.user_id"
+              class="text-xs font-semibold text-ink-faint hover:text-coral-deep transition-colors"
+              @click="confirmKick = row.user_id"
+            >
+              Proponer expulsión
+            </button>
+            <div v-else class="space-y-2">
+              <p class="text-xs text-ink-soft">
+                ¿Proponer expulsar a
+                <span class="font-semibold text-ink">{{ row.display_name }}</span
+                >? El squad lo vota por mayoría.
+              </p>
+              <div class="flex gap-2">
+                <button
+                  :disabled="kicking === row.user_id"
+                  class="flex-1 rounded-pill bg-coral text-paper py-2 text-xs font-bold disabled:opacity-40 active:opacity-80 transition-opacity"
+                  @click="proposeKick(row)"
+                >
+                  {{ kicking === row.user_id ? 'Enviando…' : 'Sí, proponer' }}
+                </button>
+                <button
+                  class="flex-1 rounded-pill border border-hairline text-ink-soft py-2 text-xs font-semibold active:opacity-70 transition-opacity"
+                  @click="confirmKick = null"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </PageContainer>
 </template>

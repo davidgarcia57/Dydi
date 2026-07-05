@@ -14,10 +14,9 @@ export function useGroupSocket(groupID) {
   // Each handler receives the full Event object (type, groupID, userID, payload).
   // member_online/offline carry userID at the top level; data events carry info in .payload.
   const handlers = {
-    checkin: (msg) => {
-      habitsStore.updateCheckin(msg.payload)
-      if (msg.userID) habitsStore.loadStreaks(msg.userID)
-    },
+    // El streak_update llega justo después del checkin con la racha ya
+    // recalculada por el backend — aquí ya no se re-consulta /streaks.
+    checkin: (msg) => habitsStore.updateCheckin(msg.payload),
     streak_update: (msg) => habitsStore.updateStreak(msg.payload),
     member_online: (msg) => groupStore.setMemberOnline(msg.userID),
     member_offline: (msg) => groupStore.setMemberOffline(msg.userID),
@@ -57,6 +56,7 @@ export function useGroupSocket(groupID) {
     ws.onopen = () => {
       attempts = 0
       clearTimeout(reconnectTimer)
+      groupStore.setRealtimeState('connected')
     }
 
     ws.onmessage = ({ data }) => {
@@ -74,7 +74,10 @@ export function useGroupSocket(groupID) {
     }
 
     ws.onclose = () => {
-      if (!closed) scheduleReconnect()
+      if (!closed) {
+        groupStore.setRealtimeState('reconnecting')
+        scheduleReconnect()
+      }
     }
 
     ws.onerror = () => ws.close()
@@ -83,6 +86,7 @@ export function useGroupSocket(groupID) {
   function disconnect() {
     closed = true
     clearTimeout(reconnectTimer)
+    groupStore.setRealtimeState(null)
     if (ws) {
       ws.onclose = null
       ws.close()
