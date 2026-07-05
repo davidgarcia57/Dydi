@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
-import WaterBottle from '@/components/ui/WaterBottle.vue'
+import HabitHero from '@/components/ui/HabitHero.vue'
 import HabitIcon from '@/components/ui/HabitIcon.vue'
 import { Flame } from 'lucide-vue-next'
 
@@ -34,12 +34,6 @@ function formatTime() {
 
 const myHabits = computed(() => habits.todayCheckins.filter((c) => c.user_id === auth.user?.id))
 const myPending = computed(() => myHabits.value.filter((c) => c.status === 'pending'))
-
-// Único hábito con ilustración propia por ahora: tomar agua.
-// Hook robusto: el campo icon_key del catálogo (el nombre puede cambiar).
-function isWaterHabit(h) {
-  return h?.icon_key === 'water' || /agua|water/i.test(h?.habit_name || '')
-}
 
 async function load() {
   step.value = 'loading'
@@ -171,17 +165,12 @@ async function submit() {
       v-else-if="step === 'done'"
       class="flex-1 flex flex-col items-center justify-center px-8 text-center"
     >
-      <WaterBottle v-if="isWaterHabit(myHabits[0])" :size="120" class="mb-6" />
-      <div v-else class="w-20 h-20 rounded-full bg-sage-soft flex items-center justify-center mb-6">
-        <svg class="w-10 h-10 text-sage-deep" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2.5"
-            d="M5 13l4 4L19 7"
-          />
-        </svg>
-      </div>
+      <HabitHero
+        :icon-key="myHabits[0]?.icon_key"
+        :habit-name="myHabits[0]?.habit_name"
+        :size="120"
+        class="mb-6"
+      />
       <p class="text-eyebrow text-sage-deep mb-2">HOY YA CUMPLISTE</p>
       <h1 class="font-serif text-3xl font-semibold text-ink mb-1">
         {{ myHabits[0]?.habit_name ?? 'Tu hábito' }}
@@ -322,13 +311,11 @@ async function submit() {
 
       <!-- BIG CHECK BUTTON — centered -->
       <div class="flex-1 flex flex-col items-center justify-center px-8">
-        <WaterBottle v-if="isWaterHabit(selected)" :size="120" class="mb-5" />
-        <HabitIcon
-          v-else
+        <HabitHero
           :icon-key="selected?.icon_key"
-          :size="96"
+          :habit-name="selected?.habit_name"
+          :size="130"
           class="mb-5"
-          :style="{ color: selected?.color || 'var(--color-sage-deep)' }"
         />
         <button
           :disabled="submitting"
@@ -385,26 +372,20 @@ async function submit() {
       v-else-if="step === 'success'"
       class="flex-1 flex flex-col items-center justify-center px-8 text-center"
     >
-      <!-- Check ring (animated entrance) -->
-      <WaterBottle v-if="isWaterHabit(selected)" :size="140" class="mb-8" />
-      <div v-else class="relative mb-8">
-        <!-- Outer glow ring -->
+      <!-- Ilustración del hábito con sello de check (entrada animada) -->
+      <div class="relative mb-8 animate-fade-up">
+        <HabitHero :icon-key="selected?.icon_key" :habit-name="selected?.habit_name" :size="140" />
         <div
-          class="w-32 h-32 rounded-full bg-sage-soft flex items-center justify-center animate-[ping_0.6s_ease-out_1]"
-        />
-        <div
-          class="absolute inset-0 w-32 h-32 rounded-full bg-sage-soft flex items-center justify-center"
+          class="absolute -bottom-1 -right-1 w-12 h-12 rounded-full bg-sage-deep border-4 border-cream flex items-center justify-center"
         >
-          <div class="w-22 h-22 rounded-full bg-sage-deep flex items-center justify-center">
-            <svg class="w-10 h-10 text-paper" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="3"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          </div>
+          <svg class="w-6 h-6 text-paper" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="3"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
         </div>
       </div>
 

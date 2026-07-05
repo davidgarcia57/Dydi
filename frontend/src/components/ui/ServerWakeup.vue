@@ -71,7 +71,7 @@ onMounted(async () => {
         Dado que usamos servidores gratuitos, pueden tardar hasta 40 segundos en despertar tras un
         periodo de inactividad.
       </p>
-      <p class="text-xs font-bold text-terracotta mt-4">¡Gracias por tu paciencia! ☕</p>
+      <p class="text-xs font-bold text-terracotta mt-4">¡Gracias por tu paciencia!</p>
     </div>
   </Transition>
 </template>

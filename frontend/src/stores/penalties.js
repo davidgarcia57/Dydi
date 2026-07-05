@@ -51,6 +51,13 @@ export const usePenaltiesStore = defineStore('penalties', () => {
     return debt
   }
 
+  // Cualquier miembro menos el deudor puede perdonar: misericordia del squad.
+  async function forgiveDebt(debtID) {
+    const debt = await api(`/api/penalties/debts/${debtID}/forgive`, { method: 'POST' })
+    debts.value = debts.value.filter((d) => d.id !== debt.id)
+    return debt
+  }
+
   async function loadSuggestions(entryID) {
     suggestions.value = await api(`/api/penalties/roulette/${entryID}/suggestions`)
   }
@@ -124,6 +131,7 @@ export const usePenaltiesStore = defineStore('penalties', () => {
     enterEntry,
     openRoulette,
     completeDebt,
+    forgiveDebt,
     loadSuggestions,
     submitSuggestion,
     spin,
