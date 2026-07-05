@@ -13,6 +13,9 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import BrandWordmark from '../../src/components/ui/BrandWordmark';
+import SquadPulse from '../../src/components/SquadPulse';
+import TargetGlyph from '../../src/components/ui/TargetGlyph';
+import { missedThisWeek } from '../../src/weekStatus';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -96,16 +99,22 @@ export default function TodayScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const cycleEnd = useMemo(() => {
-    const d = new Date();
-    const daysLeft = d.getDay() === 0 ? 7 : 7 - d.getDay();
+  // La ruleta despierta el sábado 00:00; sábado y domingo son su fin de semana.
+  const isRouletteWeekend = useMemo(() => {
+    const dow = now.getDay();
+    return dow === 6 || dow === 0;
+  }, [now]);
+
+  const rouletteStart = useMemo(() => {
+    const d = new Date(now);
+    const daysLeft = (6 - d.getDay() + 7) % 7 || 7;
     d.setDate(d.getDate() + daysLeft);
     d.setHours(0, 0, 0, 0);
     return d;
   }, [now]);
 
   const countdown = useMemo(() => {
-    const diff = cycleEnd.getTime() - now.getTime();
+    const diff = rouletteStart.getTime() - now.getTime();
     if (diff <= 0) return { days: '00', hours: '00', mins: '00' };
     const pad = (n: number) => String(n).padStart(2, '0');
     return {
@@ -113,12 +122,7 @@ export default function TodayScreen() {
       hours: pad(Math.floor((diff % 86400000) / 3600000)),
       mins: pad(Math.floor((diff % 3600000) / 60000)),
     };
-  }, [cycleEnd, now]);
-
-  const closingLabel = useMemo(() => {
-    const names = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-    return `${names[cycleEnd.getDay()]} 00:00`;
-  }, [cycleEnd]);
+  }, [rouletteStart, now]);
 
   const weekNumber = useMemo(() => {
     const d = new Date();
@@ -138,6 +142,26 @@ export default function TodayScreen() {
   const myStreak = useMemo(() => {
     return user?.id ? streaks[user.id] ?? 0 : 0;
   }, [streaks, user?.id]);
+
+  // Riesgo de ruleta: fallos L–V acumulados esta semana (días sin check-in).
+  const myMissed = useMemo(
+    () => (user?.id ? missedThisWeek(user.id, todayCheckins, weekHistory) : 0),
+    [user?.id, todayCheckins, weekHistory]
+  );
+
+  const riskBanner = useMemo(() => {
+    if (!myMissed) return null;
+    if (isRouletteWeekend) {
+      return {
+        text: `Estás en el bote con ${myMissed} ${myMissed === 1 ? 'fallo' : 'fallos'} esta semana. La ruleta te espera.`,
+        cta: true,
+      };
+    }
+    if (myMissed === 1) {
+      return { text: 'Llevas 1 fallo esta semana — el sábado entras al bote.', cta: false };
+    }
+    return { text: `${myMissed} fallos esta semana. La ruleta ya te tiene en la lista.`, cta: false };
+  }, [myMissed, isRouletteWeekend]);
 
   // Squad Stats
   const stats = useMemo(() => {
@@ -253,7 +277,7 @@ export default function TodayScreen() {
             className="flex-row items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 bg-surface"
           >
             <Text className="text-xs font-bold text-ink truncate max-w-[100px]">{group.name}</Text>
-            <Text className="text-xs font-bold text-terracotta">🔗</Text>
+            <Text className="text-xs font-bold text-terracotta">Invitar</Text>
           </TouchableOpacity>
         )}
 
@@ -267,36 +291,70 @@ export default function TodayScreen() {
         contentContainerStyle={{ paddingVertical: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Live Presence */}
-        {onlineAvatars.length > 0 && (
-          <View className="flex-row items-center gap-2 mb-4 bg-paper/50 rounded-2xl p-3 border border-hairline/40">
-            <View className="flex-row -space-x-2">
-              {onlineAvatars.map((m) => (
-                <View
-                  key={m.user_id}
-                  className={`w-6 h-6 rounded-full border border-paper flex items-center justify-center ${getAvatarBg(m.display_name || '')}`}
-                >
-                  <Text className="text-paper text-[8px] font-bold">{getInitials(m.display_name || '')}</Text>
-                </View>
-              ))}
-            </View>
-            <View className="flex-row items-center gap-1">
-              <View className="w-2 h-2 rounded-full bg-sage-deep" />
-              <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase">EN VIVO</Text>
-            </View>
-            <Text className="text-xs text-ink-soft">
-              {onlineAvatars.length} conectado{onlineAvatars.length > 1 ? 's' : ''} ahora
+        {/* Pulso del squad */}
+        <View className="rounded-3xl bg-paper border border-hairline p-4 mb-4 shadow-sm">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+              EL SQUAD HOY
             </Text>
+            {onlineAvatars.length > 0 && (
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-sage-deep" />
+                <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase">
+                  {onlineAvatars.length} EN VIVO
+                </Text>
+              </View>
+            )}
+          </View>
+          <SquadPulse />
+        </View>
+
+        {/* En riesgo de ruleta */}
+        {riskBanner && (
+          <View className="rounded-3xl bg-amber-soft border border-amber/40 p-4 mb-4">
+            <View className="flex-row items-center gap-2">
+              <TargetGlyph size={16} color="#A57B33" />
+              <Text className="text-sm font-semibold text-amber-deep flex-1">
+                {riskBanner.text}
+              </Text>
+            </View>
+            {riskBanner.cta && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/(tabs)/shame')}
+                className="mt-3 rounded-full bg-terracotta py-2.5 items-center"
+              >
+                <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
         {/* Countdown Card */}
         <View className="rounded-3xl bg-paper border border-hairline p-5 mb-4 shadow-sm">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">EL CICLO CIERRA EN</Text>
-            <Text className="text-xs font-semibold text-terracotta">{closingLabel}</Text>
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+              {isRouletteWeekend ? 'LA RULETA ESTÁ DESPIERTA' : 'LA RULETA GIRA EN'}
+            </Text>
+            {!isRouletteWeekend && (
+              <Text className="text-xs font-semibold text-terracotta">sáb 00:00</Text>
+            )}
           </View>
 
+          {isRouletteWeekend ? (
+            <View className="mb-4">
+              <Text className="font-serif text-2xl font-semibold text-terracotta leading-tight mb-3">
+                Es fin de semana de penitencias
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/(tabs)/shame')}
+                className="self-start rounded-full bg-terracotta px-5 py-2.5"
+              >
+                <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View className="flex-row items-baseline gap-2 mb-4">
             <View className="items-center">
               <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.days}</Text>
@@ -313,6 +371,7 @@ export default function TodayScreen() {
               <Text className="text-[10px] text-ink-faint mt-1">min</Text>
             </View>
           </View>
+          )}
 
           {/* Progress bar */}
           <View className="flex-row justify-between text-xs mb-1.5">

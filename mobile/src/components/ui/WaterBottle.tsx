@@ -1,19 +1,51 @@
-import React from 'react';
-import { View, TouchableWithoutFeedback } from 'react-native';
+import React, { useEffect } from 'react';
+import { TouchableWithoutFeedback } from 'react-native';
 import Svg, { Defs, ClipPath, Path, Rect, Circle, G } from 'react-native-svg';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 interface WaterBottleProps {
   size?: number;
 }
 
 export default function WaterBottle({ size = 160 }: WaterBottleProps) {
-  // Static version for now. 
-  // In a future iteration we can use react-native-reanimated to animate the water and slosh.
+  // El agua "ondula" con un balanceo sutil de la botella (loop de reanimated)
+  // y chapotea al tocarla — espejo del WaterBottle animado del frontend web.
   const clipId = "wb-clip-rn";
 
+  const rock = useSharedValue(0);
+  useEffect(() => {
+    rock.value = withRepeat(
+      withSequence(
+        withTiming(-1.6, { duration: 1900, easing: Easing.inOut(Easing.quad) }),
+        withTiming(1.6, { duration: 1900, easing: Easing.inOut(Easing.quad) })
+      ),
+      -1
+    );
+  }, [rock]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rock.value}deg` }],
+  }));
+
+  function slosh() {
+    rock.value = withSequence(
+      withTiming(5, { duration: 130 }),
+      withTiming(-4, { duration: 180 }),
+      withSpring(0)
+    );
+  }
+
   return (
-    <TouchableWithoutFeedback>
-      <View style={{ width: size, aspectRatio: 200/360 }}>
+    <TouchableWithoutFeedback onPress={slosh}>
+      <Animated.View style={[{ width: size, aspectRatio: 200 / 360 }, animStyle]}>
         <Svg width="100%" height="100%" viewBox="0 0 200 360">
           <Defs>
             <ClipPath id={clipId}>
@@ -51,7 +83,7 @@ export default function WaterBottle({ size = 160 }: WaterBottleProps) {
           <Rect x="77" y="20" width="46" height="30" rx="7" fill="#C26F4D" /* terracotta */ />
           <Rect x="82" y="44" width="36" height="9" rx="3" fill="#C26F4D" />
         </Svg>
-      </View>
+      </Animated.View>
     </TouchableWithoutFeedback>
   );
 }

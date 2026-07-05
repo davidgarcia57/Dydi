@@ -48,6 +48,12 @@ export default function SquadScreen() {
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [confirmDissolve, setConfirmDissolve] = useState(false);
+  const [dissolving, setDissolving] = useState(false);
+  const [dissolveMsg, setDissolveMsg] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState('');
 
   // Perfil
   const [nameInput, setNameInput] = useState('');
@@ -146,6 +152,39 @@ export default function SquadScreen() {
       setConfirmLeave(false);
     } finally {
       setLeaving(false);
+    }
+  }
+
+  // Disolver el grupo no es unilateral: se propone y el squad lo vota.
+  async function handleProposeDissolve() {
+    if (!group) return;
+    setDissolving(true);
+    setDissolveMsg('');
+    try {
+      await propose(group.id, 'delete_group');
+      setConfirmDissolve(false);
+      setDissolveMsg('Propuesta enviada. El squad vota disolver el grupo en Votar.');
+    } catch (e: any) {
+      setDissolveMsg(e?.error ?? 'No se pudo crear la propuesta');
+      setConfirmDissolve(false);
+    } finally {
+      setDissolving(false);
+    }
+  }
+
+  // Borra la cuenta en el backend (cascada login + datos) y cierra la sesión.
+  async function handleDeleteAccount() {
+    setDeletingAccount(true);
+    setDeleteMsg('');
+    try {
+      await api('/api/users/me', { method: 'DELETE' });
+      await signOut();
+      router.replace('/(auth)/login');
+    } catch (e: any) {
+      setDeleteMsg(e?.error ?? 'No pudimos borrar tu cuenta.');
+      setConfirmDelete(false);
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -399,6 +438,54 @@ export default function SquadScreen() {
                 </View>
               </View>
             )}
+
+            {/* Proponer disolver el squad (lo vota el grupo) */}
+            {dissolveMsg ? (
+              <View className="rounded-3xl bg-amber-soft/40 border border-amber/30 px-4 py-3 mb-4">
+                <Text className="text-xs font-semibold text-amber-deep">{dissolveMsg}</Text>
+              </View>
+            ) : null}
+            {!confirmDissolve ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setConfirmDissolve(true)}
+                className="w-full rounded-full border border-coral/40 bg-paper py-3.5 items-center mb-4 shadow-sm"
+              >
+                <Text className="text-coral-deep font-bold text-sm">Proponer disolver el squad</Text>
+              </TouchableOpacity>
+            ) : (
+              <View className="rounded-3xl border border-coral/40 bg-coral-soft/10 p-5 mb-4">
+                <Text className="text-sm font-bold text-ink mb-1">
+                  ¿Proponer disolver <Text className="text-coral-deep">{group.name}</Text>?
+                </Text>
+                <Text className="text-xs text-ink-soft mb-4">
+                  No se disuelve de inmediato: el squad lo vota por mayoría. Si gana, el grupo se
+                  elimina para todos.
+                </Text>
+                <View className="flex-row gap-2">
+                  <TouchableOpacity
+                    disabled={dissolving}
+                    activeOpacity={0.8}
+                    onPress={handleProposeDissolve}
+                    className="flex-1 rounded-full bg-coral-deep py-2.5 items-center"
+                  >
+                    {dissolving ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text className="text-paper font-bold text-xs">Sí, que se vote</Text>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => setConfirmDissolve(false)}
+                    className="flex-1 rounded-full border border-hairline bg-paper py-2.5 items-center"
+                  >
+                    <Text className="text-ink-soft font-bold text-xs">Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
           </>
         ) : (
           <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm items-center justify-center py-8">
@@ -418,7 +505,7 @@ export default function SquadScreen() {
           disabled={loggingOut}
           activeOpacity={0.8}
           onPress={handleLogout}
-          className="w-full rounded-full border border-hairline bg-paper py-3.5 items-center mb-10 shadow-sm"
+          className="w-full rounded-full border border-hairline bg-paper py-3.5 items-center mb-4 shadow-sm"
         >
           {loggingOut ? (
             <ActivityIndicator size="small" color="#6F6557" />
@@ -426,6 +513,54 @@ export default function SquadScreen() {
             <Text className="text-ink-soft font-bold text-sm">Cerrar sesión</Text>
           )}
         </TouchableOpacity>
+
+        {/* Borrar cuenta (zona delicada) */}
+        {deleteMsg ? (
+          <View className="rounded-3xl bg-coral-soft/40 border border-coral/40 px-4 py-3 mb-4">
+            <Text className="text-xs font-semibold text-coral-deep">{deleteMsg}</Text>
+          </View>
+        ) : null}
+        {!confirmDelete ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setConfirmDelete(true)}
+            className="w-full rounded-full border border-coral/40 bg-paper py-3.5 items-center mb-10"
+          >
+            <Text className="text-coral-deep font-bold text-sm">Borrar cuenta</Text>
+          </TouchableOpacity>
+        ) : (
+          <View className="rounded-3xl border border-coral/40 bg-coral-soft/10 p-5 mb-10">
+            <Text className="text-sm font-bold text-ink mb-1">
+              ¿Seguro que quieres borrar tu cuenta?
+            </Text>
+            <Text className="text-xs text-ink-soft mb-4">
+              Se borra todo: perfil, check-ins, rachas y deudas en todos tus grupos. Esta acción es
+              definitiva.
+            </Text>
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                disabled={deletingAccount}
+                activeOpacity={0.8}
+                onPress={handleDeleteAccount}
+                className="flex-1 rounded-full bg-coral-deep py-2.5 items-center"
+              >
+                {deletingAccount ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text className="text-paper font-bold text-xs">Sí, borrar todo</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setConfirmDelete(false)}
+                className="flex-1 rounded-full border border-hairline bg-paper py-2.5 items-center"
+              >
+                <Text className="text-ink-soft font-bold text-xs">Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );

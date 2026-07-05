@@ -34,7 +34,7 @@ export async function setupCheckinReminder() {
       identifier: REMINDER_ID,
       content: {
         title: 'Dydi',
-        body: '¿Ya hiciste tu check-in de hoy? Tu racha está en juego 🔥',
+        body: '¿Ya hiciste tu check-in de hoy? Tu racha está en juego.',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -53,7 +53,7 @@ export async function notifyRouletteOpened(debtorName: string, isMe: boolean) {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: isMe ? '🎡 ¡Estás en la ruleta!' : `🎡 Ruleta abierta para ${debtorName}`,
+        title: isMe ? '¡Estás en la ruleta!' : `Ruleta abierta para ${debtorName}`,
         body: isMe
           ? 'Tu squad está escribiendo tu penitencia…'
           : 'Entra a proponer una penitencia antes de que cierre.',

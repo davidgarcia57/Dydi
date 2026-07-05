@@ -153,6 +153,7 @@ interface AppContextType {
   submitSuggestion: (entryID: string, text: string, emoji?: string | null) => Promise<Suggestion>;
   spin: (entryID: string) => Promise<any>;
   completeDebt: (debtID: string) => Promise<Debt>;
+  forgiveDebt: (debtID: string) => Promise<Debt>;
   clearEntry: () => void;
 
   // Shared state
@@ -475,6 +476,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return debt;
   }
 
+  // Cualquier miembro menos el deudor perdona una deuda: misericordia del squad.
+  async function forgiveDebt(debtID: string): Promise<Debt> {
+    const debt = await api(`/api/penalties/debts/${debtID}/forgive`, { method: 'POST' });
+    setDebts(prev => prev.filter(d => d.id !== debt.id));
+    return debt;
+  }
+
   function clearEntry() {
     setActiveEntry(null);
     setSuggestions([]);
@@ -569,9 +577,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
                 return prev;
               });
-              if (msg.userID) {
-                loadStreaks(msg.userID);
-              }
+              // El streak_update llega enseguida con la racha ya recalculada
+              // por el backend — aquí ya no se re-consulta /streaks.
               break;
             }
             case 'streak_update': {
@@ -745,6 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         submitSuggestion,
         spin,
         completeDebt,
+        forgiveDebt,
         clearEntry,
 
         loading,

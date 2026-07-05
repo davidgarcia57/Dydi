@@ -1,6 +1,7 @@
 import { Tabs, Redirect } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { ActivityIndicator, View, type ColorValue } from 'react-native';
+import { useApp } from '../../src/contexts/AppContext';
+import { ActivityIndicator, Text, View, type ColorValue } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 function TabIcon({ d, color, size = 24 }: { d: string; color: ColorValue; size?: number }) {
@@ -26,6 +27,7 @@ const ICONS = {
 
 export default function TabLayout() {
   const { session, loading } = useAuth();
+  const { group, wsConnected } = useApp();
 
   if (loading) {
     return (
@@ -40,6 +42,7 @@ export default function TabLayout() {
   }
 
   return (
+    <View className="flex-1">
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -86,5 +89,17 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+
+    {/* Aviso de tiempo real caído (el socket reintenta con backoff) */}
+    {group && !wsConnected && (
+      <View pointerEvents="none" className="absolute bottom-24 left-0 right-0 items-center">
+        <View className="rounded-full bg-amber-soft border border-amber/40 px-4 py-2">
+          <Text className="text-xs font-semibold text-amber-deep">
+            Sin conexión en vivo — reconectando…
+          </Text>
+        </View>
+      </View>
+    )}
+    </View>
   );
 }

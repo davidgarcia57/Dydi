@@ -66,7 +66,7 @@ function getShortDate(iso: string) {
 // Polar coordinates calculations for wheel segments
 function polarToCartesian(cx: number, cy: number, r: number, deg: number) {
   const rad = ((deg - 90) * Math.PI) / 180;
-  return [cx + r * Math.cos(rad), cx + r * Math.sin(rad)];
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
 }
 
 function segmentPath(cx: number, cy: number, r: number, start: number, end: number) {
@@ -75,6 +75,20 @@ function segmentPath(cx: number, cy: number, r: number, start: number, end: numb
   const large = end - start > 180 ? 1 : 0;
   return `M ${cx} ${cy} L ${sx} ${sy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey} Z`;
 }
+
+// Pines del aro: uno por límite de segmento (rueda rediseñada, espejo de web).
+function pegPositions(count: number, r: number) {
+  return Array.from({ length: count }, (_, i) => {
+    const [x, y] = polarToCartesian(100, 100, r, i * (360 / count));
+    return { x, y };
+  });
+}
+
+// Rueda estática de 8 segmentos para los empty states (nada de emojis).
+const MINI_WHEEL = Array.from({ length: 8 }, (_, i) => ({
+  path: segmentPath(100, 100, 86, i * 45, (i + 1) * 45),
+  color: WHEEL_COLORS[i % WHEEL_COLORS.length],
+}));
 
 export default function ShameScreen() {
   const router = useRouter();
@@ -98,6 +112,7 @@ export default function ShameScreen() {
     submitSuggestion,
     spin,
     completeDebt,
+    forgiveDebt,
     clearEntry,
   } = useApp();
 
@@ -114,6 +129,8 @@ export default function ShameScreen() {
 
   // Complete-debt confirm state
   const [confirmComplete, setConfirmComplete] = useState<string | null>(null);
+  const [confirmForgive, setConfirmForgive] = useState<string | null>(null);
+  const [forgiving, setForgiving] = useState<string | null>(null);
   const [completing, setCompleting] = useState<string | null>(null);
 
   // Historial de deudas (carga perezosa)
@@ -237,11 +254,16 @@ export default function ShameScreen() {
     const itemsCount = activeSuggestions.length;
     const anglePer = 360 / itemsCount;
     return activeSuggestions.map((item: any, i) => ({
-      path: segmentPath(100, 100, 95, i * anglePer, (i + 1) * anglePer),
+      path: segmentPath(100, 100, 86, i * anglePer, (i + 1) * anglePer),
       color: WHEEL_COLORS[i % WHEEL_COLORS.length],
       label: item?.text ? item.text.slice(0, 12) : '',
     }));
   }, [activeSuggestions]);
+
+  const wheelPegs = useMemo(
+    () => pegPositions(activeSuggestions.length, 89.5),
+    [activeSuggestions.length]
+  );
 
   // Actions
   async function handleOpenRoulette(member: any) {
@@ -289,6 +311,24 @@ export default function ShameScreen() {
     } finally {
       setCompleting(null);
       setConfirmComplete(null);
+    }
+  }
+
+  // Perdonar es del squad, nunca del deudor (el backend también lo exige).
+  async function handleForgiveDebt(debt: any) {
+    if (confirmForgive !== debt.id) {
+      setConfirmForgive(debt.id);
+      return;
+    }
+    setForgiving(debt.id);
+    setError('');
+    try {
+      await forgiveDebt(debt.id);
+    } catch (e: any) {
+      setError(e?.error ?? 'No se pudo perdonar la deuda');
+    } finally {
+      setForgiving(null);
+      setConfirmForgive(null);
     }
   }
 
@@ -450,17 +490,27 @@ export default function ShameScreen() {
 
               {eligibleWithoutEntry.length === 0 ? (
                 <View className="rounded-3xl border border-sage/30 bg-sage-soft/30 p-6 items-center justify-center shadow-sm">
+                  <Svg
+                    width={64}
+                    height={64}
+                    viewBox="0 0 200 200"
+                    style={{ marginBottom: 12, opacity: openEntries.length > 0 ? 0.9 : 0.45 }}
+                  >
+                    {MINI_WHEEL.map((seg, i) => (
+                      <Path key={i} d={seg.path} fill={seg.color} />
+                    ))}
+                    <Circle cx="100" cy="100" r="24" fill="#FCF9F3" />
+                    <Circle cx="100" cy="100" r="16" fill="#C26F4D" />
+                  </Svg>
                   {openEntries.length > 0 ? (
                     <>
-                      <Text className="text-4xl mb-3">🎡</Text>
                       <Text className="text-sm font-bold text-sage-deep">Todos los del bote ya tienen ruleta</Text>
                       <Text className="text-xs text-ink-soft mt-1">Entra arriba a proponer su penitencia.</Text>
                     </>
                   ) : (
                     <>
-                      <Text className="text-4xl mb-3">🎉</Text>
-                      <Text className="text-sm font-bold text-sage-deep">Squad limpio esta semana</Text>
-                      <Text className="text-xs text-ink-soft mt-1">Nadie falló ningún hábito.</Text>
+                      <Text className="text-sm font-bold text-sage-deep">La ruleta se queda con hambre</Text>
+                      <Text className="text-xs text-ink-soft mt-1">Nadie falló ningún hábito esta semana.</Text>
                     </>
                   )}
                 </View>
@@ -515,12 +565,31 @@ export default function ShameScreen() {
                             </Text>
                           </View>
                         </View>
-                        <Text className="text-[9px] text-ink-faint">exp. {getShortDate(debt.expires_at)}</Text>
+                        <View
+                          className={`rounded-full px-2 py-0.5 ${
+                            new Date(debt.expires_at).getTime() - Date.now() < 2 * 86400000
+                              ? 'bg-coral-soft'
+                              : 'bg-amber-soft'
+                          }`}
+                        >
+                          <Text
+                            className={`text-[9px] font-bold ${
+                              new Date(debt.expires_at).getTime() - Date.now() < 2 * 86400000
+                                ? 'text-coral-deep'
+                                : 'text-amber-deep'
+                            }`}
+                          >
+                            expira {getShortDate(debt.expires_at)}
+                          </Text>
+                        </View>
                       </View>
-                      <Text className="text-sm font-semibold text-ink pl-1">
+                      <Text className="text-[9px] font-bold text-terracotta tracking-wider uppercase pl-1 mb-0.5">
+                        LA RULETA DICTÓ
+                      </Text>
+                      <Text className="font-serif text-base font-semibold text-ink pl-1 leading-snug">
                         {debt.punishment_emoji ?? ''} {debt.punishment_text}
                       </Text>
-                      {debt.debtor_id === user?.id && (
+                      {debt.debtor_id === user?.id ? (
                         <TouchableOpacity
                           activeOpacity={0.8}
                           disabled={completing === debt.id}
@@ -541,6 +610,29 @@ export default function ShameScreen() {
                               : confirmComplete === debt.id
                                 ? '¿Seguro? El squad lo verá'
                                 : '✓ Ya cumplí mi penitencia'}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          disabled={forgiving === debt.id}
+                          onPress={() => handleForgiveDebt(debt)}
+                          className={`mt-3 rounded-full py-2 items-center ${
+                            confirmForgive === debt.id
+                              ? 'bg-amber-deep'
+                              : 'border border-hairline bg-paper'
+                          }`}
+                        >
+                          <Text
+                            className={`text-xs font-bold ${
+                              confirmForgive === debt.id ? 'text-paper' : 'text-ink-soft'
+                            }`}
+                          >
+                            {forgiving === debt.id
+                              ? 'Guardando…'
+                              : confirmForgive === debt.id
+                                ? '¿Seguro? La deuda muere aquí'
+                                : 'Perdonar'}
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -676,15 +768,24 @@ export default function ShameScreen() {
                     transform: [{ rotate: rotateInterpolate }],
                   }}
                 >
-                  <Svg width={220} height={220} viewBox="0 0 200 200">
+                  <Svg width={230} height={230} viewBox="0 0 200 200">
+                    {/* Aro exterior + rim crema */}
+                    <Circle cx="100" cy="100" r="99" fill="#2A251F" />
+                    <Circle cx="100" cy="100" r="94" fill="#FCF9F3" />
                     <G>
                       {wheelSegments.map((seg, i) => (
                         <Path key={i} d={seg.path} fill={seg.color} />
                       ))}
                     </G>
-                    {/* Outer border & inner circle */}
-                    <Circle cx="100" cy="100" r="28" fill="white" opacity="0.9" />
-                    <Circle cx="100" cy="100" r="10" fill="#2A251F" />
+                    {/* Pines entre segmentos */}
+                    {wheelPegs.map((p, i) => (
+                      <Circle key={`peg-${i}`} cx={p.x} cy={p.y} r={2.6} fill="#FCF9F3" />
+                    ))}
+                    {/* Hub con tapa terracotta */}
+                    <Circle cx="100" cy="100" r="24" fill="#FCF9F3" />
+                    <Circle cx="100" cy="100" r="16" fill="#C26F4D" />
+                    <Circle cx="100" cy="100" r="5.5" fill="#2A251F" />
+                    <Circle cx="94" cy="93" r="3" fill="#FCF9F3" opacity={0.45} />
                   </Svg>
                 </Animated.View>
 
@@ -786,7 +887,7 @@ export default function ShameScreen() {
                   {(!deadlinePassed && isDebtor) && (
                     <View className="rounded-3xl bg-surface border border-hairline py-3 px-4 items-center justify-center">
                       <Text className="text-xs text-ink-soft text-center">
-                        Tu squad escribe tus penitencias… tú solo giras. 😈
+                        Tu squad escribe tus penitencias… tú solo giras.
                       </Text>
                     </View>
                   )}
