@@ -114,6 +114,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		r.Post("/penalties/roulette/{entryID}/spin", penalties.Spin)
 		r.Get("/penalties/{groupID}/debts", penalties.GetActiveDebts)
 		r.Post("/penalties/debts/{debtID}/complete", penalties.CompleteDebt)
+		r.Post("/penalties/debts/{debtID}/forgive", penalties.ForgiveDebt)
 
 		// Internal: called by groups-service when a proposal is approved.
 		r.Post("/internal/proposals/apply", habits.ApplyProposal)

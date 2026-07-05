@@ -100,8 +100,34 @@ func (h *HabitHandler) CreateCheckin(w http.ResponseWriter, r *http.Request) {
 		"habit_id": body.HabitID,
 		"status":   "done",
 	})
+	// La racha cambió con este check-in: se transmite ya recalculada para que
+	// el squad la vea subir en vivo y el cliente no re-consulte /streaks.
+	go h.broadcastStreak(body.GroupID, userID)
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+// broadcastStreak recomputes the user's best current streak and pushes it as a
+// streak_update event. Best-effort: a failure here never fails the check-in.
+func (h *HabitHandler) broadcastStreak(groupID, userID string) {
+	if h.realtimeURL == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	streaks, err := db.GetStreaksForUser(ctx, h.pool, userID)
+	if err != nil {
+		log.Printf("broadcastStreak: streak query failed: user=%s err=%v", userID, err)
+		return
+	}
+	best := 0
+	for _, s := range streaks {
+		best = max(best, s.Current)
+	}
+	h.notifyRealtime(groupID, userID, "streak_update", map[string]any{
+		"userID": userID,
+		"streak": best,
+	})
 }
 
 func (h *HabitHandler) notifyRealtime(groupID, userID, eventType string, data any) {

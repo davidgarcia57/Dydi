@@ -460,6 +460,55 @@ func (h *PenaltyHandler) CompleteDebt(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, debt)
 }
 
+// ForgiveDebt lets any group member — except the debtor — waive a pending
+// debt. Mercy is a squad decision: the offender can't pardon themselves.
+func (h *PenaltyHandler) ForgiveDebt(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	debtID := chi.URLParam(r, "debtID")
+
+	debt, err := db.GetDebt(r.Context(), h.pool, debtID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "debt not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if debt.DebtorID == userID {
+		writeError(w, http.StatusForbidden, "the debtor cannot forgive their own debt")
+		return
+	}
+
+	member, err := db.IsMemberOfGroup(r.Context(), h.pool, debt.GroupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	if !member {
+		writeError(w, http.StatusForbidden, "not a member of this group")
+		return
+	}
+
+	forgiven, err := db.ForgiveDebt(r.Context(), h.pool, debtID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusConflict, "debt is no longer pending")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	go h.notifyRealtime(forgiven.GroupID, "debt_updated", forgiven)
+	writeJSON(w, http.StatusOK, forgiven)
+}
+
 func (h *PenaltyHandler) GetActiveDebts(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-ID")
 	if userID == "" {

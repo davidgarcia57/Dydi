@@ -592,6 +592,34 @@ func CompleteDebt(ctx context.Context, pool *pgxpool.Pool, debtID, debtorID stri
 	))
 }
 
+// GetDebt fetches a single debt by ID.
+func GetDebt(ctx context.Context, pool *pgxpool.Pool, debtID string) (*model.Debt, error) {
+	return scanDebt(pool.QueryRow(ctx,
+		`SELECT id, roulette_entry_id, group_id, debtor_id, week_start,
+		        winning_suggestion_id, punishment_text, punishment_emoji,
+		        scope, status, completed_at, expires_at, created_at
+		 FROM debts
+		 WHERE id = $1`,
+		debtID,
+	))
+}
+
+// ForgiveDebt waives a pending, non-expired debt on behalf of the squad.
+// completed_at stays NULL: chk_debts_completed_state only allows it when
+// status = 'completed'. Returns pgx.ErrNoRows when the debt is no longer
+// pending or already lapsed past expires_at.
+func ForgiveDebt(ctx context.Context, pool *pgxpool.Pool, debtID string) (*model.Debt, error) {
+	return scanDebt(pool.QueryRow(ctx,
+		`UPDATE debts
+		 SET status = 'forgiven'
+		 WHERE id = $1 AND status = 'pending' AND expires_at > CURRENT_DATE
+		 RETURNING id, roulette_entry_id, group_id, debtor_id, week_start,
+		           winning_suggestion_id, punishment_text, punishment_emoji,
+		           scope, status, completed_at, expires_at, created_at`,
+		debtID,
+	))
+}
+
 // GetActiveDebts returns all non-expired debts for a group.
 func GetActiveDebts(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Debt, error) {
 	rows, err := pool.Query(ctx,
