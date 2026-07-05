@@ -7,6 +7,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// DeleteUser borra la cuenta en la capa de auth: auth.users cascadea a
+// public.users y de ahí a memberships, check-ins, deudas y votos, así que una
+// sola sentencia elimina identidad de login y datos de la app. El rol postgres
+// del pool ya tiene DELETE sobre auth.users; no se necesita la service_role key.
+func DeleteUser(ctx context.Context, pool *pgxpool.Pool, id string) error {
+	_, err := pool.Exec(ctx, `DELETE FROM auth.users WHERE id = $1`, id)
+	return err
+}
+
 func UpsertUser(ctx context.Context, pool *pgxpool.Pool, id, displayName string, avatarURL *string) (*model.User, error) {
 	u := &model.User{}
 	err := pool.QueryRow(ctx,

@@ -103,6 +103,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 
 		u := handler.NewUserHandler(pool)
 		r.Post("/users/sync", u.SyncUser)
+		r.Delete("/users/me", u.DeleteMe)
 
 		h := handler.NewGroupHandler(pool)
 		r.Get("/groups", h.ListMyGroups)

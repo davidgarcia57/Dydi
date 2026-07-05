@@ -16,6 +16,8 @@ const habits = useHabitsStore()
 const loggingOut = ref(false)
 const leavingGroup = ref(false)
 const confirmLeave = ref(false)
+const confirmDelete = ref(false)
+const deletingAccount = ref(false)
 const loadError = ref(false)
 const copiedInvite = ref(false)
 const profileSaving = ref(false)
@@ -136,6 +138,24 @@ async function handleLogout() {
   await auth.logout()
   group.reset()
   router.replace('/login')
+}
+
+async function handleDeleteAccount() {
+  deletingAccount.value = true
+  resetFeedback()
+  try {
+    await api('/api/users/me', { method: 'DELETE' })
+    // La cuenta ya no existe en el servidor; logout() limpia la sesión local
+    // aunque el revoke remoto falle (la sesión se borró en cascada).
+    await auth.logout()
+    group.reset()
+    router.replace('/login')
+  } catch (error) {
+    confirmDelete.value = false
+    setFeedback('error', error?.error ?? error?.message ?? 'No pudimos borrar tu cuenta.')
+  } finally {
+    deletingAccount.value = false
+  }
 }
 
 async function handleLeaveGroup() {
@@ -308,16 +328,37 @@ onMounted(load)
           <div class="mb-4">
             <h2 class="font-serif text-xl font-semibold text-ink">Zona delicada</h2>
             <p class="text-sm text-ink-soft mt-1">
-              Borrar cuenta requiere un endpoint seguro con service role; no debe hacerse desde el
-              cliente.
+              Borrar tu cuenta elimina tu perfil, hábitos, rachas y deudas en todos tus grupos.
             </p>
           </div>
           <button
-            disabled
-            class="w-full rounded-pill border border-coral/40 bg-coral-soft/30 text-coral-deep py-3 text-sm font-bold opacity-70"
+            v-if="!confirmDelete"
+            class="w-full rounded-pill border border-coral/40 text-coral-deep py-3 text-sm font-bold active:opacity-70 transition-opacity"
+            @click="confirmDelete = true"
           >
-            Borrar cuenta pendiente de backend seguro
+            Borrar cuenta
           </button>
+          <div v-else class="rounded-card border border-coral/40 bg-coral/5 p-4">
+            <p class="text-sm font-semibold text-ink mb-1">¿Seguro que quieres borrar tu cuenta?</p>
+            <p class="text-xs text-ink-soft mb-4">
+              Se borra todo: perfil, check-ins, rachas y deudas. Esta acción es definitiva.
+            </p>
+            <div class="flex gap-2">
+              <button
+                :disabled="deletingAccount"
+                class="flex-1 rounded-pill bg-coral text-paper py-2.5 font-bold text-sm disabled:opacity-40 active:opacity-80 transition-opacity"
+                @click="handleDeleteAccount"
+              >
+                {{ deletingAccount ? 'Borrando...' : 'Sí, borrar todo' }}
+              </button>
+              <button
+                class="flex-1 rounded-pill border border-hairline text-ink-soft py-2.5 font-semibold text-sm"
+                @click="confirmDelete = false"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         </section>
       </div>
 

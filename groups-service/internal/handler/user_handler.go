@@ -40,3 +40,18 @@ func (h *UserHandler) SyncUser(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, user)
 }
+
+func (h *UserHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	if err := db.DeleteUser(r.Context(), h.pool, userID); err != nil {
+		writeError(w, http.StatusInternalServerError, "could not delete account")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
