@@ -56,7 +56,13 @@ const WS_URL      = __ENV.WS_URL   || 'ws://localhost:8080';
 const TOKEN       = __ENV.TOKEN    || 'TU_JWT_TOKEN_AQUI';
 const PEAK        = parseInt(__ENV.PEAK || '5000', 10);
 
-const authHeaders = { headers: { Authorization: `Bearer ${TOKEN}` } };
+// Accept-Encoding: gzip para que el server comprima las respuestas igual que a
+// un navegador real (k6 no lo manda por defecto). k6 descomprime en el cliente
+// y reporta tamaños en claro, pero los BYTES EN EL CABLE —lo que Render factura
+// como egreso— viajan comprimidos.
+const authHeaders = {
+  headers: { Authorization: `Bearer ${TOKEN}`, 'Accept-Encoding': 'gzip' },
+};
 
 export const options = {
   scenarios: {
