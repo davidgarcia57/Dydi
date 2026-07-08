@@ -164,6 +164,10 @@ func setupRouter() *chi.Mux {
 	})
 
 	r.Route("/api", func(r chi.Router) {
+		// gzip de respuestas proxeadas: recorta ~80% el egreso de payloads JSON
+		// grandes hacia el cliente. Va solo aquí, no global, para no envolver el
+		// ResponseWriter de /ws (rompería el hijack del WebSocket).
+		r.Use(middleware.Compress(5))
 		r.Use(apimiddleware.Auth)
 		r.Use(apimiddleware.RateLimit(limiter))
 		r.Use(observability) // P95 latency per proxied route (kept off /ws to preserve hijacking)
