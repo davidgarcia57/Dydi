@@ -107,12 +107,8 @@ export default function CheckinModal() {
     setErrMsg('');
     try {
       await checkin(group.id, selectedHabit.habit_id, note.trim());
-      await loadStreaks(user.id);
-      
-      // Compute new streak
-      const updatedStreaks = useApp().streaks; // Get freshest values
-      const currentStreak = updatedStreaks[user.id] ?? (prevStreak + 1);
-      setNewStreak(currentStreak);
+      const updatedStreak = await loadStreaks(user.id);
+      setNewStreak(updatedStreak ?? prevStreak + 1);
 
       setStep('success');
       setTimeout(() => {
@@ -165,7 +161,7 @@ export default function CheckinModal() {
           {step === 'no-habit' && (
             <View className="flex-1 items-center justify-center px-8 text-center">
               <View className="w-16 h-16 rounded-full bg-amber-soft flex items-center justify-center mb-6">
-                <Text className="text-2xl text-amber-deep">⚠</Text>
+                <Text className="text-2xl font-bold text-amber-deep">!</Text>
               </View>
               <Text className="text-[10px] font-bold text-amber-deep tracking-wider uppercase mb-2">SIN HÁBITO</Text>
               <Text className="font-serif text-2xl font-semibold text-ink text-center mb-2">

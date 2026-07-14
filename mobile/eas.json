@@ -14,8 +14,8 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://dydi-25hj.onrender.com",
-        "EXPO_PUBLIC_WS_URL": "wss://dydi-25hj.onrender.com"
+        "EXPO_PUBLIC_API_URL": "https://api-gateway-j3yi.onrender.com",
+        "EXPO_PUBLIC_WS_URL": "wss://api-gateway-j3yi.onrender.com"
       }
     },
     "production": {}

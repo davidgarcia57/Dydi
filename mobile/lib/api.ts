@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://dydi-25hj.onrender.com';
+const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api-gateway-j3yi.onrender.com';
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
