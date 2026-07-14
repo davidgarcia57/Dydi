@@ -410,6 +410,28 @@ seguro — más que suficiente para un despliegue académico o una validación
 temprana de producto, que es la población objetivo de la pregunta de
 investigación.
 
+**Traducción a usuarios reales (estimación condicionada, no resultado
+observado).** Con dos niveles de carga no es justificable ajustar una curva de
+crecimiento; en su lugar se traduce el punto seguro *medido* a población de
+usuarios mediante la Ley de Little (L = λ·W; Little, 1961), que relaciona la
+concurrencia media (L) con la tasa de llegada de sesiones (λ) y su duración
+(W). En esta aplicación, una conexión WebSocket corresponde a un usuario con
+la app abierta, de modo que la concurrencia validada (L = 100, con todos los
+indicadores en ≤ 10 % de sus recursos) se convierte en usuarios activos
+diarios (UAD) bajo supuestos explícitos del patrón de uso: sesiones de ~5
+minutos, ~1.5 sesiones por usuario al día y un 25 % de las sesiones
+concentradas en la hora pico. Con esos supuestos, la hora pico admite
+L·60/(1.5·0.25·5) ≈ 32 usuarios diarios por conexión concurrente, es decir
+**~3 200 UAD (≈ 400 grupos llenos) sin abandonar el régimen de holgura
+medido**. Una cota independiente apunta al mismo orden de magnitud: con
+respuestas comprimidas (~30–100 KB por sesión de API), la cuota mensual de
+egreso del gateway (5 GB) sostiene entre ~1 100 y ~3 700 UAD durante todo el
+mes. Que dos restricciones independientes —la concurrencia del canal en tiempo
+real y la cuota de transferencia— converjan en el orden de 10³ usuarios
+activos diarios da robustez a la estimación, que en todo caso queda
+condicionada a los supuestos declarados y no sustituye una medición con
+poblaciones reales (§7).
+
 **El costo operativo es parte del sistema.** Los hallazgos de §5.4 sugieren
 que evaluar "si la capa gratuita aguanta" exige mirar más allá de RAM y
 latencia: cuotas mensuales, pausas por inactividad y créditos de ráfaga
@@ -450,6 +472,14 @@ datos una hora después.
   la capa de datos en dos, §5.4.3). Las exclusiones y su evidencia constan en
   la bitácora del experimento (`matriz.log`), decididas por causa asignable y
   no por el valor de las métricas.
+- **Estimación de usuarios — dependiente de supuestos:** la traducción a
+  usuarios activos diarios (§6) aplica la Ley de Little sobre la concurrencia
+  medida, con supuestos declarados de duración de sesión, sesiones por día y
+  concentración pico que no fueron medidos sobre usuarios reales. Es una
+  estimación de orden de magnitud para planeación, no un resultado
+  experimental; variar los supuestos dentro de rangos plausibles la mueve
+  entre ~10³ y ~10⁴ UAD por el lado de concurrencia, y la cota de egreso
+  (independiente) la regresa al orden de 10³.
 
 ## 8. Conclusiones y trabajo futuro
 
@@ -464,7 +494,11 @@ establecimiento P95 de ~20 s). El punto de quiebre es real, está por debajo de
 las 1 000 conexiones y —contra la hipótesis inicial— no llega por agotamiento
 de memoria (46.6 % del límite en el peor servicio) sino por la calidad del
 servicio de conexión, mediada por el acoplamiento entre el handshake y la capa
-transaccional.
+transaccional. Traducido al patrón de uso de la aplicación mediante la Ley de
+Little y bajo supuestos declarados, el régimen de holgura medido equivale al
+orden de 10³ usuarios activos diarios sostenidos durante el mes — estimación
+en la que convergen, de forma independiente, la concurrencia validada y la
+cuota mensual de transferencia (§6).
 
 **Viabilidad operativa.** La respuesta técnica anterior es necesaria pero no
 suficiente: la viabilidad del free tier la terminan de definir sus reglas de
@@ -512,6 +546,8 @@ repo se hace público o se publica un espejo/release para la revisión.]`
   Teknik Informatika, 9*(4), 2051–2060.
   https://doi.org/10.33395/sinkron.v9i4.15266
 - Grafana Labs. (2026). *k6 documentation*. https://grafana.com/docs/k6/
+- Little, J. D. C. (1961). A proof for the queuing formula: L = λW.
+  *Operations Research, 9*(3), 383–387. https://doi.org/10.1287/opre.9.3.383
 - Lemos, E., Oliveira, R., Rodrigues, J., & Oliveira Neto, R. F. (2025). Deep
   learning model deployment in multiple cloud providers: An exploratory study
   using low computing power environments. *arXiv*.
