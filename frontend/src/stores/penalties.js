@@ -71,13 +71,20 @@ export const usePenaltiesStore = defineStore('penalties', () => {
     return s
   }
 
-  // Returns a single Debt (normal) or Debt[] (collective — no suggestions).
+  // Devuelve la Debt creada. Se parchea el estado local de inmediato (spun_at,
+  // ruleta fuera de las abiertas) para no depender del evento WS.
   async function spin(entryID) {
     const result = await api(`/api/penalties/roulette/${entryID}/spin`, {
       method: 'POST',
     })
+    if (activeEntry.value?.id === entryID) {
+      activeEntry.value = { ...activeEntry.value, spun_at: new Date().toISOString() }
+    }
+    openEntries.value = openEntries.value.filter((e) => e.id !== entryID)
     const added = Array.isArray(result) ? result : [result]
-    debts.value.unshift(...added)
+    for (const d of added) {
+      if (!debts.value.find((x) => x.id === d.id)) debts.value.unshift(d)
+    }
     return result
   }
 

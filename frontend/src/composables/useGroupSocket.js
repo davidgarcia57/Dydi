@@ -22,8 +22,6 @@ export function useGroupSocket(groupID) {
     member_offline: (msg) => groupStore.setMemberOffline(msg.userID),
     roulette_start: (msg) => penaltiesStore.addOpenEntry(msg.payload),
     roulette_result: (msg) => penaltiesStore.setRouletteResult(msg.payload),
-    collective_punishment: (msg) => penaltiesStore.setRouletteResult(msg.payload),
-    debt_created: (msg) => penaltiesStore.addDebt(msg.payload),
     debt_updated: (msg) => penaltiesStore.updateDebt(msg.payload),
   }
 
@@ -62,11 +60,6 @@ export function useGroupSocket(groupID) {
     ws.onmessage = ({ data }) => {
       try {
         const msg = JSON.parse(data)
-        // Delivery latency for the paper: receive time minus server emit time.
-        if (msg.emittedAt) {
-          const latency = Date.now() - new Date(msg.emittedAt).getTime()
-          if (latency >= 0) console.debug(`[dydi] ws ${msg.type} delivery ${latency}ms`)
-        }
         handlers[msg.type]?.(msg)
       } catch (e) {
         console.warn('[dydi] ws message handler error:', e)

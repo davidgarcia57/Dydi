@@ -139,9 +139,12 @@ async function shareInvite() {
 
 async function handleLogout() {
   loggingOut.value = true
-  await auth.logout()
-  group.reset()
-  router.replace('/login')
+  try {
+    await auth.logout()
+  } finally {
+    group.reset()
+    router.replace('/login')
+  }
 }
 
 async function handleDeleteAccount() {

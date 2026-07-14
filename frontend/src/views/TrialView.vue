@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { usePenaltiesStore } from '@/stores/penalties'
+import { useGroupSocket } from '@/composables/useGroupSocket'
 import { showToast } from '@/composables/useToast'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
@@ -21,11 +22,13 @@ const penalties = usePenaltiesStore()
 // ── State ─────────────────────────────────────────────────────────────────────
 const view = ref('list')
 const pageLoading = ref(true)
+const loadFailed = ref(false)
 const loading = ref(false)
 const spinning = ref(false)
 const error = ref(null)
 const spinResult = ref(null)
 const showForm = ref(false)
+const sending = ref(false)
 const sugText = ref('')
 const sugEmoji = ref('')
 const confirmComplete = ref(null) // debt.id pendiente de confirmación
@@ -227,7 +230,8 @@ async function forgiveDebt(debt) {
 
 async function submitSuggestion() {
   const text = sugText.value.trim()
-  if (!text) return
+  if (!text || sending.value) return
+  sending.value = true
   error.value = null
   try {
     await penalties.submitSuggestion(entry.value.id, text, sugEmoji.value.trim() || null)
@@ -236,6 +240,8 @@ async function submitSuggestion() {
     showForm.value = false
   } catch (e) {
     error.value = e?.error ?? 'No se pudo enviar'
+  } finally {
+    sending.value = false
   }
 }
 
@@ -318,7 +324,13 @@ function backToList() {
   penalties.clearEntry()
 }
 
-onMounted(async () => {
+// El socket mantiene la vista en vivo: roulette_start/roulette_result/
+// debt_updated actualizan el store de penalties sin recargar.
+let socketDisconnect = null
+
+async function loadPage() {
+  pageLoading.value = true
+  loadFailed.value = false
   try {
     await group.autoLoad()
     if (group.group?.id) {
@@ -327,12 +339,23 @@ onMounted(async () => {
         penalties.loadDebts(group.group.id),
         penalties.loadOpenEntries(group.group.id),
       ])
+      if (!socketDisconnect) {
+        const { disconnect } = useGroupSocket(group.group.id)
+        socketDisconnect = disconnect
+      }
     }
   } catch (e) {
     error.value = e?.error ?? 'No se pudo cargar la ruleta'
+    loadFailed.value = true
   } finally {
     pageLoading.value = false
   }
+}
+
+onMounted(loadPage)
+
+onUnmounted(() => {
+  socketDisconnect?.()
 })
 </script>
 
@@ -360,6 +383,21 @@ onMounted(async () => {
         <div
           class="w-8 h-8 rounded-full border-2 border-sage-deep border-t-transparent animate-spin"
         />
+      </div>
+
+      <!-- Falló la carga: no fingir "squad limpio" con datos vacíos -->
+      <div
+        v-else-if="loadFailed"
+        class="rounded-card bg-paper shadow-card px-6 py-12 text-center mb-7"
+      >
+        <p class="font-serif text-2xl font-semibold text-ink mb-1">No se pudo cargar la ruleta</p>
+        <p class="text-sm text-ink-soft mb-5">Revisa tu conexión e intenta de nuevo.</p>
+        <button
+          class="rounded-pill bg-terracotta text-paper px-6 py-2.5 text-sm font-bold transition-all duration-200 hover:opacity-90 active:scale-95"
+          @click="loadPage"
+        >
+          Reintentar
+        </button>
       </div>
 
       <template v-else>
@@ -754,9 +792,11 @@ onMounted(async () => {
                 <div class="flex gap-2">
                   <button
                     class="flex-1 rounded-pill bg-sage-deep text-paper py-2.5 font-bold text-sm"
+                    :class="{ 'opacity-60': sending }"
+                    :disabled="sending"
                     @click="submitSuggestion"
                   >
-                    Enviar
+                    {{ sending ? 'Enviando…' : 'Enviar' }}
                   </button>
                   <button
                     class="rounded-pill border border-hairline text-ink-soft px-4 py-2.5 text-sm font-bold"
@@ -783,9 +823,10 @@ onMounted(async () => {
             </div>
           </section>
 
-          <!-- GIRAR -->
+          <!-- GIRAR (spinning mantiene el botón montado: el evento WS del
+               resultado marca spun_at a media animación y lo desmontaría) -->
           <button
-            v-if="canSpin"
+            v-if="canSpin || spinning"
             class="w-full rounded-pill bg-terracotta text-paper py-4 font-bold text-base active:opacity-80 transition-all flex items-center justify-center gap-2"
             :class="{ 'opacity-60': spinning }"
             :disabled="spinning"
