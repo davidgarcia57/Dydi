@@ -60,8 +60,10 @@ Este estudio somete esa percepción a prueba con un sistema real: **Dydi**, una
 aplicación SaaS de *accountability* social en la que grupos de amigos rastrean
 hábitos diarios y gamifican las consecuencias de incumplirlos. Dydi opera sobre
 cuatro microservicios en Go desplegados en **cuatro cuentas independientes** de
-la capa gratuita de Render (una estrategia deliberada para multiplicar los
-recursos gratuitos disponibles), con difusión en tiempo real implementada sobre
+la capa gratuita de Render —una por integrante del equipo, cada una dentro de
+su asignación gratuita individual— como estrategia deliberada para componer el
+sistema con los recursos gratuitos legítimamente disponibles para un equipo de
+seis personas, con difusión en tiempo real implementada sobre
 WebSockets propios —no delegada a servicios gestionados— precisamente para que
 el costo de esa pieza quede dentro del experimento.
 
@@ -140,7 +142,7 @@ Cuatro servicios en Go 1.24 (enrutador chi v5, driver pgx v5):
 | Restricción de Render Free | Decisión de diseño |
 |---|---|
 | 512 MB de RAM por servicio | Go compilado (binarios ~20 MB de RSS en reposo); sin sidecars ni agentes de monitoreo externos |
-| Horas de cómputo por cuenta | 4 cuentas independientes, un servicio por cuenta |
+| Horas de cómputo por cuenta | 4 cuentas independientes (una por integrante del equipo), un servicio por cuenta |
 | Suspensión tras 15 min de inactividad | Endpoint `/ops/wake` en el gateway que despierta a los tres servicios en cascada; cron externo cada 12 min en horario pico |
 | Sin métricas exportables nativas | Telemetría embebida: módulo `obs.go` por servicio (histogramas Prometheus en `/metrics` + logs JSON con `slog`) |
 
