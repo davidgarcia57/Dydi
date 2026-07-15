@@ -102,8 +102,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     if (!supabase) return
-    await supabase.auth.signOut()
-    session.value = null
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      // La sesión local muere aunque el revoke remoto falle (red caída):
+      // dejar al usuario "logueado" sin poder salir es peor.
+      session.value = null
+    }
   }
 
   return {

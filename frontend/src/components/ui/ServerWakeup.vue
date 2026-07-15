@@ -66,12 +66,10 @@ onMounted(async () => {
         </div>
       </div>
 
-      <h2 class="font-serif text-2xl font-semibold text-ink mb-3">Despertando los servidores...</h2>
+      <h2 class="font-serif text-2xl font-semibold text-ink mb-3">Despertando a tu squad…</h2>
       <p class="text-sm text-ink-soft max-w-xs mx-auto">
-        Dado que usamos servidores gratuitos, pueden tardar hasta 40 segundos en despertar tras un
-        periodo de inactividad.
+        El servidor estaba dormido y está arrancando. Esto puede tardar hasta un minuto.
       </p>
-      <p class="text-xs font-bold text-terracotta mt-4">¡Gracias por tu paciencia!</p>
     </div>
   </Transition>
 </template>

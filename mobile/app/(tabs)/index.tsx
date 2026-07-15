@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Share,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -72,22 +71,27 @@ export default function TodayScreen() {
   } = useApp();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
 
-  useEffect(() => {
-    async function checkGroup() {
-      try {
-        const hasGroup = await autoLoad();
-        if (!hasGroup) {
-          router.replace('/onboarding');
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  async function checkGroup() {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const hasGroup = await autoLoad();
+      if (!hasGroup) {
+        router.replace('/onboarding');
       }
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     checkGroup();
   }, []);
 
@@ -260,6 +264,26 @@ export default function TodayScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-cream">
         <ActivityIndicator size="large" color="#7CA39D" />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-cream px-8">
+        <Text className="font-serif text-xl font-semibold text-ink mb-2 text-center">
+          No pudimos cargar tu squad
+        </Text>
+        <Text className="text-sm text-ink-soft text-center mb-5">
+          Revisa tu conexión e intenta de nuevo.
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={checkGroup}
+          className="rounded-full bg-terracotta px-6 py-3"
+        >
+          <Text className="text-paper font-bold text-sm">Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -475,7 +499,7 @@ export default function TodayScreen() {
           {squadMembers.length === 0 ? (
             <View className="rounded-3xl bg-surface border border-hairline py-8 px-4 items-center justify-center">
               <Text className="text-sm text-ink-soft text-center leading-snug">
-                Propón un hábito en la pestaña Proposals para ver al squad aquí.
+                Propón un hábito en la pestaña Votar para ver al squad aquí.
               </Text>
             </View>
           ) : (

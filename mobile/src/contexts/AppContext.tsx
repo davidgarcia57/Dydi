@@ -117,7 +117,7 @@ interface AppContextType {
   weekHistory: Record<string, Set<string>>;
   loadToday: (groupID: string) => Promise<void>;
   loadWeekHistory: (groupID: string) => Promise<void>;
-  loadStreaks: (userID: string) => Promise<void>;
+  loadStreaks: (userID: string) => Promise<number | undefined>;
   checkin: (groupID: string, habitID: string, note?: string) => Promise<void>;
 
   // Proposals state
@@ -318,8 +318,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? list.reduce((max, s) => Math.max(max, s.current ?? 0), 0) 
         : 0;
       setStreaks(prev => ({ ...prev, [userID]: best }));
+      return best;
     } catch (err) {
       console.error('Error loading streaks:', err);
+      return undefined;
     }
   }
 
@@ -533,7 +535,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const wsUrlBase = process.env.EXPO_PUBLIC_WS_URL || 'wss://dydi-25hj.onrender.com';
+    const wsUrlBase = process.env.EXPO_PUBLIC_WS_URL || 'wss://api-gateway-j3yi.onrender.com';
     const wsUrl = `${wsUrlBase}/ws/${groupID}?token=${token}`;
 
     wsClosedRef.current = false;
