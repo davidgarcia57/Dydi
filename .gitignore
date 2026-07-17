@@ -30,6 +30,8 @@ coverage/
 # datapoints crudos de k6 (--raw), que pesan cientos de MB.
 load-tests/loadtest_groups.json
 load-tests/results/**/raw.csv
+# Salidas de analyze_results.py (regenerables desde results/)
+load-tests/analysis/
 
 # IDE
 .vscode/

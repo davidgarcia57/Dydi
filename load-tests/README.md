@@ -4,7 +4,7 @@ Todo lo necesario para las corridas del paper: sembrar datos, meter carga
 (rampas de WebSockets + HTTP) y capturar la telemetría de los 4 servicios.
 **Nada se instala local**: k6 y psql corren vía Docker (regla del proyecto).
 
-## Los 5 archivos
+## Los 6 archivos
 
 | Archivo | Qué hace |
 |---|---|
@@ -13,6 +13,7 @@ Todo lo necesario para las corridas del paper: sembrar datos, meter carga
 | `k6_stress_test.js` | La prueba: rampa de WS hasta `PEAK` repartida entre los grupos sembrados + tráfico HTTP constante para el P95. |
 | `scrape_metrics.sh` | Muestrea `/metrics` de los 4 servicios cada 5s → CSV (RAM, CPU, goroutines, pool de pgx, WS caídos). Un scrape fallido también se registra: si el servicio muere por OOM, ese hueco ES el dato. |
 | `run_experiment.sh` | Una corrida completa y reproducible: scraper + k6 + artefactos en `results/<fecha>-peak<N>-rep<M>/`. |
+| `analyze_results.py` | Post-proceso: construye el banco de corridas (CSV), los descriptivos y las 6 figuras del análisis (Actividad 3.4 / paper) desde los artefactos de `results/`. Salidas en `analysis/` (gitignored, regenerable). |
 
 ## Paso 0 — Configurar `.env` (una sola vez)
 
@@ -80,6 +81,22 @@ Consejos para que los datos salgan limpios:
   `token.sh`, así que no hay que renovar nada a mano.
 - `k6` saliendo con error por *threshold reventado* NO invalida la corrida: para
   la hipótesis, encontrar el límite es el resultado.
+
+## Paso 3 — Analizar (banco + figuras)
+
+Tras las corridas, el post-proceso genera el banco de datos a nivel corrida,
+los descriptivos por nivel y las 6 figuras (todo desde los artefactos crudos,
+nada a mano). Vía Docker, desde la raíz:
+
+```bash
+docker run --rm -v "$(pwd)/load-tests":/lt -w /lt python:3.12-slim \
+  sh -c "pip install -q matplotlib && python analyze_results.py"
+```
+
+Deja en `load-tests/analysis/`: `banco_corridas.csv` (1 fila por corrida, 22
+variables), `stats.json` y `fig_*.png`. Ojo: la clasificación válida/excluida
+de cada corrida vive en la lista `RUNS` del script (fuente: `matriz.log` +
+protocolo v2 §6.2) — si agregas corridas nuevas, clasifícalas ahí.
 
 ## Qué esperar (hipótesis)
 
