@@ -263,7 +263,7 @@ async function doSpin() {
   // 1. Encontrar el segmento ganador
   const items =
     penalties.suggestions.length >= 2 ? penalties.suggestions : Array.from({ length: 8 })
-  let winnerIndex = items.findIndex((s) => s.id === result.winning_suggestion_id)
+  let winnerIndex = items.findIndex((s) => s?.id === result.winning_suggestion_id)
   if (winnerIndex === -1) winnerIndex = Math.floor(Math.random() * items.length)
 
   // 2. Calcular ángulo exacto para que el segmento ganador aterrice arriba (0 grados)
