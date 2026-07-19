@@ -64,7 +64,9 @@ export default function TodayScreen() {
     onlineMembers,
     todayCheckins,
     streaks,
+    streakByHabit,
     weekHistory,
+    weekNotes,
     autoLoad,
     loadAllData,
     wsConnected,
@@ -74,6 +76,7 @@ export default function TodayScreen() {
   const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [selectedHistoryNote, setSelectedHistoryNote] = useState<{ key: string; text: string } | null>(null);
 
   async function checkGroup() {
     setLoading(true);
@@ -249,14 +252,23 @@ export default function TodayScreen() {
     const dates = weekHistory[key];
 
     return DAY_LABELS.map((label, i) => {
-      if (i > todayIdx) return { label, status: 'future' };
-      if (i === todayIdx) return { label, status: checkin.status };
-      
       const d = new Date();
       d.setDate(d.getDate() - (todayIdx - i));
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const noteKey = `${key}:${dateStr}`;
+
+      if (i > todayIdx) return { label, status: 'future', date: dateStr, note: undefined };
+      if (i === todayIdx) {
+        return { label, status: checkin.status, date: dateStr, note: checkin.note };
+      }
+
       const done = dates ? dates.has(dateStr) : false;
-      return { label, status: done ? 'done' : 'missed' };
+      return {
+        label,
+        status: done ? 'done' : 'missed',
+        date: dateStr,
+        note: weekNotes[noteKey],
+      };
     });
   }
 
@@ -526,34 +538,77 @@ export default function TodayScreen() {
 
                   {/* One block per assigned habit */}
                   <View className="gap-3">
-                    {member.habits.map((row) => (
-                      <View key={row.habit_id}>
-                        <View className="flex-row justify-between items-center mb-1">
-                          <Text className="text-xs text-ink-soft truncate flex-1">{row.habit_name}</Text>
-                          {STATUS_PILL[row.status] && (
-                            <View className={`rounded-full px-2 py-0.5 ml-2 ${STATUS_PILL[row.status].cls}`}>
-                              <Text className="text-[9px] font-bold">{STATUS_PILL[row.status].label}</Text>
-                            </View>
-                          )}
-                        </View>
+                    {member.habits.map((row) => {
+                      const habitKey = `${member.user_id}:${row.habit_id}`;
+                      const selectedNote = selectedHistoryNote?.key.startsWith(`${habitKey}:`)
+                        ? selectedHistoryNote
+                        : null;
 
-                        {/* 7-day strip */}
-                        <View className="flex-row gap-1">
-                          {getMemberDayStrip(row).map((day, i) => (
-                            <View key={i} className="items-center gap-1">
-                              <View className={`w-7 h-7 rounded-lg items-center justify-center ${STATUS_STYLE[day.status].strip}`}>
-                                {STATUS_STYLE[day.status].icon ? (
-                                  <Text className={`text-xs font-bold ${STATUS_STYLE[day.status].iconColor}`}>
-                                    {STATUS_STYLE[day.status].icon}
-                                  </Text>
-                                ) : null}
+                      return (
+                        <View key={row.habit_id}>
+                          <View className="flex-row justify-between items-center mb-1">
+                            <Text className="text-xs text-ink-soft truncate flex-1">
+                              {row.habit_name}
+                              {(streakByHabit[habitKey] ?? 0) > 0 ? (
+                                <Text className="text-terracotta font-semibold">
+                                  {' '}★ {streakByHabit[habitKey]}
+                                </Text>
+                              ) : null}
+                            </Text>
+                            {STATUS_PILL[row.status] && (
+                              <View className={`rounded-full px-2 py-0.5 ml-2 ${STATUS_PILL[row.status].cls}`}>
+                                <Text className="text-[9px] font-bold">{STATUS_PILL[row.status].label}</Text>
                               </View>
-                              <Text className="text-[9px] text-ink-faint font-medium">{day.label}</Text>
+                            )}
+                          </View>
+
+                          {/* 7-day strip; un punto blanco indica que hay nota. */}
+                          <View className="flex-row gap-1">
+                            {getMemberDayStrip(row).map((day) => {
+                              const noteKey = `${habitKey}:${day.date}`;
+                              const hasNote = Boolean(day.note);
+
+                              return (
+                                <View key={day.date} className="items-center gap-1">
+                                  <TouchableOpacity
+                                    activeOpacity={hasNote ? 0.7 : 1}
+                                    disabled={!hasNote}
+                                    onPress={() => {
+                                      if (!day.note) return;
+                                      setSelectedHistoryNote((current) =>
+                                        current?.key === noteKey ? null : { key: noteKey, text: day.note! }
+                                      );
+                                    }}
+                                    accessibilityRole={hasNote ? 'button' : undefined}
+                                    accessibilityLabel={
+                                      hasNote ? `${day.label}. Nota: ${day.note}` : `${day.label}. Sin nota.`
+                                    }
+                                  >
+                                    <View className={`relative w-7 h-7 rounded-lg items-center justify-center ${STATUS_STYLE[day.status].strip}`}>
+                                      {STATUS_STYLE[day.status].icon ? (
+                                        <Text className={`text-xs font-bold ${STATUS_STYLE[day.status].iconColor}`}>
+                                          {STATUS_STYLE[day.status].icon}
+                                        </Text>
+                                      ) : null}
+                                      {hasNote ? (
+                                        <View className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-paper" />
+                                      ) : null}
+                                    </View>
+                                  </TouchableOpacity>
+                                  <Text className="text-[9px] text-ink-faint font-medium">{day.label}</Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+
+                          {selectedNote ? (
+                            <View className="rounded-xl bg-paper border border-hairline px-3 py-2 mt-2">
+                              <Text className="text-xs text-ink-soft italic">“{selectedNote.text}”</Text>
                             </View>
-                          ))}
+                          ) : null}
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
               ))}

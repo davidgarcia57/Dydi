@@ -41,7 +41,7 @@ function getAvatarBg(name = '') {
 
 export default function SquadScreen() {
   const router = useRouter();
-  const { signOut, user, updateDisplayName } = useAuth();
+  const { signOut, user, updateDisplayName, changePassword } = useAuth();
   const { group, members, myGroups, loadMyGroups, switchGroup, leaveGroup, propose } = useApp();
 
   const [copied, setCopied] = useState(false);
@@ -60,6 +60,12 @@ export default function SquadScreen() {
   const [savingName, setSavingName] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
 
+  // Seguridad
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [securityMsg, setSecurityMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   // Kick
   const [confirmKick, setConfirmKick] = useState<string | null>(null);
   const [kicking, setKicking] = useState<string | null>(null);
@@ -69,6 +75,7 @@ export default function SquadScreen() {
   const [switching, setSwitching] = useState<string | null>(null);
 
   const displayUserName = user?.user_metadata?.display_name || user?.email || 'Tú';
+  const canChangePassword = password.length >= 6 && confirmPassword.length >= 6 && !savingPassword;
 
   useEffect(() => {
     setNameInput(user?.user_metadata?.display_name || '');
@@ -96,6 +103,31 @@ export default function SquadScreen() {
     } finally {
       setSavingName(false);
       setTimeout(() => setProfileMsg(''), 2500);
+    }
+  }
+
+  async function handleChangePassword() {
+    if (savingPassword) return;
+    if (password.length < 6) {
+      setSecurityMsg({ type: 'error', text: 'La contraseña necesita al menos 6 caracteres.' });
+      return;
+    }
+    if (password !== confirmPassword) {
+      setSecurityMsg({ type: 'error', text: 'Las contraseñas no coinciden.' });
+      return;
+    }
+
+    setSavingPassword(true);
+    setSecurityMsg(null);
+    try {
+      await changePassword(password);
+      setPassword('');
+      setConfirmPassword('');
+      setSecurityMsg({ type: 'success', text: '✓ Contraseña actualizada' });
+    } catch (e: any) {
+      setSecurityMsg({ type: 'error', text: e?.message ?? 'No se pudo actualizar la contraseña.' });
+    } finally {
+      setSavingPassword(false);
     }
   }
 
@@ -271,6 +303,80 @@ export default function SquadScreen() {
           </View>
           {profileMsg ? (
             <Text className="text-xs font-semibold text-sage-deep mt-2">{profileMsg}</Text>
+          ) : null}
+        </View>
+
+        {/* Seguridad */}
+        <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm">
+          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-1">SEGURIDAD</Text>
+          <Text className="text-xs text-ink-soft mb-4">
+            Cambia la contraseña con la que entras a Dydi.
+          </Text>
+
+          <View className="gap-3">
+            <TextInput
+              value={password}
+              onChangeText={(value) => {
+                setPassword(value);
+                setSecurityMsg(null);
+              }}
+              placeholder="Nueva contraseña"
+              placeholderTextColor="#A89C89"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              textContentType="newPassword"
+              className="rounded-xl border border-hairline bg-cream-2 px-3 py-3 text-sm text-ink"
+            />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={(value) => {
+                setConfirmPassword(value);
+                setSecurityMsg(null);
+              }}
+              placeholder="Confirma la contraseña"
+              placeholderTextColor="#A89C89"
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="newPassword"
+              className="rounded-xl border border-hairline bg-cream-2 px-3 py-3 text-sm text-ink"
+            />
+          </View>
+
+          {password.length > 0 && password.length < 6 ? (
+            <Text className="text-xs text-coral-deep mt-2">Usa al menos 6 caracteres.</Text>
+          ) : confirmPassword.length > 0 && password !== confirmPassword ? (
+            <Text className="text-xs text-coral-deep mt-2">Las contraseñas no coinciden.</Text>
+          ) : null}
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            disabled={!canChangePassword}
+            onPress={handleChangePassword}
+            className={`rounded-full py-3 items-center mt-4 ${
+              canChangePassword ? 'bg-ink' : 'bg-cream-2'
+            }`}
+          >
+            {savingPassword ? (
+              <ActivityIndicator size="small" color="#6F6557" />
+            ) : (
+              <Text className={`text-xs font-bold ${canChangePassword ? 'text-paper' : 'text-ink-faint'}`}>
+                Actualizar contraseña
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {securityMsg ? (
+            <Text
+              className={`text-xs font-semibold mt-2 ${
+                securityMsg.type === 'success' ? 'text-sage-deep' : 'text-coral-deep'
+              }`}
+              accessibilityRole={securityMsg.type === 'error' ? 'alert' : undefined}
+            >
+              {securityMsg.text}
+            </Text>
           ) : null}
         </View>
 

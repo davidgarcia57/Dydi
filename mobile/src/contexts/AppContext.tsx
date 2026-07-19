@@ -41,6 +41,13 @@ export interface Checkin {
   checked_on?: string;
 }
 
+interface CheckinHistoryEntry {
+  user_id: string;
+  habit_id: string;
+  checked_on: string;
+  note?: string;
+}
+
 interface Streak {
   habit_id: string;
   current: number;
@@ -114,7 +121,9 @@ interface AppContextType {
   // Habits state
   todayCheckins: Checkin[];
   streaks: Record<string, number>;
+  streakByHabit: Record<string, number>;
   weekHistory: Record<string, Set<string>>;
+  weekNotes: Record<string, string>;
   loadToday: (groupID: string) => Promise<void>;
   loadWeekHistory: (groupID: string) => Promise<void>;
   loadStreaks: (userID: string) => Promise<number | undefined>;
@@ -177,7 +186,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Habits State
   const [todayCheckins, setTodayCheckins] = useState<Checkin[]>([]);
   const [streaks, setStreaks] = useState<Record<string, number>>({});
+  const [streakByHabit, setStreakByHabit] = useState<Record<string, number>>({});
   const [weekHistory, setWeekHistory] = useState<Record<string, Set<string>>>({});
+  const [weekNotes, setWeekNotes] = useState<Record<string, string>>({});
 
   // Proposals State
   const [catalog, setCatalog] = useState<Habit[]>([]);
@@ -278,7 +289,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setOnlineMembers(new Set());
     setTodayCheckins([]);
     setStreaks({});
+    setStreakByHabit({});
     setWeekHistory({});
+    setWeekNotes({});
     setProposals([]);
     setVoted(new Set());
     setDebts([]);
@@ -299,25 +312,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const from = new Date();
     from.setDate(to.getDate() - 6);
     
-    const list = await api(`/api/habits/history/${groupID}?from=${dateISO(from)}&to=${dateISO(to)}`);
+    const list: CheckinHistoryEntry[] = await api(
+      `/api/habits/history/${groupID}?from=${dateISO(from)}&to=${dateISO(to)}`
+    );
     const map: Record<string, Set<string>> = {};
+    const notes: Record<string, string> = {};
     for (const e of list || []) {
       const key = `${e.user_id}:${e.habit_id}`;
       if (!map[key]) {
         map[key] = new Set();
       }
       map[key].add(e.checked_on);
+      if (e.note) {
+        notes[`${key}:${e.checked_on}`] = e.note;
+      }
     }
     setWeekHistory(map);
+    setWeekNotes(notes);
   }
 
   async function loadStreaks(userID: string) {
     try {
-      const list = await api(`/api/habits/streaks/${userID}`);
-      const best = Array.isArray(list) 
+      const list: Streak[] = await api(`/api/habits/streaks/${userID}`);
+      const best = Array.isArray(list)
         ? list.reduce((max, s) => Math.max(max, s.current ?? 0), 0) 
         : 0;
       setStreaks(prev => ({ ...prev, [userID]: best }));
+      if (Array.isArray(list)) {
+        setStreakByHabit(prev => {
+          const next = { ...prev };
+          for (const streak of list) {
+            next[`${userID}:${streak.habit_id}`] = streak.current ?? 0;
+          }
+          return next;
+        });
+      }
       return best;
     } catch (err) {
       console.error('Error loading streaks:', err);
@@ -722,7 +751,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         todayCheckins,
         streaks,
+        streakByHabit,
         weekHistory,
+        weekNotes,
         loadToday,
         loadWeekHistory,
         loadStreaks,
