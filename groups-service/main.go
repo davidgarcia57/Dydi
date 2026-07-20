@@ -69,6 +69,9 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(observability)
 	r.Use(middleware.Recoverer)
+	// gzip de respuestas: recorta el egreso de este servicio hacia el gateway
+	// (cuentas Render separadas → esa respuesta cuenta como egreso propio).
+	r.Use(middleware.Compress(5))
 	// Bound every request so a slow query under load fails fast (504) instead of
 	// piling up goroutines and pushing the 512 MB instance toward an OOM kill.
 	r.Use(middleware.Timeout(requestTimeout))

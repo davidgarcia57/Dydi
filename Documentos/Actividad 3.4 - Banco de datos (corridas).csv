@@ -1,0 +1,12 @@
+﻿id_corrida,fecha_hora_utc,sesion,commit,nivel_vus,repeticion,valida,motivo_exclusion,fuente_k6,vus_max,http_reqs,http_fail_pct,http_p50_ms,http_p95_ms,ws_sessions,ws_drop_pct,ws_conn_p95_ms,datos_recibidos_mb,ram_pico_gateway_mb,ram_pico_groups_mb,ram_pico_habits_mb,ram_pico_realtime_mb
+20260702-192048-peak100-rep1,2026-07-03T01:20:48Z,PILOTO,0b4ea5c,100,1,0,"Artefacto del instrumento: limite de tasa por usuario compartido (se midio el limitador, no la arquitectura)",k6_output.txt (texto),150,21602,88.3,69.04,201.11,6068,93.68,805.09,340.0,43.9,NA,NA,NA
+20260702-195005-peak100-rep1,2026-07-03T01:50:05Z,PILOTO,af38ae4,100,1,1,,summary.json,153,21596,0,186.9,404.5,408,0,805.3,2960.0,43.2,44.5,20.9,34.7
+20260704-200841-peak100-rep1,2026-07-05T02:08:41Z,S1,4061dd1,100,1,1,,summary.json,156,21590,0,203.6,825.9,405,0,894,2959.2,43.5,51.0,20.8,36.6
+20260704-202815-peak100-rep2,2026-07-05T02:28:15Z,S1,4061dd1,100,2,1,,summary.json,157,21586,0,199.8,789.7,402,0,918.0,2958.6,43.6,51.6,21.0,42.8
+20260704-204754-peak100-rep3,2026-07-05T02:47:54Z,S1,4061dd1,100,3,1,,summary.json,155,21590,0,208.2,847.3,408,1.92,932,2959.2,43.8,52.3,20.6,50.7
+20260704-210729-peak1000-rep1,2026-07-05T03:07:29Z,S1,4061dd1,1000,1,1,,summary.json,1075,21552,0,251.0,955.0,4634,23.87,19973.9,2974.7,236.8,49.9,21.5,164.1
+20260704-212704-peak1000-rep2,2026-07-05T03:27:04Z,S1,4061dd1,1000,2,1,,summary.json,1062,21578,0,257.4,1138.3,4607,23.59,20250.7,2978.0,238.5,60.4,21.5,231.3
+20260704-214639-peak1000-rep3,2026-07-05T03:46:39Z,S1,4061dd1,1000,3,1,,summary.json,1062,21576,0,268.9,1044.7,4664,24.16,19817.4,2978.1,239.2,54.8,20.7,293.0
+20260713-190612-peak1000-rep1,2026-07-14T01:06:12Z,S2,89a1432,1000,1,0,Interferencia de configuracion: pooler de BD en modo sesion (5432) satura el pool de groups,summary.json,1200,14020,13.74,3720.6,19170.5,17151,87.19,27686.8,367.2,509.8,513.6,76.0,104.1
+20260713-193625-peak1000-rep1,2026-07-14T01:36:25Z,S2,89a1432,1000,1,0,Fallo del inyector: error de I/O de Docker en el host; k6 nunca ejecuto (sin datos k6),sin datos k6,NA,NA,NA,NA,NA,NA,NA,NA,NA,14.5,17.8,17.0,8.8
+20260713-195531-peak1000-rep1,2026-07-14T01:55:31Z,S2,89a1432,1000,1,0,Estado no representativo de la capa de datos: creditos de rafaga agotados (t3a.nano) tras la pausa del proyecto,summary.json,1200,15094,18.64,4121.0,16774.5,17261,87.88,29370.6,231.1,474.5,518.0,95.8,137.2

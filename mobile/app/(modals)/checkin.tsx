@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
-import WaterBottle from '../../src/components/ui/WaterBottle';
+import HabitHero from '../../src/components/ui/HabitHero';
 import HabitIcon from '../../src/components/ui/HabitIcon';
 
 export default function CheckinModal() {
@@ -52,10 +52,6 @@ export default function CheckinModal() {
   const myPending = useMemo(() => {
     return myHabits.filter((c) => c.status === 'pending');
   }, [myHabits]);
-
-  function isWaterHabit(h: any) {
-    return h?.icon_key === 'water' || /agua|water/i.test(h?.habit_name || '');
-  }
 
   async function loadData() {
     if (!group?.id || !user?.id) {
@@ -111,12 +107,8 @@ export default function CheckinModal() {
     setErrMsg('');
     try {
       await checkin(group.id, selectedHabit.habit_id, note.trim());
-      await loadStreaks(user.id);
-      
-      // Compute new streak
-      const updatedStreaks = useApp().streaks; // Get freshest values
-      const currentStreak = updatedStreaks[user.id] ?? (prevStreak + 1);
-      setNewStreak(currentStreak);
+      const updatedStreak = await loadStreaks(user.id);
+      setNewStreak(updatedStreak ?? prevStreak + 1);
 
       setStep('success');
       setTimeout(() => {
@@ -169,7 +161,7 @@ export default function CheckinModal() {
           {step === 'no-habit' && (
             <View className="flex-1 items-center justify-center px-8 text-center">
               <View className="w-16 h-16 rounded-full bg-amber-soft flex items-center justify-center mb-6">
-                <Text className="text-2xl text-amber-deep">⚠</Text>
+                <Text className="text-2xl font-bold text-amber-deep">!</Text>
               </View>
               <Text className="text-[10px] font-bold text-amber-deep tracking-wider uppercase mb-2">SIN HÁBITO</Text>
               <Text className="font-serif text-2xl font-semibold text-ink text-center mb-2">
@@ -191,15 +183,13 @@ export default function CheckinModal() {
           {/* ── ALREADY DONE ────────────────────────────────────────────────── */}
           {step === 'done' && (
             <View className="flex-1 items-center justify-center px-8 text-center">
-              {isWaterHabit(myHabits[0]) ? (
-                <View className="mb-6">
-                  <WaterBottle size={120} />
-                </View>
-              ) : (
-                <View className="w-16 h-16 rounded-full bg-sage-soft flex items-center justify-center mb-6">
-                  <Text className="text-2xl text-sage-deep">✓</Text>
-                </View>
-              )}
+              <View className="mb-6">
+                <HabitHero
+                  iconKey={myHabits[0]?.icon_key}
+                  habitName={myHabits[0]?.habit_name}
+                  size={120}
+                />
+              </View>
               <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase mb-2">HOY YA CUMPLISTE</Text>
               <Text className="font-serif text-3xl font-semibold text-ink text-center mb-1">
                 {myHabits[0]?.habit_name ?? 'Tu hábito'}
@@ -285,7 +275,7 @@ export default function CheckinModal() {
                 {/* Meta details */}
                 <View className="flex-row items-center gap-2 flex-wrap mb-10">
                   <View className="flex-row items-center gap-1 rounded-full bg-surface border border-hairline px-3 py-1.5">
-                    <Text className="text-xs font-semibold text-ink-soft">🕒 {currentTime}</Text>
+                    <Text className="text-xs font-semibold text-ink-soft">{currentTime}</Text>
                   </View>
                   {selectedHabit.scheduled_time ? (
                     <View className="rounded-full bg-amber-soft px-3 py-1.5">
@@ -300,16 +290,11 @@ export default function CheckinModal() {
 
                 {/* Big Illustration */}
                 <View className="items-center justify-center py-6 mb-4">
-                  {isWaterHabit(selectedHabit) ? (
-                    <WaterBottle size={140} />
-                  ) : (
-                    <View
-                      className="w-24 h-24 rounded-full items-center justify-center shadow-sm"
-                      style={{ backgroundColor: selectedHabit.color || '#A8C39A' }}
-                    >
-                      <HabitIcon iconKey={selectedHabit.icon_key} size={48} color="#FFFFFF" />
-                    </View>
-                  )}
+                  <HabitHero
+                    iconKey={selectedHabit.icon_key}
+                    habitName={selectedHabit.habit_name}
+                    size={140}
+                  />
                 </View>
 
                 {/* Note Area */}
@@ -358,17 +343,13 @@ export default function CheckinModal() {
           {step === 'success' && selectedHabit && (
             <View className="flex-1 items-center justify-center px-8 text-center">
               {/* Checkring illustration */}
-              {isWaterHabit(selectedHabit) ? (
-                <View className="mb-8">
-                  <WaterBottle size={130} />
-                </View>
-              ) : (
-                <View className="w-28 h-28 rounded-full bg-sage-soft items-center justify-center mb-8 relative">
-                  <View className="w-20 h-20 rounded-full bg-sage-deep items-center justify-center">
-                    <Text className="text-paper text-4xl font-bold">✓</Text>
-                  </View>
-                </View>
-              )}
+              <View className="mb-8">
+                <HabitHero
+                  iconKey={selectedHabit.icon_key}
+                  habitName={selectedHabit.habit_name}
+                  size={130}
+                />
+              </View>
 
               <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase mb-2">¡LO LOGRASTE!</Text>
               <Text className="font-serif text-3xl font-semibold text-ink text-center mb-1">
@@ -380,7 +361,7 @@ export default function CheckinModal() {
               <View className="rounded-3xl bg-paper border border-hairline px-8 py-6 mb-10 w-full max-w-xs items-center relative shadow-sm">
                 {showPlus && (
                   <View className="absolute -top-3 -right-2 rounded-full bg-terracotta px-3 py-1 shadow-sm">
-                    <Text className="text-paper text-[10px] font-bold">+1 🔥</Text>
+                    <Text className="text-paper text-[10px] font-bold">+1 a tu racha</Text>
                   </View>
                 )}
 

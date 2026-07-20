@@ -343,8 +343,11 @@ onUnmounted(() => {
             ¿Ya hiciste el tuyo?
           </h2>
 
-          <!-- Habit list (one row per assigned habit) -->
-          <div v-if="myCheckins.length" class="space-y-2 mb-4">
+          <!-- Habit list (one row per assigned habit). Gated en loaded: sin la
+               guarda, el primer render mostraba un flash de "no tienes hábito"
+               + CTA antes de que llegara la data real. -->
+          <p v-if="!loaded" class="text-sm text-ink-faint mb-4">Cargando tus hábitos…</p>
+          <div v-else-if="myCheckins.length" class="space-y-2 mb-4">
             <div
               v-for="c in myCheckins"
               :key="c.habit_id"
@@ -367,7 +370,7 @@ onUnmounted(() => {
 
           <!-- Action button -->
           <button
-            v-if="hasPending || !myCheckins.length"
+            v-if="loaded && (hasPending || !myCheckins.length)"
             class="w-full rounded-pill bg-sage-deep text-paper py-3.5 font-bold text-sm active:opacity-80 transition-opacity"
             @click="router.push('/checkin')"
           >

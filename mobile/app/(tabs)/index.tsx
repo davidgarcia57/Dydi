@@ -6,13 +6,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Share,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import BrandWordmark from '../../src/components/ui/BrandWordmark';
+import SquadPulse from '../../src/components/SquadPulse';
+import TargetGlyph from '../../src/components/ui/TargetGlyph';
+import { missedThisWeek } from '../../src/weekStatus';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -62,29 +64,37 @@ export default function TodayScreen() {
     onlineMembers,
     todayCheckins,
     streaks,
+    streakByHabit,
     weekHistory,
+    weekNotes,
     autoLoad,
     loadAllData,
     wsConnected,
   } = useApp();
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [selectedHistoryNote, setSelectedHistoryNote] = useState<{ key: string; text: string } | null>(null);
+
+  async function checkGroup() {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const hasGroup = await autoLoad();
+      if (!hasGroup) {
+        router.replace('/onboarding');
+      }
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    async function checkGroup() {
-      try {
-        const hasGroup = await autoLoad();
-        if (!hasGroup) {
-          router.replace('/onboarding');
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     checkGroup();
   }, []);
 
@@ -96,16 +106,22 @@ export default function TodayScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const cycleEnd = useMemo(() => {
-    const d = new Date();
-    const daysLeft = d.getDay() === 0 ? 7 : 7 - d.getDay();
+  // La ruleta despierta el sábado 00:00; sábado y domingo son su fin de semana.
+  const isRouletteWeekend = useMemo(() => {
+    const dow = now.getDay();
+    return dow === 6 || dow === 0;
+  }, [now]);
+
+  const rouletteStart = useMemo(() => {
+    const d = new Date(now);
+    const daysLeft = (6 - d.getDay() + 7) % 7 || 7;
     d.setDate(d.getDate() + daysLeft);
     d.setHours(0, 0, 0, 0);
     return d;
   }, [now]);
 
   const countdown = useMemo(() => {
-    const diff = cycleEnd.getTime() - now.getTime();
+    const diff = rouletteStart.getTime() - now.getTime();
     if (diff <= 0) return { days: '00', hours: '00', mins: '00' };
     const pad = (n: number) => String(n).padStart(2, '0');
     return {
@@ -113,12 +129,7 @@ export default function TodayScreen() {
       hours: pad(Math.floor((diff % 86400000) / 3600000)),
       mins: pad(Math.floor((diff % 3600000) / 60000)),
     };
-  }, [cycleEnd, now]);
-
-  const closingLabel = useMemo(() => {
-    const names = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-    return `${names[cycleEnd.getDay()]} 00:00`;
-  }, [cycleEnd]);
+  }, [rouletteStart, now]);
 
   const weekNumber = useMemo(() => {
     const d = new Date();
@@ -138,6 +149,26 @@ export default function TodayScreen() {
   const myStreak = useMemo(() => {
     return user?.id ? streaks[user.id] ?? 0 : 0;
   }, [streaks, user?.id]);
+
+  // Riesgo de ruleta: fallos L–V acumulados esta semana (días sin check-in).
+  const myMissed = useMemo(
+    () => (user?.id ? missedThisWeek(user.id, todayCheckins, weekHistory) : 0),
+    [user?.id, todayCheckins, weekHistory]
+  );
+
+  const riskBanner = useMemo(() => {
+    if (!myMissed) return null;
+    if (isRouletteWeekend) {
+      return {
+        text: `Estás en el bote con ${myMissed} ${myMissed === 1 ? 'fallo' : 'fallos'} esta semana. La ruleta te espera.`,
+        cta: true,
+      };
+    }
+    if (myMissed === 1) {
+      return { text: 'Llevas 1 fallo esta semana — el sábado entras al bote.', cta: false };
+    }
+    return { text: `${myMissed} fallos esta semana. La ruleta ya te tiene en la lista.`, cta: false };
+  }, [myMissed, isRouletteWeekend]);
 
   // Squad Stats
   const stats = useMemo(() => {
@@ -221,14 +252,23 @@ export default function TodayScreen() {
     const dates = weekHistory[key];
 
     return DAY_LABELS.map((label, i) => {
-      if (i > todayIdx) return { label, status: 'future' };
-      if (i === todayIdx) return { label, status: checkin.status };
-      
       const d = new Date();
       d.setDate(d.getDate() - (todayIdx - i));
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const noteKey = `${key}:${dateStr}`;
+
+      if (i > todayIdx) return { label, status: 'future', date: dateStr, note: undefined };
+      if (i === todayIdx) {
+        return { label, status: checkin.status, date: dateStr, note: checkin.note };
+      }
+
       const done = dates ? dates.has(dateStr) : false;
-      return { label, status: done ? 'done' : 'missed' };
+      return {
+        label,
+        status: done ? 'done' : 'missed',
+        date: dateStr,
+        note: weekNotes[noteKey],
+      };
     });
   }
 
@@ -236,6 +276,26 @@ export default function TodayScreen() {
     return (
       <View className="flex-1 items-center justify-center bg-cream">
         <ActivityIndicator size="large" color="#7CA39D" />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View className="flex-1 items-center justify-center bg-cream px-8">
+        <Text className="font-serif text-xl font-semibold text-ink mb-2 text-center">
+          No pudimos cargar tu squad
+        </Text>
+        <Text className="text-sm text-ink-soft text-center mb-5">
+          Revisa tu conexión e intenta de nuevo.
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={checkGroup}
+          className="rounded-full bg-terracotta px-6 py-3"
+        >
+          <Text className="text-paper font-bold text-sm">Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -253,7 +313,7 @@ export default function TodayScreen() {
             className="flex-row items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 bg-surface"
           >
             <Text className="text-xs font-bold text-ink truncate max-w-[100px]">{group.name}</Text>
-            <Text className="text-xs font-bold text-terracotta">🔗</Text>
+            <Text className="text-xs font-bold text-terracotta">Invitar</Text>
           </TouchableOpacity>
         )}
 
@@ -273,36 +333,70 @@ export default function TodayScreen() {
         contentContainerStyle={{ paddingVertical: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Live Presence */}
-        {onlineAvatars.length > 0 && (
-          <View className="flex-row items-center gap-2 mb-4 bg-paper/50 rounded-2xl p-3 border border-hairline/40">
-            <View className="flex-row -space-x-2">
-              {onlineAvatars.map((m) => (
-                <View
-                  key={m.user_id}
-                  className={`w-6 h-6 rounded-full border border-paper flex items-center justify-center ${getAvatarBg(m.display_name || '')}`}
-                >
-                  <Text className="text-paper text-[8px] font-bold">{getInitials(m.display_name || '')}</Text>
-                </View>
-              ))}
-            </View>
-            <View className="flex-row items-center gap-1">
-              <View className="w-2 h-2 rounded-full bg-sage-deep" />
-              <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase">EN VIVO</Text>
-            </View>
-            <Text className="text-xs text-ink-soft">
-              {onlineAvatars.length} conectado{onlineAvatars.length > 1 ? 's' : ''} ahora
+        {/* Pulso del squad */}
+        <View className="rounded-3xl bg-paper border border-hairline p-4 mb-4 shadow-sm">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+              EL SQUAD HOY
             </Text>
+            {onlineAvatars.length > 0 && (
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-sage-deep" />
+                <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase">
+                  {onlineAvatars.length} EN VIVO
+                </Text>
+              </View>
+            )}
+          </View>
+          <SquadPulse />
+        </View>
+
+        {/* En riesgo de ruleta */}
+        {riskBanner && (
+          <View className="rounded-3xl bg-amber-soft border border-amber/40 p-4 mb-4">
+            <View className="flex-row items-center gap-2">
+              <TargetGlyph size={16} color="#A57B33" />
+              <Text className="text-sm font-semibold text-amber-deep flex-1">
+                {riskBanner.text}
+              </Text>
+            </View>
+            {riskBanner.cta && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/(tabs)/shame')}
+                className="mt-3 rounded-full bg-terracotta py-2.5 items-center"
+              >
+                <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
         {/* Countdown Card */}
         <View className="rounded-3xl bg-paper border border-hairline p-5 mb-4 shadow-sm">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">EL CICLO CIERRA EN</Text>
-            <Text className="text-xs font-semibold text-terracotta">{closingLabel}</Text>
+            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+              {isRouletteWeekend ? 'LA RULETA ESTÁ DESPIERTA' : 'LA RULETA GIRA EN'}
+            </Text>
+            {!isRouletteWeekend && (
+              <Text className="text-xs font-semibold text-terracotta">sáb 00:00</Text>
+            )}
           </View>
 
+          {isRouletteWeekend ? (
+            <View className="mb-4">
+              <Text className="font-serif text-2xl font-semibold text-terracotta leading-tight mb-3">
+                Es fin de semana de penitencias
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/(tabs)/shame')}
+                className="self-start rounded-full bg-terracotta px-5 py-2.5"
+              >
+                <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
           <View className="flex-row items-baseline gap-2 mb-4">
             <View className="items-center">
               <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.days}</Text>
@@ -319,6 +413,7 @@ export default function TodayScreen() {
               <Text className="text-[10px] text-ink-faint mt-1">min</Text>
             </View>
           </View>
+          )}
 
           {/* Progress bar */}
           <View className="flex-row justify-between text-xs mb-1.5">
@@ -422,7 +517,7 @@ export default function TodayScreen() {
           {squadMembers.length === 0 ? (
             <View className="rounded-3xl bg-surface border border-hairline py-8 px-4 items-center justify-center">
               <Text className="text-sm text-ink-soft text-center leading-snug">
-                Propón un hábito en la pestaña Proposals para ver al squad aquí.
+                Propón un hábito en la pestaña Votar para ver al squad aquí.
               </Text>
             </View>
           ) : (
@@ -449,34 +544,77 @@ export default function TodayScreen() {
 
                   {/* One block per assigned habit */}
                   <View className="gap-3">
-                    {member.habits.map((row) => (
-                      <View key={row.habit_id}>
-                        <View className="flex-row justify-between items-center mb-1">
-                          <Text className="text-xs text-ink-soft truncate flex-1">{row.habit_name}</Text>
-                          {STATUS_PILL[row.status] && (
-                            <View className={`rounded-full px-2 py-0.5 ml-2 ${STATUS_PILL[row.status].cls}`}>
-                              <Text className="text-[9px] font-bold">{STATUS_PILL[row.status].label}</Text>
-                            </View>
-                          )}
-                        </View>
+                    {member.habits.map((row) => {
+                      const habitKey = `${member.user_id}:${row.habit_id}`;
+                      const selectedNote = selectedHistoryNote?.key.startsWith(`${habitKey}:`)
+                        ? selectedHistoryNote
+                        : null;
 
-                        {/* 7-day strip */}
-                        <View className="flex-row gap-1">
-                          {getMemberDayStrip(row).map((day, i) => (
-                            <View key={i} className="items-center gap-1">
-                              <View className={`w-7 h-7 rounded-lg items-center justify-center ${STATUS_STYLE[day.status].strip}`}>
-                                {STATUS_STYLE[day.status].icon ? (
-                                  <Text className={`text-xs font-bold ${STATUS_STYLE[day.status].iconColor}`}>
-                                    {STATUS_STYLE[day.status].icon}
-                                  </Text>
-                                ) : null}
+                      return (
+                        <View key={row.habit_id}>
+                          <View className="flex-row justify-between items-center mb-1">
+                            <Text className="text-xs text-ink-soft truncate flex-1">
+                              {row.habit_name}
+                              {(streakByHabit[habitKey] ?? 0) > 0 ? (
+                                <Text className="text-terracotta font-semibold">
+                                  {' '}★ {streakByHabit[habitKey]}
+                                </Text>
+                              ) : null}
+                            </Text>
+                            {STATUS_PILL[row.status] && (
+                              <View className={`rounded-full px-2 py-0.5 ml-2 ${STATUS_PILL[row.status].cls}`}>
+                                <Text className="text-[9px] font-bold">{STATUS_PILL[row.status].label}</Text>
                               </View>
-                              <Text className="text-[9px] text-ink-faint font-medium">{day.label}</Text>
+                            )}
+                          </View>
+
+                          {/* 7-day strip; un punto blanco indica que hay nota. */}
+                          <View className="flex-row gap-1">
+                            {getMemberDayStrip(row).map((day) => {
+                              const noteKey = `${habitKey}:${day.date}`;
+                              const hasNote = Boolean(day.note);
+
+                              return (
+                                <View key={day.date} className="items-center gap-1">
+                                  <TouchableOpacity
+                                    activeOpacity={hasNote ? 0.7 : 1}
+                                    disabled={!hasNote}
+                                    onPress={() => {
+                                      if (!day.note) return;
+                                      setSelectedHistoryNote((current) =>
+                                        current?.key === noteKey ? null : { key: noteKey, text: day.note! }
+                                      );
+                                    }}
+                                    accessibilityRole={hasNote ? 'button' : undefined}
+                                    accessibilityLabel={
+                                      hasNote ? `${day.label}. Nota: ${day.note}` : `${day.label}. Sin nota.`
+                                    }
+                                  >
+                                    <View className={`relative w-7 h-7 rounded-lg items-center justify-center ${STATUS_STYLE[day.status].strip}`}>
+                                      {STATUS_STYLE[day.status].icon ? (
+                                        <Text className={`text-xs font-bold ${STATUS_STYLE[day.status].iconColor}`}>
+                                          {STATUS_STYLE[day.status].icon}
+                                        </Text>
+                                      ) : null}
+                                      {hasNote ? (
+                                        <View className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-paper" />
+                                      ) : null}
+                                    </View>
+                                  </TouchableOpacity>
+                                  <Text className="text-[9px] text-ink-faint font-medium">{day.label}</Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+
+                          {selectedNote ? (
+                            <View className="rounded-xl bg-paper border border-hairline px-3 py-2 mt-2">
+                              <Text className="text-xs text-ink-soft italic">“{selectedNote.text}”</Text>
                             </View>
-                          ))}
+                          ) : null}
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
               ))}
