@@ -317,9 +317,15 @@ export default function TodayScreen() {
           </TouchableOpacity>
         )}
 
-        <View className={`w-9 h-9 rounded-full flex items-center justify-center ${getAvatarBg(displayUserName)}`}>
+        {/* aqui comienza control de perfil (juanito) */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/(modals)/profile')}
+          className={`w-9 h-9 rounded-full flex items-center justify-center ${getAvatarBg(displayUserName)}`}
+        >
           <Text className="text-paper text-sm font-bold">{getInitials(displayUserName)}</Text>
-        </View>
+        </TouchableOpacity>
+        {/* aqui acaba control de perfil (juanito) */}
       </View>
 
       <ScrollView
