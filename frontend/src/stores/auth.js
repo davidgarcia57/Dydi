@@ -55,11 +55,12 @@ export const useAuthStore = defineStore('auth', () => {
     return current?.access_token ?? null
   }
 
-  async function updateProfile(displayName) {
+  async function updateProfile(displayName, avatarUrl = undefined) {
     if (!supabase) throw new Error('Faltan las variables de Supabase para actualizar tu perfil.')
-    const { data, error } = await supabase.auth.updateUser({
-      data: { display_name: displayName },
-    })
+    const metadata = { display_name: displayName }
+    // Solo actualiza avatar_url si se proporcionó explícitamente (undefined = no tocar)
+    if (avatarUrl !== undefined) metadata.avatar_url = avatarUrl || null
+    const { data, error } = await supabase.auth.updateUser({ data: metadata })
     if (error) throw error
     session.value = data.session ?? session.value
     if (session.value?.user && data.user) session.value = { ...session.value, user: data.user }

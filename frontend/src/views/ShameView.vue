@@ -7,6 +7,7 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
 import PageContainer from '@/components/ui/PageContainer.vue'
+import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import GroupSwitcher from '@/components/GroupSwitcher.vue'
 
 const router = useRouter()
@@ -30,6 +31,7 @@ const feedback = ref({ type: '', message: '' })
 
 const profileForm = reactive({
   displayName: '',
+  avatarUrl: '',
 })
 
 const passwordForm = reactive({
@@ -40,13 +42,18 @@ const passwordForm = reactive({
 const displayName = computed(
   () => auth.user?.user_metadata?.display_name ?? auth.user?.email?.split('@')[0] ?? 'Tu cuenta'
 )
+const avatarUrl = computed(() => auth.user?.user_metadata?.avatar_url ?? '')
 
 const email = computed(() => auth.user?.email ?? '')
 const myStreak = computed(() => habits.streaks[auth.user?.id] ?? 0)
 const inviteCode = computed(() =>
   group.group?.id && group.group?.invite_code ? group.group.id + ':' + group.group.invite_code : ''
 )
-const isProfileDirty = computed(() => profileForm.displayName.trim() !== displayName.value)
+const isProfileDirty = computed(
+  () =>
+    profileForm.displayName.trim() !== displayName.value ||
+    profileForm.avatarUrl.trim() !== (avatarUrl.value ?? '')
+)
 
 const COLORS = ['bg-sage-deep', 'bg-terracotta', 'bg-sage', 'bg-amber', 'bg-coral']
 const initials = (name = '') =>
@@ -69,22 +76,24 @@ function resetFeedback() {
 
 function syncProfileForm() {
   profileForm.displayName = displayName.value
+  profileForm.avatarUrl = avatarUrl.value ?? ''
 }
 
 async function saveProfile() {
   const nextName = profileForm.displayName.trim()
+  const nextAvatar = profileForm.avatarUrl.trim() || null
   if (!nextName || profileSaving.value) return
 
   profileSaving.value = true
   resetFeedback()
   try {
-    await auth.updateProfile(nextName)
+    await auth.updateProfile(nextName, nextAvatar)
     await api('/api/users/sync', {
       method: 'POST',
-      body: JSON.stringify({ display_name: nextName, avatar_url: null }),
+      body: JSON.stringify({ display_name: nextName, avatar_url: nextAvatar }),
     })
     syncProfileForm()
-    setFeedback('success', 'Tu nombre se actualizó.')
+    setFeedback('success', 'Tu perfil se actualizó.')
   } catch (error) {
     setFeedback('error', error?.error ?? error?.message ?? 'No pudimos actualizar tu perfil.')
   } finally {
@@ -255,15 +264,17 @@ onMounted(load)
       {{ feedback.message }}
     </p>
 
+    <!-- ── Tarjeta de perfil ──────────────────────────────────────────── -->
     <section
       class="rounded-card shadow-card bg-paper p-5 mb-5 flex flex-col gap-4 sm:flex-row sm:items-center"
     >
-      <div
-        class="w-16 h-16 rounded-full flex items-center justify-center text-paper text-xl font-bold flex-shrink-0"
-        :class="avatarBg(displayName)"
-      >
-        {{ initials(displayName) }}
-      </div>
+      <!-- Avatar grande con foto o iniciales -->
+      <BaseAvatar
+        :name="displayName"
+        :src="profileForm.avatarUrl || avatarUrl"
+        size="lg"
+        class="!w-16 !h-16 !text-xl"
+      />
       <div class="flex-1 min-w-0">
         <h2 class="font-serif text-2xl font-semibold text-ink leading-tight truncate">
           {{ displayName }}
@@ -288,11 +299,11 @@ onMounted(load)
           </div>
 
           <form
-            class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+            class="grid gap-3"
             @submit.prevent="saveProfile"
           >
             <label class="block">
-              <span class="text-xs font-bold text-ink-soft">Nombre o apodo</span>
+              <span class="text-sm font-bold text-ink">Nombre o apodo</span>
               <input
                 v-model="profileForm.displayName"
                 type="text"
@@ -301,6 +312,27 @@ onMounted(load)
                 class="mt-1 w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-sage-deep focus:bg-paper focus:ring-[3px] focus:ring-sage-deep/20"
               />
             </label>
+
+            <label class="block">
+              <span class="text-sm font-bold text-ink">Foto de perfil (URL)</span>
+              <input
+                v-model="profileForm.avatarUrl"
+                type="url"
+                placeholder="https://ejemplo.com/tu-foto.jpg"
+                class="mt-1 w-full rounded-xl border border-hairline bg-surface px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-sage-deep focus:bg-paper focus:ring-[3px] focus:ring-sage-deep/20"
+              />
+            </label>
+
+            <!-- Vista previa de la foto si hay URL -->
+            <div v-if="profileForm.avatarUrl.trim()" class="flex items-center gap-3">
+              <BaseAvatar
+                :name="profileForm.displayName || displayName"
+                :src="profileForm.avatarUrl.trim()"
+                size="md"
+              />
+              <p class="text-xs text-ink-soft">Vista previa</p>
+            </div>
+
             <button
               :disabled="!profileForm.displayName.trim() || !isProfileDirty || profileSaving"
               class="rounded-pill bg-sage-deep text-paper px-5 py-3 text-sm font-bold transition-opacity active:opacity-80 disabled:opacity-40"

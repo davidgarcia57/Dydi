@@ -211,10 +211,17 @@ onUnmounted(() => {
         </svg>
       </button>
 
-      <BaseAvatar
-        :name="auth.user?.user_metadata?.display_name ?? auth.user?.email ?? ''"
-        size="md"
-      />
+      <RouterLink
+        to="/tu"
+        class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sage-deep/50 hover:opacity-80 transition-opacity"
+        aria-label="Ir a tu cuenta"
+      >
+        <BaseAvatar
+          :name="auth.user?.user_metadata?.display_name ?? auth.user?.email ?? ''"
+          :src="auth.user?.user_metadata?.avatar_url ?? ''"
+          size="md"
+        />
+      </RouterLink>
     </header>
 
     <!-- ── Pulso del squad ────────────────────────────────────────────────── -->

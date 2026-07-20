@@ -1,16 +1,19 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
-// Avatar de iniciales con color derivado del nombre — centraliza la lógica
-// que estaba duplicada en TodayView / SquadView / etc.
+// Avatar: muestra foto (src) si se proporciona, con fallback a iniciales de color.
 const props = defineProps({
   name: { type: String, default: '' },
+  src: { type: String, default: '' }, // URL de foto de perfil (opcional)
   size: {
     type: String,
     default: 'md', // sm | md | lg
     validator: (v) => ['sm', 'md', 'lg'].includes(v),
   },
 })
+
+const imgError = ref(false)
+const showImg = computed(() => !!props.src && !imgError.value)
 
 const COLORS = ['bg-sage-deep', 'bg-terracotta', 'bg-sage', 'bg-amber', 'bg-coral', 'bg-ink-soft']
 
@@ -35,9 +38,16 @@ const bg = computed(() => COLORS[(props.name?.charCodeAt(0) ?? 0) % COLORS.lengt
 
 <template>
   <div
-    class="rounded-full flex-shrink-0 flex items-center justify-center text-paper font-bold"
-    :class="[SIZES[size], bg]"
+    class="rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-paper font-bold"
+    :class="[SIZES[size], showImg ? '' : bg]"
   >
-    {{ initials }}
+    <img
+      v-if="showImg"
+      :src="src"
+      :alt="name"
+      class="w-full h-full object-cover"
+      @error="imgError = true"
+    />
+    <span v-else>{{ initials }}</span>
   </div>
 </template>
