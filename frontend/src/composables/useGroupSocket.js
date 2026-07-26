@@ -29,10 +29,14 @@ export function useGroupSocket(groupID) {
   let reconnectTimer = null
   let closed = false
   let attempts = 0
-  const MAX_ATTEMPTS = 10
+  const MAX_ATTEMPTS = 6
 
   function scheduleReconnect() {
-    if (closed || attempts >= MAX_ATTEMPTS) return
+    if (closed) return
+    if (attempts >= MAX_ATTEMPTS) {
+      groupStore.setRealtimeState(null)
+      return
+    }
     const wait = Math.min(1000 * 2 ** attempts, 30_000) // exponential backoff, capped
     attempts++
     reconnectTimer = setTimeout(connect, wait)

@@ -27,7 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  async function refreshSession() {
+  async function refreshSession(force = false) {
     if (!supabase) return null
     const { data, error } = await supabase.auth.getSession()
     if (error) {
@@ -37,7 +37,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     let current = data.session
     const expiresAt = current?.expires_at ? current.expires_at * 1000 : null
-    if (expiresAt && expiresAt - Date.now() < 60_000) {
+    if (current && (force || (expiresAt && expiresAt - Date.now() < 60_000))) {
       const refreshed = await supabase.auth.refreshSession()
       if (refreshed.error) {
         session.value = null

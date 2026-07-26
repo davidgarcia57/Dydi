@@ -10,6 +10,9 @@ const PER_ATTEMPT_TIMEOUT = 30_000 // ms — a single attempt never hangs foreve
 export async function api(path, options = {}, retries = MAX_RETRIES) {
   const auth = useAuthStore()
   let lastErr = null
+  let refreshedAfterUnauthorized = false
+  const method = (options.method ?? 'GET').toUpperCase()
+  const isSafeMethod = ['GET', 'HEAD', 'OPTIONS'].includes(method)
 
   for (let i = 0; i < retries; i++) {
     const controller = new AbortController()
@@ -40,8 +43,19 @@ export async function api(path, options = {}, retries = MAX_RETRIES) {
 
       if (!res.ok) {
         const err = { status: res.status, ...(body || {}) }
+        // The gateway rejects an invalid JWT before proxying the request. A
+        // single refresh-and-retry is therefore safe even for a write method.
+        if (res.status === 401 && !refreshedAfterUnauthorized && i < retries - 1) {
+          refreshedAfterUnauthorized = true
+          try {
+            await auth.refreshSession(true)
+          } catch {
+            throw err
+          }
+          continue
+        }
         // Only Render free-tier cold-start 5xx are worth retrying; 4xx won't change.
-        if (res.status >= 502 && res.status <= 504 && i < retries - 1) {
+        if (isSafeMethod && res.status >= 502 && res.status <= 504 && i < retries - 1) {
           lastErr = err
           await delay(Math.min(1000 * 2 ** i, 8000))
           continue
@@ -52,7 +66,7 @@ export async function api(path, options = {}, retries = MAX_RETRIES) {
     } catch (err) {
       // Retry only transient transport failures (network down / our timeout abort).
       const transient = err instanceof TypeError || err?.name === 'AbortError'
-      if (!transient || i === retries - 1) throw err
+      if (!transient || !isSafeMethod || i === retries - 1) throw err
       lastErr = err
       await delay(Math.min(1000 * 2 ** i, 8000))
     } finally {

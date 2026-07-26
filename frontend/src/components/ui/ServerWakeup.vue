@@ -16,7 +16,7 @@ onMounted(async () => {
     const BASE = import.meta.env.VITE_API_URL
 
     // Esperamos a que los servicios estén arriba (Gateway y Backend real)
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 1; i++) {
       try {
         let res
         if (auth.session?.access_token) {
@@ -38,7 +38,7 @@ onMounted(async () => {
       } catch (e) {
         // Error de red o timeout
       }
-      await new Promise((r) => setTimeout(r, 2000))
+      await new Promise((r) => setTimeout(r, 250))
     }
 
     wokeUp.value = true

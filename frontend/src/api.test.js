@@ -4,7 +4,11 @@ import { setActivePinia, createPinia } from 'pinia'
 
 // Mockear el store de Pinia para no depender del navegador
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ token: 'fake-token', getAccessToken: async () => 'fake-token' }),
+  useAuthStore: () => ({
+    token: 'fake-token',
+    getAccessToken: async () => 'fake-token',
+    refreshSession: async () => ({ access_token: 'fake-token' }),
+  }),
 }))
 
 // Mockear variables de entorno de Vite
@@ -56,5 +60,37 @@ describe('api.js (Cold Start Resilience)', () => {
 
     await expect(api('/fail-endpoint')).rejects.toEqual({ status: 400, error: 'Bad request' })
     expect(global.fetch).toHaveBeenCalledTimes(1) // Solo 1 intento
+  })
+
+  it('NO debe reintentar escrituras ante un 503', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      text: async () => JSON.stringify({ error: 'Service Unavailable' }),
+    })
+
+    await expect(
+      api('/write-endpoint', { method: 'POST', body: JSON.stringify({ name: 'Squad' }) })
+    ).rejects.toEqual({ status: 503, error: 'Service Unavailable' })
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('renueva una sesion rechazada una sola vez', async () => {
+    global.fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: 'invalid token' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ data: 'ok' }),
+      })
+
+    const result = await api('/test-endpoint')
+
+    expect(result).toEqual({ data: 'ok' })
+    expect(global.fetch).toHaveBeenCalledTimes(2)
   })
 })
