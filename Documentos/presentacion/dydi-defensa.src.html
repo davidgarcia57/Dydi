@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dydi — Defensa · ¿Aguanta la capa gratuita?</title>
+<!--
+  Deck de la defensa (Actividad 4.2a) · Equipo 3 · UTD Integradora 2026
+  Archivo AUTOCONTENIDO: no requiere internet. Las figuras se incrustan al
+  ensamblar con `python3 Documentos/build_visuales.py`.
+  Teclas: → / espacio avanza · ← retrocede · F pantalla completa · P imprime · Inicio/Fin
+-->
+<style>
+  :root{
+    --cream:#F4EEE3; --surface:#FCF9F3; --paper:#FFFFFF; --hairline:#E7DECD;
+    --ink:#2A251F; --ink-soft:#6F6557; --ink-faint:#A89C89;
+    --terracotta:#C26F4D; --sage-deep:#7CA39D; --accent-deep:#4C736C;
+    --coral-deep:#BC5C42; --amber-deep:#A57B33;
+    --sage-soft:#E4EDDC; --coral-soft:#F7E2DA; --amber-soft:#F5E8CD; --wash:#DFEBE8;
+    --serif:'Newsreader',Georgia,'Times New Roman',serif;
+    --sans:'Hanken Grotesk','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:#E6DDCE; color:var(--ink); font-family:var(--sans);
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* El escenario mide 100em x 56.25em (16:9). Todo se dimensiona en em, así que
+     basta con escalar la fuente base para que quepa en cualquier proyector. */
+  .stage{
+    font-size:min(1vw, 1.7778vh);
+    width:100em; height:56.25em; position:relative;
+    background:var(--cream); overflow:hidden;
+    box-shadow:0 1.2em 4em rgba(42,37,31,.28);
+  }
+
+  .slide{
+    position:absolute; inset:0; display:none;
+    flex-direction:column; justify-content:center;
+    padding:5em 6.5em 6em;
+  }
+  .slide.active{display:flex}
+
+  .eyebrow{
+    font-size:1.15em; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--terracotta); margin-bottom:1.4em;
+  }
+  h1{font-family:var(--serif); font-size:5em; line-height:1.04; font-weight:600; letter-spacing:-.015em}
+  h2{font-family:var(--serif); font-size:3.4em; line-height:1.1; font-weight:600; letter-spacing:-.01em}
+  .lead{font-size:1.95em; line-height:1.45; color:var(--ink-soft); max-width:44em; margin-top:1em}
+  p{font-size:1.6em; line-height:1.5}
+  strong{font-weight:700; color:var(--ink)}
+  .rule{height:.14em; width:7em; background:var(--terracotta); border-radius:1em; margin:1.4em 0}
+
+  /* --- números grandes (regla de oro Dydi: cifra en serif + etiqueta tenue) --- */
+  .stat{font-family:var(--serif); font-weight:600; line-height:.88; letter-spacing:-.02em}
+  .stat-label{font-size:1.25em; color:var(--ink-soft); line-height:1.35; margin-top:.9em}
+  .stat-row{display:flex; gap:2.2em; margin-top:2em}
+  .stat-card{
+    flex:1; background:var(--surface); border:.09em solid var(--hairline);
+    border-radius:1.4em; padding:2em 1.8em; box-shadow:0 .3em 1.6em rgba(42,37,31,.06);
+  }
+  .stat-card .stat{font-size:5.2em}
+  .stat-card.bad{background:var(--coral-soft); border-color:#EFCBBE}
+  .stat-card.bad .stat{color:var(--coral-deep)}
+  .stat-card.good{background:var(--sage-soft); border-color:#CFDEC3}
+  .stat-card.good .stat{color:var(--accent-deep)}
+  .stat-card.warn{background:var(--amber-soft); border-color:#E8D6AE}
+  .stat-card.warn .stat{color:var(--amber-deep)}
+
+  .hero-num{font-family:var(--serif); font-size:10em; font-weight:600; line-height:.85;
+            letter-spacing:-.03em; white-space:nowrap}
+
+  /* --- utilidades --- */
+  .cols{display:flex; gap:3.2em; align-items:center; margin-top:1.6em}
+  .col{flex:1; min-width:0}
+  .fig{width:100%; border-radius:1em; background:var(--paper); border:.09em solid var(--hairline)}
+  .fig-full{max-height:34em; object-fit:contain}
+  .cap{font-size:1.2em; color:var(--ink-soft); margin-top:.9em; line-height:1.4}
+  .pill{
+    display:inline-block; font-size:1.1em; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; padding:.5em 1.1em; border-radius:99em;
+  }
+  .pill-warn{background:var(--amber-soft); color:var(--amber-deep)}
+  .pill-bad{background:var(--coral-soft); color:var(--coral-deep)}
+  .pill-good{background:var(--sage-soft); color:var(--accent-deep)}
+
+  ul{list-style:none; margin-top:1.4em}
+  li{font-size:1.6em; line-height:1.42; padding-left:1.5em; position:relative; margin-bottom:.75em}
+  li::before{content:'·'; position:absolute; left:0; color:var(--terracotta); font-weight:700}
+  li.no::before{content:'×'; color:var(--coral-deep)}
+  li.yes::before{content:'✓'; color:var(--accent-deep)}
+
+  .box{background:var(--surface); border:.09em solid var(--hairline); border-radius:1.4em; padding:2em 2.2em}
+  .box h3{font-size:1.3em; letter-spacing:.1em; text-transform:uppercase; color:var(--terracotta); margin-bottom:.8em}
+
+  /* diagrama de arquitectura */
+  .arch{display:flex; align-items:center; gap:1.6em; margin-top:2.4em; font-size:1.35em}
+  .node{
+    background:var(--paper); border:.13em solid var(--hairline); border-radius:1em;
+    padding:1.1em 1.3em; text-align:center; line-height:1.3; flex:1;
+  }
+  .node b{display:block; font-size:1.15em}
+  .node span{color:var(--ink-faint); font-size:.85em}
+  .node.gw{border-color:var(--terracotta); background:#FBF1EA}
+  .node.rt{border-color:var(--sage-deep); background:var(--wash)}
+  .arrow{color:var(--ink-faint); font-size:1.6em}
+  .stack{display:flex; flex-direction:column; gap:.9em; flex:1}
+
+  /* cadena del mecanismo */
+  .chain{display:flex; align-items:stretch; gap:1.1em; margin-top:2.4em}
+  .link{
+    flex:1; background:var(--surface); border:.09em solid var(--hairline);
+    border-radius:1.1em; padding:1.4em 1.2em; font-size:1.3em; line-height:1.35; text-align:center;
+  }
+  .link b{display:block; font-size:1.1em; margin-bottom:.35em}
+  .link.hot{background:var(--coral-soft); border-color:#EFCBBE; color:var(--coral-deep)}
+
+  table{border-collapse:collapse; width:100%; margin-top:1.6em; font-size:1.35em}
+  th,td{padding:.7em .8em; text-align:left; border-bottom:.07em solid var(--hairline)}
+  th{font-size:.85em; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); font-weight:700}
+  td.n{text-align:right; font-family:var(--serif); font-size:1.15em}
+  tr.bad td{background:var(--coral-soft); color:var(--coral-deep); font-weight:600}
+
+  /* portada */
+  .cover{background:linear-gradient(160deg,#F7F2E9 0%, var(--cream) 45%, #EFE7D8 100%)}
+  .wordmark{font-family:var(--serif); font-size:2.6em; font-weight:600; letter-spacing:-.01em}
+  .wordmark span{color:var(--terracotta)}
+  .authors{font-size:1.4em; color:var(--ink-soft); line-height:1.6; margin-top:2.6em}
+  .authors b{color:var(--ink); font-weight:600}
+
+  /* cromo del deck */
+  .chrome{
+    position:absolute; left:0; right:0; bottom:0; height:3.4em;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 2.2em; font-size:1em; color:var(--ink-faint);
+    border-top:.07em solid var(--hairline); background:rgba(252,249,243,.6);
+  }
+  .chrome .t{font-weight:700; letter-spacing:.1em; text-transform:uppercase}
+  .progress{position:absolute; left:0; top:0; height:.34em; background:var(--terracotta); transition:width .25s ease}
+  .annex{background:#EFE7D8}
+  .annex .chrome{background:rgba(244,238,227,.7)}
+
+  /* Ayuda de teclado: arriba a la derecha para no tapar el contador, y se desvanece
+     a los 5 s para no salir en la proyección. Reaparece al mover el ratón. */
+  .help{
+    position:fixed; top:1.2rem; right:1.2rem; font-size:.75rem; color:#8B8172;
+    background:rgba(252,249,243,.85); padding:.45rem .8rem; border-radius:99px;
+    border:1px solid var(--hairline); font-family:var(--sans);
+    transition:opacity .6s ease; pointer-events:none;
+  }
+  .help.hidden{opacity:0}
+
+  @page{ size:297mm 167mm; margin:0 }
+  @media print{
+    body{display:block; background:#fff; overflow:visible}
+    .stage{box-shadow:none; width:100%; height:auto; font-size:min(1vw,1.7778vh)}
+    .slide{display:flex !important; position:relative; inset:auto;
+           width:100em; height:56.25em; break-after:page; page-break-after:always}
+    .help{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- ══ L1 · 0:20 · David ══ -->
+  <section class="slide cover active" data-t="0:20" data-voz="David">
+    <div class="wordmark">dy<span>di</span></div>
+    <div class="rule"></div>
+    <h1>¿Aguanta la capa<br>gratuita?</h1>
+    <p class="lead">Evaluación de una arquitectura de microservicios en tiempo real
+      sobre el <em>free tier</em> de Render, bajo inyección de carga.</p>
+    <div class="authors">
+      <b>Equipo 3</b> · García Páez David Israel · Solis Flores Irvin Alfonso ·
+      Cervantes Guerrero Keila Yuridia · Casiano Gamzi Juan David<br>
+      Universidad Tecnológica de Durango · Integradora 2026
+    </div>
+  </section>
+
+  <!-- ══ L2 · 0:50 · David ══ -->
+  <section class="slide" data-t="0:50" data-voz="David">
+    <div class="eyebrow">El problema</div>
+    <h2>Los proyectos de la carrera<br>no llegan a producción.</h2>
+    <p class="lead">Porque un servidor cuesta. Las capas gratuitas existen, pero
+      tienen fama de servir solo para demos.</p>
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat">512</div><div class="stat-label">MB de RAM por servicio</div></div>
+      <div class="stat-card"><div class="stat">15</div><div class="stat-label">minutos y el servicio se duerme</div></div>
+      <div class="stat-card"><div class="stat">$0</div><div class="stat-label">presupuesto disponible</div></div>
+    </div>
+    <p style="margin-top:2em"><strong>Esa fama estaba repetida, pero nadie la había medido.</strong></p>
+  </section>
+
+  <!-- ══ L3 · 1:20 · Irvin ══ -->
+  <section class="slide" data-t="1:20" data-voz="Irvin">
+    <div class="eyebrow">El sistema bajo prueba</div>
+    <h2>Dydi: cuatro servicios en Go,<br>cuatro cuentas gratuitas.</h2>
+    <p class="lead">App real de <em>accountability</em> social: grupos de ≤ 8 amigos,
+      hábitos diarios y ruleta de penitencias el sábado, transmitida en vivo.</p>
+    <div class="arch">
+      <div class="stack">
+        <div class="node"><b>frontend</b><span>Vercel</span></div>
+        <div class="node"><b>móvil</b><span>Expo · APK</span></div>
+      </div>
+      <div class="arrow">›</div>
+      <div class="node gw"><b>api-gateway</b><span>cuenta 1 · JWT ES256</span></div>
+      <div class="arrow">›</div>
+      <div class="stack">
+        <div class="node"><b>groups-service</b><span>cuenta 2</span></div>
+        <div class="node"><b>habits-service</b><span>cuenta 3</span></div>
+        <div class="node rt"><b>realtime-service</b><span>cuenta 4 · WebSockets</span></div>
+      </div>
+    </div>
+    <p class="cap" style="margin-top:1.6em">Una cuenta gratuita por integrante: el sistema se
+      compone con los recursos que legítimamente teníamos.</p>
+  </section>
+
+  <!-- ══ L4 · 0:50 · Irvin ══ -->
+  <section class="slide" data-t="0:50" data-voz="Irvin">
+    <div class="eyebrow">La apuesta metodológica</div>
+    <h2>El tiempo real lo programamos<br>nosotros. A propósito.</h2>
+    <div class="cols" style="margin-top:2.4em">
+      <div class="col box">
+        <h3>Pudimos delegarlo</h3>
+        <p>Supabase Realtime resolvía la pieza en una tarde.</p>
+      </div>
+      <div class="col box" style="background:var(--wash); border-color:#C9DCD7">
+        <h3>Y entonces no medimos nada</h3>
+        <p>Queremos saber <strong>cuánto cuesta sostener conexiones vivas dentro de
+          512 MB</strong>. Si la delegamos, esa pieza sale del sistema bajo prueba.</p>
+      </div>
+    </div>
+    <p style="margin-top:2.4em"><strong>Es la variable central del experimento.</strong></p>
+  </section>
+
+  <!-- ══ L5 · 1:20 · Keila ══ -->
+  <section class="slide" data-t="1:20" data-voz="Keila">
+    <div class="eyebrow">Método</div>
+    <h2>Dos fuentes independientes<br>que se cruzan.</h2>
+    <div class="cols" style="margin-top:2em; align-items:stretch">
+      <div class="col box">
+        <h3>Por fuera · k6</h3>
+        <p>Rampas de <strong>100, 1 000, 2 500 y 5 000</strong> usuarios virtuales.
+          <strong>3 repeticiones</strong> por nivel, misma ventana horaria: un mal día
+          no es un resultado.</p>
+      </div>
+      <div class="col box">
+        <h3>Por dentro · telemetría propia</h3>
+        <p>~200 líneas de Go por servicio: memoria, latencia por ruta y estado del
+          <em>pool</em> de base de datos, muestreadas cada 5 s.</p>
+      </div>
+    </div>
+    <p style="margin-top:2em">Cada corrida deja cuatro artefactos, incluido el
+      <strong>commit exacto</strong> del código medido. Y una regla:
+      <strong>si un servicio muere, el hueco en la serie también es dato.</strong></p>
+  </section>
+
+  <!-- ══ L6 · 1:10 · David ══ -->
+  <section class="slide" data-t="1:10" data-voz="David">
+    <div class="eyebrow">Validación del instrumento</div>
+    <h2>El piloto que casi nos engaña.</h2>
+    <div class="cols" style="margin-top:1.6em">
+      <div class="col">
+        <table>
+          <tr><th></th><th style="text-align:right">Piloto 1</th><th style="text-align:right">Piloto 2</th></tr>
+          <tr><td>Peticiones fallidas</td><td class="n">88.30 %</td><td class="n">0.00 %</td></tr>
+          <tr><td>Conexiones rechazadas</td><td class="n">93.68 %</td><td class="n">0.00 %</td></tr>
+          <tr><td>RAM observada</td><td class="n">44 MB</td><td class="n">44 MB</td></tr>
+        </table>
+        <p class="cap">El sistema estaba <em>aburrido</em> mientras el cliente reportaba
+          un desastre. Ahí estaba la pista.</p>
+      </div>
+      <div class="col box" style="background:var(--coral-soft); border-color:#EFCBBE">
+        <h3 style="color:var(--coral-deep)">La causa</h3>
+        <p>Nuestro propio gateway limita <strong>5 peticiones/s por usuario</strong>,
+          y los mil usuarios virtuales compartían una cuenta de prueba.</p>
+        <p style="margin-top:1em">Estábamos midiendo el limitador, no la arquitectura.</p>
+      </div>
+    </div>
+    <p style="margin-top:1.8em"><strong>Sin telemetría del lado del servidor, habríamos
+      publicado una mentira con gráficas bonitas.</strong></p>
+  </section>
+
+  <!-- ══ L7 · 1:30 · Keila ══ -->
+  <section class="slide" data-t="1:30" data-voz="Keila">
+    <div class="eyebrow">Hallazgo 1 · el quiebre</div>
+    <div class="cols" style="align-items:center">
+      <div class="col" style="flex:1.25">
+        <img class="fig fig-full" src="FIG:fig_h1_barras.png"
+             alt="Conexiones WebSocket caídas por nivel de carga contra el umbral de 10 %">
+      </div>
+      <div class="col">
+        <div class="hero-num" style="color:var(--coral-deep)">23.87<span style="font-size:.42em">%</span></div>
+        <div class="stat-label" style="font-size:1.5em">de las conexiones en vivo se caen<br>a 1 000 usuarios concurrentes</div>
+        <div style="margin-top:1.6em"><span class="pill pill-bad">Umbral predefinido: 10 %</span></div>
+        <p style="margin-top:1.6em">Las tres repeticiones dieron <strong>23.59, 23.87 y
+          24.16 %</strong>. Con esa consistencia, el ruido de plataforma queda descartado
+          como explicación.</p>
+        <p style="margin-top:1em">El plano HTTP, en cambio, <strong>no falla</strong>:
+          0 errores en 64 706 peticiones, solo 26 % más lento.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ L8 · 1:00 · Keila ══ -->
+  <section class="slide" data-t="1:00" data-voz="Keila">
+    <div class="eyebrow">Hallazgo 2 · el giro</div>
+    <div class="cols" style="align-items:center">
+      <div class="col">
+        <h2>Falló con la mitad<br>de la memoria libre.</h2>
+        <div class="hero-num" style="color:var(--accent-deep); font-size:11em; margin-top:.3em">46.6<span style="font-size:.42em">%</span></div>
+        <div class="stat-label" style="font-size:1.5em">del límite de 512 MB en el servicio
+          más cargado, en el momento del incumplimiento</div>
+        <p style="margin-top:1.6em">Nuestra hipótesis apuntaba a un agotamiento de memoria.
+          <strong>El sistema falló por otra vía.</strong></p>
+      </div>
+      <div class="col" style="flex:1.25">
+        <img class="fig fig-full" src="FIG:fig_h2_dumbbell.png"
+             alt="RAM pico por servicio de 100 a 1 000 VUs contra el límite de 512 MB">
+        <p class="cap">El costo se concentra en gateway y realtime (×5); los servicios
+          transaccionales permanecen planos. Todo el espacio a la derecha es memoria
+          que sobraba.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ L9 · 1:10 · Juan David ══ -->
+  <section class="slide" data-t="1:10" data-voz="Juan David">
+    <div class="eyebrow">El mecanismo</div>
+    <h2>Se rompió por cómo están<br>amarradas las piezas.</h2>
+    <div class="chain">
+      <div class="link"><b>1 · Conexión</b>Alguien abre un WebSocket</div>
+      <div class="link"><b>2 · Verificación</b>realtime pregunta a groups: «¿pertenece a esta sala?»</div>
+      <div class="link hot"><b>3 · Congestión</b>Esa ruta toca la base de datos y se satura</div>
+      <div class="link hot"><b>4 · Tormenta</b>Caen conexiones → reintentos → más handshakes</div>
+    </div>
+    <p style="margin-top:2.4em">Es una decisión de seguridad correcta, porque cierra el
+      sistema por defecto, pero <strong>ata la salud del canal en vivo a la latencia de un
+      servicio transaccional</strong>. Cada reintento cae sobre un gateway que ya estaba al
+      100 % de su CPU (0.1 vCPU).</p>
+  </section>
+
+  <!-- ══ L10 · 1:00 · Irvin ══ -->
+  <section class="slide" data-t="1:00" data-voz="Irvin">
+    <div class="eyebrow">Resultado inesperado</div>
+    <h2>La factura del <em>free tier</em>.</h2>
+    <p class="lead">Las reglas de operación pesan tanto como los límites de cómputo,
+      y tumbaron a nuestro propio experimento.</p>
+    <div class="stat-row" style="margin-top:1.6em">
+      <div class="stat-card bad"><div class="stat" style="font-size:3.8em">17.8 GB</div>
+        <div class="stat-label">movidos contra una cuota de 5 GB/mes. Render suspendió dos cuentas</div></div>
+      <div class="stat-card warn"><div class="stat" style="font-size:3.8em">8 días</div>
+        <div class="stat-label">y Supabase pausó la base: todo respondía errores estando sano</div></div>
+      <div class="stat-card warn"><div class="stat" style="font-size:3.8em">RAM ▲ CPU ▼</div>
+        <div class="stat-label">créditos de ráfaga agotados: memoria al tope con la CPU ociosa</div></div>
+      <div class="stat-card good"><div class="stat" style="font-size:3.8em">−89.6 %</div>
+        <div class="stat-label">de tráfico al activar compresión. Medido, no estimado</div></div>
+    </div>
+    <p style="margin-top:1.8em"><strong>La capa gratuita te limita por cuotas antes que por CPU.</strong></p>
+  </section>
+
+  <!-- ══ L11 · 0:50 · Juan David ══ -->
+  <section class="slide" data-t="0:50" data-voz="Juan David">
+    <div class="eyebrow">¿Y en usuarios reales?</div>
+    <div class="cols" style="align-items:center">
+      <div class="col">
+        <div class="hero-num" style="color:var(--accent-deep)">~3 200</div>
+        <div class="stat-label" style="font-size:1.5em">usuarios activos diarios
+          (≈ 400 grupos llenos)</div>
+        <div style="margin-top:1.4em"><span class="pill pill-warn">Estimación declarada</span></div>
+      </div>
+      <div class="col">
+        <p>Ley de Little aplicada sobre la concurrencia que <strong>sí</strong> medimos,
+          con supuestos declarados: sesiones de ~5 min, ~1.5 al día, 25 % en hora pico.</p>
+        <p style="margin-top:1.2em">Por un camino <strong>independiente</strong>, la cuota
+          mensual de transferencia con compresión, salen entre 1 100 y 3 700. Que dos
+          límites distintos converjan en el mismo orden de magnitud da confianza.</p>
+        <p style="margin-top:1.2em"><strong>Aun así es una estimación con supuestos
+          declarados, no un resultado experimental.</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ L12 · 1:20 · David ══ -->
+  <section class="slide" data-t="1:20" data-voz="David">
+    <div class="eyebrow">Conclusiones</div>
+    <h2>Sí aguanta, con límite medido.</h2>
+    <div class="cols" style="margin-top:1.4em; align-items:flex-start">
+      <div class="col box" style="background:var(--sage-soft); border-color:#CFDEC3">
+        <h3 style="color:var(--accent-deep)">Lo que podemos afirmar</h3>
+        <ul>
+          <li class="yes">100 conexiones concurrentes con holgura de un orden de magnitud</li>
+          <li class="yes">A 1 000, el canal en vivo cruza su umbral: 23.87 % de caídas</li>
+          <li class="yes">El quiebre llegó por acoplamiento entre servicios</li>
+          <li class="yes">Las cuotas operativas condicionan la viabilidad</li>
+        </ul>
+      </div>
+      <div class="col box" style="background:var(--coral-soft); border-color:#EFCBBE">
+        <h3 style="color:var(--coral-deep)">Lo que NO podemos afirmar</h3>
+        <ul>
+          <li class="no">No corrimos 2 500 ni 5 000: la propia capa gratuita agotó la ventana</li>
+          <li class="no">Todos los usuarios virtuales usaron una sola cuenta</li>
+          <li class="no">El inyector fue una sola máquina y una sola red</li>
+          <li class="no">Es un caso (Go + Render + Supabase), no todo <em>free tier</em></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ L13 · 0:20 · David ══ -->
+  <section class="slide cover" data-t="0:20" data-voz="David">
+    <div class="eyebrow">Cierre</div>
+    <h2>Todo es reproducible.</h2>
+    <p class="lead">El arnés completo, los datos crudos de las once corridas con su
+      <em>commit</em>, la bitácora y el script que regenera banco, estadísticas y figuras
+      con un solo comando.</p>
+    <div class="box" style="margin-top:2.4em; max-width:52em">
+      <h3>Repositorio</h3>
+      <p style="font-family:var(--serif); font-size:2em">github.com/davidgarcia57/Dydi</p>
+    </div>
+    <p style="margin-top:2.6em; font-size:2.2em; font-family:var(--serif)">Gracias. ¿Preguntas?</p>
+  </section>
+
+  <!-- ══ A1 · anexo ══ -->
+  <section class="slide annex" data-t="anexo" data-voz="Keila">
+    <div class="eyebrow">Anexo · solo si preguntan</div>
+    <div class="cols" style="align-items:center">
+      <div class="col" style="flex:1.35">
+        <img class="fig fig-full" src="FIG:fig_h3_linea.png"
+             alt="RAM durante la corrida de 1 000 VUs: crecimiento con la rampa y meseta">
+      </div>
+      <div class="col">
+        <h2 style="font-size:2.6em">¿Hay fuga de memoria?</h2>
+        <p style="margin-top:1.2em">No. El consumo <strong>sigue a la rampa de
+          conexiones y se aplana en la meseta</strong>: hay techo de carga, no fuga.</p>
+        <p style="margin-top:1.2em">Por eso la proyección del primer OOM se sitúa entre
+          2 500 y 5 000 VUs, y por eso la llamamos <em>proyección</em>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ A2 · anexo ══ -->
+  <section class="slide annex" data-t="anexo" data-voz="Keila">
+    <div class="eyebrow">Anexo · tabla completa</div>
+    <h2 style="font-size:2.6em">Mediana de 3 repeticiones (mín–máx)</h2>
+    <table style="font-size:1.5em">
+      <tr><th>Métrica</th><th style="text-align:right">100 VUs</th><th style="text-align:right">1 000 VUs</th></tr>
+      <tr><td>Peticiones HTTP fallidas</td><td class="n">0.00 %</td><td class="n">0.00 % (0/64 706)</td></tr>
+      <tr><td>P95 HTTP</td><td class="n">826 ms (790–847)</td><td class="n">1 045 ms (955–1 138)</td></tr>
+      <tr class="bad"><td>Conexiones WS caídas</td><td class="n">0.00 % (0–1.92)</td><td class="n">23.87 % (23.59–24.16)</td></tr>
+      <tr class="bad"><td>P95 establecimiento WS</td><td class="n">918 ms (894–932)</td><td class="n">19 974 ms (19 817–20 251)</td></tr>
+      <tr><td>RAM pico api-gateway</td><td class="n">43.6 MB</td><td class="n">238.5 MB</td></tr>
+      <tr><td>RAM pico realtime</td><td class="n">42.8 MB</td><td class="n">231.3 MB</td></tr>
+      <tr><td>RAM pico groups</td><td class="n">51.6 MB</td><td class="n">54.8 MB</td></tr>
+      <tr><td>RAM pico habits</td><td class="n">20.8 MB</td><td class="n">21.5 MB</td></tr>
+    </table>
+    <p class="cap" style="margin-top:1.4em">Umbrales predefinidos: fallos HTTP &lt; 5 % ·
+      caídas WS &lt; 10 % · establecimiento WS P95 &lt; 2 s. En rojo, los incumplidos.</p>
+  </section>
+
+  <div class="progress" id="progress"></div>
+  <div class="chrome">
+    <span class="t" id="chrome-left">Dydi · Equipo 3 · UTD 2026</span>
+    <span id="chrome-right"></span>
+  </div>
+</div>
+
+<div class="help">→ / espacio · ← · <b>F</b> pantalla completa · <b>P</b> imprimir</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const progress = document.getElementById('progress');
+  const right = document.getElementById('chrome-right');
+  let i = 0;
+
+  function show(n){
+    i = Math.max(0, Math.min(slides.length - 1, n));
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    progress.style.width = ((i + 1) / slides.length * 100) + '%';
+    const s = slides[i];
+    const t = s.dataset.t === 'anexo' ? 'anexo' : s.dataset.t;
+    right.textContent = `${i + 1} / ${slides.length}  ·  ${t}  ·  ${s.dataset.voz}`;
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'f' || e.key === 'F') {
+      document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+    }
+    else if (e.key === 'p' || e.key === 'P') window.print();
+  });
+
+  // Avance por clic/toque: mitad derecha avanza, izquierda retrocede.
+  document.getElementById('stage').addEventListener('click', e => {
+    const r = e.currentTarget.getBoundingClientRect();
+    show(e.clientX - r.left > r.width / 2 ? i + 1 : i - 1);
+  });
+
+  show(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+
+  const help = document.querySelector('.help');
+  let hideTimer;
+  function fadeHelp(){
+    help.classList.remove('hidden');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => help.classList.add('hidden'), 5000);
+  }
+  document.addEventListener('mousemove', fadeHelp);
+  fadeHelp();
+</script>
+</body>
+</html>

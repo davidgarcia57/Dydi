@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Aguanta la capa gratuita? — Lo que medimos en Dydi</title>
+<!--
+  Producto de divulgación (Actividad 4.2b) · Equipo 3 · UTD Integradora 2026
+  Público: estudiantes y equipos pequeños que despliegan sin presupuesto.
+  Archivo AUTOCONTENIDO (figuras incrustadas por Documentos/build_visuales.py).
+  Exportar: abrir en el navegador → Imprimir → «Guardar como PDF» (A4 vertical,
+  con la opción de gráficos de fondo activada). Cabe en UNA página.
+-->
+<style>
+  :root{
+    --cream:#F4EEE3; --surface:#FCF9F3; --paper:#FFFFFF; --hairline:#E7DECD;
+    --ink:#2A251F; --ink-soft:#6F6557; --ink-faint:#A89C89;
+    --terracotta:#C26F4D; --accent-deep:#4C736C; --coral-deep:#BC5C42; --amber-deep:#A57B33;
+    --sage-soft:#E4EDDC; --coral-soft:#F7E2DA; --amber-soft:#F5E8CD; --wash:#DFEBE8;
+    --serif:'Newsreader',Georgia,'Times New Roman',serif;
+    --sans:'Hanken Grotesk','Segoe UI',system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#E6DDCE; font-family:var(--sans); color:var(--ink);
+       display:flex; justify-content:center; padding:8mm 0; -webkit-font-smoothing:antialiased}
+
+  .sheet{
+    width:210mm; min-height:297mm; padding:9mm 11mm 7mm;
+    background:var(--cream); box-shadow:0 6mm 18mm rgba(42,37,31,.25);
+    display:flex; flex-direction:column;
+  }
+
+  .eyebrow{font-size:6.5pt; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--terracotta)}
+  h1{font-family:var(--serif); font-size:22pt; line-height:1.02; font-weight:600; letter-spacing:-.015em; margin-top:1.8mm}
+  .deck{font-size:8.5pt; line-height:1.4; color:var(--ink-soft); margin-top:2mm; max-width:170mm}
+  .deck b{color:var(--ink)}
+
+  h2{font-family:var(--serif); font-size:12pt; font-weight:600; margin-bottom:1.8mm}
+  .sec{margin-top:3.6mm}
+
+  /* --- tres números --- */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:2.8mm; margin-top:3.4mm}
+  .card{background:var(--surface); border:.35mm solid var(--hairline); border-radius:3.5mm; padding:2.8mm 3.2mm}
+  .card .n{font-family:var(--serif); font-weight:600; font-size:21pt; line-height:.92; letter-spacing:-.02em}
+  .card .l{font-size:7.2pt; line-height:1.3; color:var(--ink-soft); margin-top:1.6mm}
+  .card.good{background:var(--sage-soft); border-color:#CFDEC3} .card.good .n{color:var(--accent-deep)}
+  .card.bad{background:var(--coral-soft); border-color:#EFCBBE} .card.bad .n{color:var(--coral-deep)}
+  .card.warn{background:var(--amber-soft); border-color:#E8D6AE} .card.warn .n{color:var(--amber-deep)}
+
+  /* --- el giro --- */
+  .turn{background:var(--paper); border:.35mm solid var(--hairline); border-radius:3.5mm;
+        padding:3.4mm 4mm; margin-top:2.8mm}
+  .turn .claim{font-family:var(--serif); font-size:12pt; line-height:1.22; font-weight:600}
+  .turn .claim em{color:var(--coral-deep); font-style:normal}
+  .figs{display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin-top:2.4mm}
+  .figs img{width:100%; height:37mm; object-fit:contain; display:block}
+  .figcap{font-size:7pt; line-height:1.3; color:var(--ink-soft); margin-top:1.2mm;
+          border-top:.3mm solid var(--hairline); padding-top:1.2mm}
+  .figcap b{color:var(--ink)}
+  .turn .why{font-size:7.8pt; line-height:1.42; margin-top:2.6mm; color:var(--ink-soft)}
+  .turn .why b{color:var(--ink)}
+
+  /* --- lo que duele --- */
+  .pains{display:grid; grid-template-columns:1fr 1fr; gap:2.4mm}
+  .pain{background:var(--surface); border-left:.9mm solid var(--terracotta);
+        border-radius:0 2.5mm 2.5mm 0; padding:2.2mm 3mm}
+  .pain b{display:block; font-size:8pt; margin-bottom:.6mm}
+  .pain span{font-size:7.2pt; line-height:1.32; color:var(--ink-soft)}
+
+  /* --- qué haríamos distinto --- */
+  .fixes{display:grid; grid-template-columns:repeat(3,1fr); gap:2.8mm}
+  .fix{background:var(--wash); border-radius:3mm; padding:2.4mm 3mm}
+  .fix .k{font-family:var(--serif); font-size:12pt; font-weight:600; color:var(--accent-deep); line-height:1}
+  .fix b{display:block; font-size:8pt; margin:1mm 0 .6mm}
+  .fix span{font-size:7pt; line-height:1.32; color:var(--ink-soft)}
+
+  /* --- letra chica --- */
+  .fine{background:#EFE7D8; border:.35mm dashed var(--ink-faint); border-radius:3.5mm;
+        padding:2.6mm 3.5mm; margin-top:3.4mm}
+  .fine h3{font-size:7pt; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+           color:var(--ink-soft); margin-bottom:1.6mm}
+  .fine ul{list-style:none; display:grid; grid-template-columns:repeat(3,1fr); gap:1mm 4mm}
+  .fine li{font-size:6.8pt; line-height:1.3; padding-left:3mm; position:relative; color:var(--ink-soft)}
+  .fine li::before{content:'•'; position:absolute; left:.6mm; color:var(--terracotta)}
+  .fine li b{color:var(--ink)}
+
+  footer{margin-top:auto; padding-top:3mm; border-top:.35mm solid var(--hairline);
+         display:flex; justify-content:space-between; align-items:flex-end; gap:6mm}
+  footer .who{font-size:6.8pt; line-height:1.42; color:var(--ink-soft)}
+  footer .who b{color:var(--ink)}
+  footer .link{font-size:6.8pt; line-height:1.42; color:var(--ink-soft); text-align:right}
+  footer .link b{display:block; font-family:var(--serif); font-size:9pt; color:var(--ink); margin-top:.6mm}
+  .mark{font-family:var(--serif); font-size:11pt; font-weight:600}
+  .mark span{color:var(--terracotta)}
+
+  @page{ size:A4 portrait; margin:0 }
+  @media print{
+    body{background:#fff; padding:0; display:block}
+    .sheet{box-shadow:none}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="eyebrow">Estudio de caso · Universidad Tecnológica de Durango · 2026</div>
+    <h1>Medimos hasta dónde aguanta gratis.</h1>
+    <p class="deck">Pusimos una app real, cuatro microservicios en Go con conexiones en
+      vivo, sobre la <b>capa gratuita de Render</b> y le echamos encima hasta mil usuarios
+      simulados a la vez. Esto es lo que encontramos, para que no lo descubras tú en
+      producción un domingo.</p>
+  </header>
+
+  <div class="stats">
+    <div class="card good">
+      <div class="n">100</div>
+      <div class="l">usuarios a la vez, <b>cero errores</b> y menos del 10 % de la memoria
+        en uso</div>
+    </div>
+    <div class="card bad">
+      <div class="n">1 de 4</div>
+      <div class="l">conexiones en vivo <b>se caen</b> al llegar a mil usuarios
+        simultáneos</div>
+    </div>
+    <div class="card warn">
+      <div class="n">46.6 %</div>
+      <div class="l">de la memoria usada <b>al momento de fallar</b>: le sobraba más de
+        la mitad</div>
+    </div>
+  </div>
+
+  <div class="turn">
+    <p class="claim">Esperábamos que se muriera de falta de memoria.
+      <em>Se murió de acoplamiento.</em></p>
+    <div class="figs">
+      <div>
+        <img src="FIG:fig_h1_pastel.png" alt="De 4 634 conexiones, 1 106 se cayeron">
+        <p class="figcap"><b>Lo que se rompe:</b> de cada cuatro personas que abren la app
+          a la vez, una pierde la conexión en vivo.</p>
+      </div>
+      <div>
+        <img src="FIG:fig_h2_dumbbell.png" alt="Memoria por servicio contra el límite de 512 MB">
+        <p class="figcap"><b>Lo que sobra:</b> el espacio a la derecha de los puntos es
+          memoria sin usar. El límite nunca se tocó.</p>
+      </div>
+    </div>
+    <p class="why"><b>¿Por qué, entonces?</b> Cada vez que alguien abre una conexión en
+      vivo, ese servicio le pregunta a otro «¿esta persona pertenece a este grupo?».
+      Correcto en seguridad, pero amarra el tiempo real a la velocidad de la base de datos:
+      cuando esa consulta se atora las conexiones caen, y cada reintento vuelve a pegar
+      sobre el mismo servicio saturado.
+      <b>El cuello de botella estuvo en cómo amarramos las piezas.</b></p>
+  </div>
+
+  <div class="sec">
+    <h2>Lo que de verdad te va a doler</h2>
+    <div class="pains">
+      <div class="pain">
+        <b>Te suspenden por datos, no por CPU</b>
+        <span>La cuota es de 5 GB al mes por cuenta. Nuestras pruebas movieron 17.8 GB y
+          suspendieron dos. Comprimir bajó el tráfico 89.6 %.</span>
+      </div>
+      <div class="pain">
+        <b>El servicio se duerme a los 15 minutos</b>
+        <span>Despertar tarda 10–13 segundos por servicio. Encadenados, el usuario ve la
+          app «caída» entre 30 y 60 segundos.</span>
+      </div>
+      <div class="pain">
+        <b>La base de datos también se pausa</b>
+        <span>Tras 8 días sin actividad la nuestra se pausó sola: los servicios arrancaban
+          bien y fallaban en la primera consulta.</span>
+      </div>
+      <div class="pain">
+        <b>Rinde distinto según cómo la usaste antes</b>
+        <span>La base gratuita acumula «créditos» en reposo y los gasta bajo carga. Sin
+          créditos: memoria al tope y procesador ocioso.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Qué haríamos distinto desde el día uno</h2>
+    <div class="fixes">
+      <div class="fix">
+        <div class="k">1</div>
+        <b>Comprimir las respuestas</b>
+        <span>Lo más barato y lo único que medimos directo: 89.6 % menos datos en el
+          cable.</span>
+      </div>
+      <div class="fix">
+        <div class="k">2</div>
+        <b>No consultar la base en cada conexión</b>
+        <span>Cachear el permiso o firmarlo en un token rompe la cadena que nos
+          tumbó.</span>
+      </div>
+      <div class="fix">
+        <div class="k">3</div>
+        <b>Contar con el arranque en frío</b>
+        <span>Medio minuto en blanco duele más que 200 ms de lentitud. Avisa o despierta
+          antes.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fine">
+    <h3>Letra chica: lo que sí medimos y lo que no</h3>
+    <ul>
+      <li><b>Medido:</b> 100 y 1 000 usuarios simultáneos, tres repeticiones cada uno.</li>
+      <li><b>No probado:</b> planeábamos 2 500 y 5 000, pero las reglas del plan gratuito
+        agotaron nuestra ventana de pruebas.</li>
+      <li><b>Estimado, no medido:</b> ~3 200 usuarios activos al día. Sale de un cálculo con
+        supuestos declarados.</li>
+      <li><b>Es un caso, no una ley:</b> Go + Render + Supabase. Otra combinación puede
+        romperse en otro lado.</li>
+      <li><b>Sin datos de personas:</b> toda la carga fue simulada contra una cuenta de
+        prueba; no participaron usuarios reales.</li>
+      <li><b>Sesgo conocido:</b> los usuarios simulados compartían cuenta, así que la base
+        de datos la tuvo más fácil que en la vida real.</li>
+    </ul>
+  </div>
+
+  <footer>
+    <div class="who">
+      <span class="mark">dy<span>di</span></span> ·
+      <b>Equipo 3 · Integradora 2026 · Universidad Tecnológica de Durango</b><br>
+      García Páez David Israel · Solis Flores Irvin Alfonso ·
+      Cervantes Guerrero Keila Yuridia · Casiano Gamzi Juan David
+    </div>
+    <div class="link">
+      El artículo completo, el arnés de pruebas y los datos crudos<br>de las once corridas
+      están publicados:
+      <b>github.com/davidgarcia57/Dydi</b>
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
