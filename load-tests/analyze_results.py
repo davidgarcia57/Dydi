@@ -264,7 +264,11 @@ ax.legend(wedges, [f"Completadas · {miles(ok)} ({100-run['ws_drop_pct']:.1f} %)
                    f"Caídas · {miles(caidas)} ({run['ws_drop_pct']:.1f} %)"],
           loc="center left", bbox_to_anchor=(1.02, 0.5), frameon=False, fontsize=9.5, labelcolor=SEC)
 ax.set_title("Composición de sesiones WS a 1 000 VUs (rep. 1)", pad=14, loc="left")
-fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_h1_pastel.png")); plt.close(fig)
+# bbox_inches="tight": tight_layout no contempla la leyenda anclada fuera de los
+# ejes y la recortaba por el borde derecho del lienzo.
+fig.tight_layout()
+fig.savefig(os.path.join(OUT, "fig_h1_pastel.png"), bbox_inches="tight")
+plt.close(fig)
 
 # --- datos H2: RAM mediana por servicio y nivel ---
 ram_med = {}
