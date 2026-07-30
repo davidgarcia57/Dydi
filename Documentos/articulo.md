@@ -1,11 +1,5 @@
 # Evaluación de una arquitectura de microservicios en tiempo real sobre la capa gratuita de Render: un estudio de caso bajo inyección de carga
 
-> **Estado (2026-07-13): versión de cierre.** Dataset final: niveles 100 y
-> 1 000 VUs (3 repeticiones cada uno, Sesión 1). Los niveles 2 500 y 5 000 no
-> se ejecutaron por restricciones operativas de la propia capa gratuita, que se
-> documentan como hallazgos (§5.4, §7). Objetivo de extensión: ~6 páginas en
-> formato de dos columnas.
-
 **Autores:** García Páez David Israel · Solis Flores Irvin Alfonso · Cervantes
 Guerrero Keila Yuridia · Casiano Gamzi Juan David
 *Universidad Tecnológica de Durango (UTD) · Proyecto Integradora 2026*
@@ -23,7 +17,8 @@ gratuita de Render, con WebSockets propios para difusión en tiempo real) puede
 sostener tráfico concurrente sin morir por agotamiento de memoria (OOM kill) ni
 degradar su latencia de forma inaceptable. Mediante experimentación controlada
 con k6 (rampas de 100, 1 000, 2 500 y 5 000 usuarios virtuales, tres
-repeticiones por nivel) y telemetría embebida de bajo costo (Prometheus + logs
+repeticiones por nivel; se ejecutaron los niveles de 100 y 1 000 antes de que
+las cuotas de la propia plataforma agotaran la ventana experimental) y telemetría embebida de bajo costo (Prometheus + logs
 estructurados), se midió la relación entre la carga inyectada y el consumo de
 recursos, el percentil 95 de latencia HTTP y la tasa de conexiones WebSocket
 caídas. El punto de quiebre se localizó entre 100 y 1 000 conexiones
@@ -42,8 +37,6 @@ profesionales en infraestructura sin costo.
 **Palabras clave:** microservicios · pruebas de estrés · WebSockets · PaaS ·
 capa gratuita · k6 · observabilidad
 
-`[PENDIENTE: traducción del resumen al inglés (Abstract) si la venue lo pide.]`
-
 ---
 
 ## 1. Introducción
@@ -52,7 +45,8 @@ Los proyectos académicos de ingeniería de software rara vez llegan a producci�
 el costo de la infraestructura es una barrera que las instituciones y los
 estudiantes no siempre pueden absorber. Las capas gratuitas de PaaS (Render,
 Railway, Fly.io) ofrecen una salida, pero sus restricciones (512 MB de RAM por
-servicio, suspensión tras 15 minutos de inactividad, horas mensuales acotadas)
+servicio, suspensión tras 15 minutos de inactividad, horas mensuales acotadas;
+Render, 2026a)
 generan la percepción de que solo sirven para demos triviales, no para
 arquitecturas distribuidas con requisitos de tiempo real.
 
@@ -60,10 +54,10 @@ Este estudio somete esa percepción a prueba con un sistema real: **Dydi**, una
 aplicación SaaS de *accountability* social en la que grupos de amigos rastrean
 hábitos diarios y gamifican las consecuencias de incumplirlos. Dydi opera sobre
 cuatro microservicios en Go desplegados en cuatro cuentas independientes de
-la capa gratuita de Render, una por integrante del equipo y cada una dentro de
-su asignación gratuita individual, como estrategia deliberada para componer el
-sistema con los recursos gratuitos legítimamente disponibles para un equipo de
-seis personas, con difusión en tiempo real implementada sobre
+la capa gratuita de Render, aportadas por cuatro integrantes del equipo y cada
+una dentro de su asignación gratuita individual, como estrategia deliberada para
+componer el sistema con los recursos gratuitos de los que el equipo disponía
+legítimamente, con difusión en tiempo real implementada sobre
 WebSockets propios, sin delegarla a servicios gestionados, precisamente para que
 el costo de esa pieza quede dentro del experimento.
 
@@ -73,8 +67,8 @@ falta de memoria (OOM kill) ni degradar inaceptablemente su latencia?
 
 Las contribuciones del trabajo son tres:
 
-1. **Evidencia empírica** de la relación entre carga concurrente (100–5 000
-   usuarios virtuales) y consumo de recursos/latencia/entrega en tiempo real en
+1. **Evidencia empírica** de la relación entre carga concurrente (niveles de 100
+   y 1 000 usuarios virtuales, de un diseño de cuatro) y consumo de recursos/latencia/entrega en tiempo real en
    una PaaS gratuita, medida sobre un sistema completo con autenticación,
    base de datos gestionada y WebSockets.
 2. **Un arnés experimental reproducible y de costo cero** (k6 + telemetría
@@ -128,7 +122,7 @@ mobile (Expo)     ─┼─► api-gateway ─► groups-service    (Render, cue
 Cuatro servicios en Go 1.24 (enrutador chi v5, driver pgx v5):
 
 - `api-gateway`: único punto de entrada; valida JWT (ES256 vía JWKS de
-  Supabase), estampa la identidad (`X-User-ID`) y un secreto interno
+  Supabase; Supabase, 2026), estampa la identidad (`X-User-ID`) y un secreto interno
   (`X-Internal-Token`) en cada petición proxeada, de modo que los servicios
   (públicos por vivir en cuentas separadas) rechazan todo tráfico que no venga
   del gateway.
@@ -148,7 +142,7 @@ que inducen.
 | Restricción de Render Free | Decisión de diseño |
 |---|---|
 | 512 MB de RAM por servicio | Go compilado (binarios ~20 MB de RSS en reposo); sin sidecars ni agentes de monitoreo externos |
-| Horas de cómputo por cuenta | 4 cuentas independientes (una por integrante del equipo), un servicio por cuenta |
+| Horas de cómputo por cuenta | 4 cuentas independientes (aportadas por cuatro integrantes del equipo), un servicio por cuenta |
 | Suspensión tras 15 min de inactividad | Endpoint `/ops/wake` en el gateway que despierta a los tres servicios en cascada; cron externo cada 12 min en horario pico |
 | Sin métricas exportables nativas | Telemetría embebida: módulo `obs.go` por servicio (histogramas Prometheus en `/metrics` + logs JSON con `slog`) |
 
@@ -181,12 +175,14 @@ pausa durante las corridas para no contaminar percentiles.
 
 ### 4.3 Instrumentos
 
-- **Inyección:** `k6_stress_test.js` con dos escenarios simultáneos: tráfico
+- **Inyección:** k6 (Grafana Labs, 2026) mediante `k6_stress_test.js`, con dos
+  escenarios simultáneos: tráfico
   HTTP constante (20 iteraciones/s sobre endpoints REST autenticados) para medir
   latencia bajo estrés, y una rampa de WebSockets hasta el pico configurado,
   repartida entre 1 000 grupos sembrados (límite de 8 conexiones por sala).
 - **Telemetría del servidor:** módulo `obs.go` en cada servicio expone
-  `/metrics` (Prometheus): histogramas de latencia por ruta,
+  `/metrics` en formato Prometheus (Prometheus Authors, 2026): histogramas de
+  latencia por ruta,
   `process_resident_memory_bytes`, goroutines, métricas del pool de conexiones
   a PostgreSQL, `realtime_cold_start_seconds` y contador de eventos descartados.
   Un scraper (`scrape_metrics.sh`) muestrea los cuatro servicios cada 5 s y
@@ -217,7 +213,8 @@ evidencia suficiente). La Tabla 2 detalla el diseño.
 1. **Preparación** (resp. Solis Flores): verificación de despliegues, variables
    de entorno y registro de telemetría en los cuatro servicios.
 2. **Ejecución** (resp. García Páez): servicios despiertos previamente (el
-   arranque en frío de Render, ~11 s medidos, contaminaría la primera rampa);
+   arranque en frío de Render, de 10 a 14 s medidos según §5.3, contaminaría la
+   primera rampa);
    cron de keep-alive pausado; inyección de las rampas.
 3. **Recolección** (resp. Cervantes Guerrero): consolidación de los artefactos
    por corrida y cálculo de percentiles desde los histogramas.
@@ -338,8 +335,8 @@ Dos observaciones de la primera sesión:
    cada conexión dos veces (proxy cliente↔gateway↔realtime) y realtime
    sostiene las conexiones persistentes. A 1 000 VUs el servicio más cargado
    consume 46.6 % del límite de 512 MB; una proyección lineal sitúa el primer
-   OOM kill entre 2 500 y 5 000 VUs, hipótesis que la segunda sesión pone a
-   prueba.
+   OOM kill entre 2 500 y 5 000 VUs. La segunda sesión no llegó a ponerla a prueba
+   (§5.4.3), así que queda como trabajo futuro (§8).
 
 La serie de tiempo de una corrida del nivel 1 000 (Figura 3) precisa esa
 proyección: el consumo sigue a la rampa de conexiones y se aplana al llegar a
@@ -375,7 +372,7 @@ La ejecución del experimento reveló que las restricciones operativas del free
 tier actúan sobre el sistema, y sobre el experimento mismo, con la misma
 fuerza que los límites de cómputo. Se documentan cuatro, con su evidencia:
 
-1. **Cuota de egreso (5 GB/mes por cuenta).** La Sesión 1 movió ~17.8 GB
+1. **Cuota de egreso (5 GB/mes por cuenta; Render, 2026b).** La Sesión 1 movió ~17.8 GB
    (~3.03 GB por corrida), dominados por un payload de lectura de ~274 KB sin
    comprimir; las cuentas del gateway y de groups fueron suspendidas por
    exceso. La mitigación (compresión gzip en las respuestas) se midió
@@ -396,8 +393,8 @@ fuerza que los límites de cómputo. Se documentan cuatro, con su evidencia:
    87.9 % de conexiones WS caídas, groups-service con la memoria al tope
    (518 MB de 512) pero la CPU casi ociosa (0.009–0.026 núcleos, contra 0.135
    en la Sesión 1 sana), pool de conexiones saturado (10/10, cientos de
-   esperas) y una tormenta de reconexiones (17 151 sesiones WS intentadas vs.
-   4 664 en la Sesión 1). En reposo, la misma consulta pesada resolvía en
+   esperas) y una tormenta de reconexiones (17 151 sesiones WS intentadas contra
+   4 607–4 664 por corrida en la Sesión 1). En reposo, la misma consulta pesada resolvía en
    74 ms y el servicio atendía 60/60 peticiones concurrentes con mediana de
    0.54 s: lo que estrangula al servicio es el historial de consumo de la capa
    de datos. Ambas corridas se excluyeron del dataset por criterio predefinido
@@ -431,9 +428,9 @@ cosas, y en direcciones instructivas. Aísla los presupuestos: el agotamiento
 de egreso suspendió las cuentas del gateway y de groups sin tocar las de
 habits y realtime. Pero propaga por las dependencias: un realtime-service
 perfectamente sano (104–137 MB, cero eventos perdidos en su difusor) entregó
-87 % de fallos de conexión porque su verificación de membresía atravesaba un
+87.9 % de fallos de conexión porque su verificación de membresía atravesaba un
 groups-service bloqueado. En esta clase de arquitectura, el aislamiento de
-recursos no implica aislamiento de fallos.
+recursos no implica aislamiento de fallos (Newman, 2021).
 
 **¿Qué margen real ofrece para uso académico?** A 100 conexiones concurrentes
 el sistema opera con un orden de magnitud de holgura en todos los indicadores;
@@ -522,7 +519,7 @@ después.
 microservicios en Go fragmentada en cuatro cuentas de la capa gratuita de
 Render sí sostiene tráfico concurrente con procesamiento en tiempo real, con
 un límite medido: a 100 conexiones concurrentes opera con holgura de un orden
-de magnitud (0 % de errores, P95 de 826 ms, ≤ 8.7 % de la memoria); a 1 000
+de magnitud (0 % de errores, P95 de 826 ms, ≤ 10.1 % de la memoria); a 1 000
 conexiones el plano HTTP sigue sin fallar (0/64 706 peticiones) pero el canal
 en tiempo real cruza su umbral de servicio (23.87 % de conexiones caídas,
 establecimiento P95 de ~20 s). El punto de quiebre es real, está por debajo de
@@ -568,8 +565,7 @@ costo de la fragmentación del costo del free tier.
 El código fuente completo, el arnés experimental (`load-tests/`) y los datos
 crudos de todas las corridas (`load-tests/results/`, con el *commit hash* del
 código medido en cada `metadata.json`) están versionados en el repositorio del
-proyecto: `https://github.com/davidgarcia57/Dydi`. `[PENDIENTE: decidir si el
-repo se hace público o se publica un espejo/release para la revisión.]`
+proyecto, que es de acceso público: `https://github.com/davidgarcia57/Dydi`.
 
 ## Referencias
 
@@ -590,9 +586,9 @@ repo se hace público o se publica un espejo/release para la revisión.]`
 - Newman, S. (2021). *Building microservices* (2.ª ed.). O'Reilly Media.
 - Prometheus Authors. (2026). *Prometheus documentation*.
   https://prometheus.io/docs/
-- Render. (2026). *Free instance types*. Render Docs.
+- Render. (2026a). *Free instance types*. Render Docs.
   https://render.com/docs/free
-- Render. (2026). *Outbound bandwidth*. Render Docs.
+- Render. (2026b). *Outbound bandwidth*. Render Docs.
   https://render.com/docs/outbound-bandwidth
 - Nor Sobri, N. A., Abas, M. A. H., Yassin, I. M., Megat Ali, M. S. A.,
   Md Tahir, N., Zabidi, A., & Rizman, Z. I. (2022). A study of database

@@ -141,7 +141,7 @@ que un *scraper* muestrea cada cinco segundos. Y una regla que nos sirvió mucho
 servicio muere, el hueco en la serie también es dato. Cada corrida deja cuatro
 archivos, incluido el *commit* exacto del código que se midió.»
 
-**[4:40 · L6, El piloto que casi nos engaña · Keila]**
+**[4:40 · L6, El piloto que casi nos engaña · David]**
 «Aquí está nuestro mejor aprendizaje, y viene de un tropiezo. El primer piloto dio 88 %
 de peticiones fallidas y 94 % de conexiones rechazadas. La conclusión fácil habría sido
 “el free tier no aguanta, listo”. Pero la telemetría del servidor mostraba 44 MB de
@@ -236,6 +236,10 @@ completa.
 
 Se navega con `→` o espacio para avanzar, `←` para retroceder, `F` para pantalla
 completa y `P` para imprimir o exportar a PDF, que es el respaldo si falla el proyector.
+
+Tras la lámina 13 hay dos anexos que no se proyectan en la exposición y solo se
+abren si una pregunta lo pide: la serie de tiempo de memoria y la tabla completa
+de resultados. El archivo tiene 15 láminas en total.
 
 La regla de diseño aplicada es una idea por lámina y un número grande por lámina. El
 texto de la lámina no repite el guion y no hay viñetas para leer en voz alta. Las
