@@ -122,7 +122,8 @@ comprometen a hábitos diarios; el que falla entra a una ruleta de penitencias e
 sábado, y eso se transmite en vivo a todo el grupo. Por dentro son cuatro
 microservicios en Go: el gateway, que valida el token y es la única puerta; grupos;
 hábitos; y el de tiempo real, que sostiene los WebSockets. Cada uno vive en una cuenta
-gratuita distinta de Render, una por integrante. Así compusimos el sistema con los
+gratuita distinta de Render, aportadas por cuatro de nosotros. Así compusimos el
+sistema con los
 recursos gratuitos que legítimamente teníamos.»
 
 **[2:30 · L4, La apuesta metodológica · Irvin]**
@@ -146,8 +147,8 @@ archivos, incluido el *commit* exacto del código que se midió.»
 de peticiones fallidas y 94 % de conexiones rechazadas. La conclusión fácil habría sido
 “el free tier no aguanta, listo”. Pero la telemetría del servidor mostraba 44 MB de
 RAM, o sea que el sistema estaba *aburrido*. Cruzando las dos fuentes encontramos la
-causa: nuestro propio gateway limita cinco peticiones por segundo por usuario, y los
-mil usuarios virtuales usaban la misma cuenta de prueba. Estábamos midiendo el
+causa: nuestro propio gateway limita cinco peticiones por segundo por usuario, y
+todos los usuarios virtuales usaban la misma cuenta de prueba. Estábamos midiendo el
 limitador. Lo hicimos configurable, repetimos el piloto y bajó a 0 % de fallos. Sin
 telemetría del lado del servidor habríamos publicado una mentira con gráficas
 bonitas.»
@@ -277,6 +278,26 @@ respondemos». Nadie improvisa cifras.
 | ¿Por qué no llegó el OOM que esperaban? | Juan David | Porque la calidad del canal en vivo se degrada antes. La memoria crece proporcional a las conexiones, sin fuga, y proyectamos el OOM entre 2 500 y 5 000 |
 | ¿Esto lo puede replicar alguien más? | Keila | Sí. Arnés, datos crudos de las once corridas con su *commit*, bitácora y script de regeneración, todo versionado |
 | ¿Qué cambiarían para aguantar más? | Irvin | Aliviar la verificación de membresía por conexión, evaluar mitigaciones con corridas A/B y comparar contra un contenedor de pago único |
+
+## a.9 Registro de la simulación de defensa
+
+La subtarea pide que la presentación **se ejecute** como simulación ante el grupo o
+el docente, así que la evidencia de esa ejecución forma parte del entregable. Este
+registro se llena inmediatamente después de cada pasada.
+
+| Campo | Pasada 1 (ensayo interno) | Pasada 2 (simulación ante público) |
+|---|---|---|
+| Fecha y hora | | |
+| Ante quién | Equipo completo | |
+| Duración real (objetivo 13:00) | | |
+| Láminas que se pasaron de tiempo | | |
+| Preguntas recibidas fuera del simulacro (§a.8) | | |
+| Cifra que alguien pidió y no estaba a mano | | |
+| Ajustes acordados para la versión final | | |
+
+Criterio de cierre: la pasada 2 se da por buena cuando la exposición cabe en 15:00
+sin recortar las láminas 7, 8 y 12, y cuando ninguna pregunta queda respondida con
+una cifra que no se pueda rastrear hasta un artefacto.
 
 > Entregable parcial verificable (a): este guion con tiempos y reparto, más el deck
 > `Documentos/presentacion/dydi-defensa.html` ya construido.
