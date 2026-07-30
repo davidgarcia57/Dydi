@@ -38,8 +38,11 @@ las cubre.
 | Equipos que evalúan desplegar sin presupuesto | El veredicto práctico y sus límites, sin metodología | Producto de divulgación (Act. 4.2b) |
 
 Decisión tomada: **informe académico en formato de artículo científico (IMRyD
-extendido)**, con extensión objetivo de ~6 páginas a dos columnas y normas APA 7.ª
-edición. Las tres opciones del planteamiento se evaluaron así:
+extendido)** con normas APA 7.ª edición. Se entrega a una columna; la extensión
+objetivo de ~6 páginas a dos columnas corresponde a la maquetación con la
+plantilla de la sede, si el trabajo se envía a publicación.
+
+Las tres opciones del planteamiento se evaluaron así:
 
 - *Informe ejecutivo.* Descartado. Este trabajo no sustenta una decisión de
   inversión; produce evidencia sobre una pregunta. El registro ejecutivo se conserva,
@@ -56,7 +59,8 @@ edición. Las tres opciones del planteamiento se evaluaron así:
 ## a.2 Estructura completa del informe
 
 Cada sección declara de dónde sale su evidencia y con qué unidad del curso se
-articula. Las extensiones son objetivo, en formato de dos columnas.
+articula. Las extensiones son objetivo, medidas sobre la maquetación a dos
+columnas de una eventual publicación.
 
 | # | Sección | Contenido | Ext. | Origen de la evidencia | Articulación |
 |---|---|---|---|---|---|
@@ -70,7 +74,7 @@ articula. Las extensiones son objetivo, en formato de dos columnas.
 | 7 | Amenazas a la validez | Constructo, interna, externa, instrumento, alcance, exclusiones | 0.5 p | Bitácora `matriz.log` | Unidad III |
 | 8 | Conclusiones y trabajo futuro | Respuesta a la pregunta, viabilidad operativa, aporte metodológico, 4 líneas futuras | 0.5 p | Síntesis | Unidad I (cierre del objetivo) |
 | 9 | Disponibilidad de datos y código | Repositorio, arnés y datos crudos con *commit hash* por corrida | 0.1 p | `load-tests/` | — |
-| 10 | Referencias (APA 7) | 11 fuentes: 5 primarias arbitradas más documentación técnica | 0.4 p | Act. 3.1 | Unidad II |
+| 10 | Referencias (APA 7) | 11 fuentes: 3 artículos arbitrados, 1 libro y 1 preprint, más documentación técnica | 0.4 p | Act. 3.1 | Unidad II |
 
 Hay dos decisiones de estructura que conviene poder sostener en la defensa.
 
@@ -197,7 +201,7 @@ seleccionada en la Unidad II.
 
 | Pregunta de la discusión | Respuesta | Vínculo con el marco teórico |
 |---|---|---|
-| ¿Dónde se quiebra primero y por qué? | Por calidad de servicio del canal en vivo. El handshake WS valida membresía contra `groups-service`, de modo que la salud del tiempo real depende de un servicio transaccional y de su capa de datos | Sobri et al. (2022): el *pool* de conexiones a la BD es determinante bajo estrés, y aquí es el eslabón que rompe la cadena |
+| ¿Dónde se quiebra primero y por qué? | Por calidad de servicio del canal en vivo. El handshake WS valida membresía contra `groups-service`, de modo que la salud del tiempo real depende de un servicio transaccional y de su capa de datos | Nor Sobri et al. (2022): el *pool* de conexiones a la BD es determinante bajo estrés, y aquí es el eslabón que rompe la cadena |
 | ¿La fragmentación en 4 cuentas aísla o propaga fallos? | Hace las dos cosas. Aísla presupuestos (el egreso suspendió 2 cuentas y dejó intactas las otras 2) y propaga por dependencias (un realtime sano entregó 87 % de fallos por un groups bloqueado) | Newman (2021): aislamiento de recursos ≠ aislamiento de fallos |
 | ¿Qué margen real ofrece para uso académico? | A 100 conexiones concurrentes, holgura de un orden de magnitud; el umbral se cruza en algún punto entre 100 y 1 000 | Blinowski et al. (2022): línea base de expectativas en hardware restringido |
 | ¿Cuántos usuarios reales son? | Unos 3 200 UAD (≈400 grupos llenos), como **estimación condicionada** por Ley de Little con supuestos declarados. Una cota independiente por cuota de egreso (1 100 a 3 700 UAD) converge al mismo orden | Little (1961) |
@@ -401,7 +405,7 @@ en cinco segundos y a quien quiere la causa raíz.
 | Estado de la BD | Créditos de ráfaga disponibles | Diagnóstico del incidente | Firma de inanición de E/S, con RAM al tope y CPU ociosa |
 
 El cuadro se usa así: el Nivel 1 es lo que se responde en la defensa antes de cualquier
-matiz; el Nivel 2 es la lámina de resultados de la presentación y la Tabla 3 del
+matiz; el Nivel 2 es la lámina de resultados de la presentación y la Tabla 5 del
 informe; el Nivel 3 solo aparece si preguntan por el mecanismo. Ese último nivel es
 donde se nota el valor de haber instrumentado telemetría propia, porque ninguno de sus
 seis indicadores es observable desde el cliente.
@@ -418,7 +422,9 @@ docker run --rm -v "$(pwd)/load-tests":/lt -w /lt python:3.12-slim \
 
 Las salidas quedan en `load-tests/analysis/`: `banco_corridas.csv` (el banco de la
 Act. 3.4), `stats.json` (descriptivos y frecuencias) y las seis figuras `fig_*.png`.
-Las tres elegidas se insertan en el informe como Figuras 1, 2 y 3.
+Las tres elegidas están insertadas en `articulo.md` §5.2 como Figuras 1, 2 y 3,
+con copias versionadas en `Documentos/figuras/` para que el documento no dependa
+de `load-tests/analysis/`, que está fuera del control de versiones.
 
 Durante esta actividad se detectó y corrigió un defecto. En `fig_h1_pastel.png` la
 leyenda se recortaba por el borde derecho del lienzo, porque `tight_layout` no
@@ -435,8 +441,8 @@ salidas.
 # Cierre: integración del informe final
 
 Con las tres subtareas completadas, el informe final integrado es
-`Documentos/articulo.md`, de unas 6 páginas a dos columnas, con 10 secciones, 3
-figuras, 4 tablas y 11 referencias en APA 7. Quedan dos pendientes editoriales
+`Documentos/articulo.md`, con 10 secciones, 3 figuras, 5 tablas y 11 referencias
+en APA 7. Quedan dos pendientes editoriales
 declarados en el propio documento: la traducción del resumen al inglés si la sede lo
 exige, y la decisión sobre publicar el repositorio o un espejo para revisión.
 

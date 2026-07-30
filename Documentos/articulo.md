@@ -95,7 +95,7 @@ replica (no se compara contra un monolito) pero sí contextualiza. Fernando y
 Engel (2025) compararon bibliotecas WebSocket en Node.js y Go con cargas de
 100 a 1 000 clientes, mostrando que las bibliotecas ligeras de Go superan los
 44 000 mensajes/s a carga máxima, lo que fundamenta la elección del lenguaje.
-Sobri et al. (2022) midieron el impacto del tamaño del pool de conexiones a
+Nor Sobri et al. (2022) midieron el impacto del tamaño del pool de conexiones a
 bases de datos relacionales en microservicios bajo estrés, antecedente directo
 del acoplamiento con la capa de datos que este trabajo encontró determinante.
 Lemos et al. (2025) exploraron el despliegue de cargas exigentes en múltiples
@@ -138,6 +138,12 @@ Cuatro servicios en Go 1.24 (enrutador chi v5, driver pgx v5):
   (`github.com/coder/websocket`), con verificación de membresía en el handshake.
 
 ### 3.2 Decisiones de diseño condicionadas por la capa gratuita
+
+La Tabla 1 recoge cómo cada restricción de la capa gratuita se tradujo en una
+decisión de diseño concreta.
+
+**Tabla 1.** Restricciones de la capa gratuita de Render y decisiones de diseño
+que inducen.
 
 | Restricción de Render Free | Decisión de diseño |
 |---|---|
@@ -195,7 +201,9 @@ pausa durante las corridas para no contaminar percentiles.
 
 4 niveles de carga × 3 repeticiones por nivel, en ventanas horarias
 similares (una sola corrida en capa gratuita, con vecinos ruidosos, no es
-evidencia suficiente):
+evidencia suficiente). La Tabla 2 detalla el diseño.
+
+**Tabla 2.** Matriz experimental: niveles de carga, repeticiones y tiempos.
 
 | Nivel (VUs pico) | Repeticiones | Duración por corrida | Reposo entre corridas |
 |---:|---:|---|---|
@@ -229,7 +237,10 @@ en lugar de la arquitectura.
 
 Se corrigió haciendo los límites configurables por variable de entorno
 (elevados a 2 000 req/s solo durante las corridas; los valores de producción se
-conservan por defecto) y se repitió el piloto:
+conservan por defecto) y se repitió el piloto, con el contraste que recoge la
+Tabla 3.
+
+**Tabla 3.** Piloto 1 (artefacto del instrumento) frente a piloto 2 (válido).
 
 | Métrica | Piloto 1 (artefacto) | Piloto 2 (válido) |
 |---|---:|---:|
@@ -249,7 +260,10 @@ erróneamente a la capa gratuita.
 Corrida `20260702-195005-peak100-rep1` (commit `af38ae4`): 21 596 peticiones
 HTTP (35.3 req/s sostenidas) sin fallos; 408 sesiones WebSocket sin caídas,
 tiempo de conexión promedio 682 ms (P95 805 ms); latencia HTTP promedio 221 ms,
-P95 404 ms. Consumo pico de memoria por servicio (de 512 MB disponibles):
+P95 404 ms. La Tabla 4 desglosa el consumo pico de memoria por servicio, sobre
+los 512 MB disponibles.
+
+**Tabla 4.** Consumo pico de memoria por servicio en la línea base (100 VUs).
 
 | Servicio | RAM pico | % del límite |
 |---|---:|---:|
@@ -271,9 +285,9 @@ nivel dentro de la misma ventana horaria. Los niveles 2 500 y 5 000 no se
 ejecutaron: las restricciones operativas de la propia capa gratuita agotaron
 la ventana experimental (§5.4). El dataset resultó suficiente para responder
 la pregunta de investigación, porque el punto de quiebre apareció ya en el
-segundo nivel.
+segundo nivel. La Tabla 5 contrasta ambos niveles.
 
-**Tabla 3.** Mediana de las 3 repeticiones por nivel; entre paréntesis,
+**Tabla 5.** Mediana de las 3 repeticiones por nivel; entre paréntesis,
 mín–máx entre repeticiones.
 
 | Métrica | 100 VUs | 1 000 VUs |
@@ -297,24 +311,42 @@ el sistema incumple sus umbrales, queda confirmada, con el matiz de que el
 quiebre llegó un orden de magnitud antes de lo esperado y por la vía de la
 calidad de servicio, con la memoria lejos de su límite.
 
+![**Figura 1.** A 1 000 conexiones concurrentes se cae ~1 de cada 4 conexiones,
+más del doble del umbral de servicio, con dispersión mínima entre las tres
+repeticiones.](figuras/fig1-caidas-ws-por-nivel.png)
+
+![**Figura 2.** El costo de memoria se concentra en gateway y realtime (×5)
+mientras los servicios transaccionales permanecen planos, y aun así el peor se
+queda a menos de la mitad del límite de 512 MB.](figuras/fig2-ram-por-servicio.png)
+
+El contraste entre la Figura 1 y la Figura 2 resume el hallazgo: el sistema
+incumple su umbral de servicio mientras la memoria sobra.
+
 Dos observaciones de la primera sesión:
 
 1. **Degradación asimétrica entre planos.** A 1 000 VUs el plano HTTP se
    degrada pero no falla: 0 de 64 706 peticiones fallidas y un P95 26 % mayor
    que en el nivel 100 (1 045 ms vs. 826 ms). El plano WebSocket, en cambio,
    cruza su umbral de servicio: ~1 de cada 4 conexiones se cae y el P95 de
-   establecimiento pasa de ~0.9 s a ~20 s. La dispersión mínima entre
+   establecimiento pasa de ~0.9 s a ~20 s (Figura 1). La dispersión mínima entre
    repeticiones (23.59–24.16 % de caídas) descarta el ruido de plataforma como
    explicación: es un límite del sistema, no del entorno.
 
 2. **La presión de memoria se concentra en la ruta WS.** api-gateway y
    realtime multiplican ×5 su RAM respecto al nivel 100 (44→239 MB y
-   43→231 MB), mientras groups y habits permanecen planos: el gateway paga
+   43→231 MB), mientras groups y habits permanecen planos (Figura 2): el gateway paga
    cada conexión dos veces (proxy cliente↔gateway↔realtime) y realtime
    sostiene las conexiones persistentes. A 1 000 VUs el servicio más cargado
    consume 46.6 % del límite de 512 MB; una proyección lineal sitúa el primer
    OOM kill entre 2 500 y 5 000 VUs, hipótesis que la segunda sesión pone a
    prueba.
+
+La serie de tiempo de una corrida del nivel 1 000 (Figura 3) precisa esa
+proyección: el consumo sigue a la rampa de conexiones y se aplana al llegar a
+la meseta, sin crecimiento sostenido después del pico.
+
+![**Figura 3.** El consumo sigue a la rampa y se aplana en la meseta, señal de
+techo de carga y no de fuga de memoria.](figuras/fig3-ram-en-el-tiempo.png)
 
 Nota de ventana horaria: el nivel 100 de la matriz reporta un P95 HTTP mayor
 que el del piloto del mismo nivel (826 ms vs. 404 ms, §5.1), ejecutado en otra
@@ -549,12 +581,12 @@ repo se hace público o se publica un espejo/release para la revisión.]`
   Teknik Informatika, 9*(4), 2051–2060.
   https://doi.org/10.33395/sinkron.v9i4.15266
 - Grafana Labs. (2026). *k6 documentation*. https://grafana.com/docs/k6/
-- Little, J. D. C. (1961). A proof for the queuing formula: L = λW.
-  *Operations Research, 9*(3), 383–387. https://doi.org/10.1287/opre.9.3.383
 - Lemos, E., Oliveira, R., Rodrigues, J., & Oliveira Neto, R. F. (2025). Deep
   learning model deployment in multiple cloud providers: An exploratory study
   using low computing power environments. *arXiv*.
   https://arxiv.org/abs/2503.23988
+- Little, J. D. C. (1961). A proof for the queuing formula: L = λW.
+  *Operations Research, 9*(3), 383–387. https://doi.org/10.1287/opre.9.3.383
 - Newman, S. (2021). *Building microservices* (2.ª ed.). O'Reilly Media.
 - Prometheus Authors. (2026). *Prometheus documentation*.
   https://prometheus.io/docs/
@@ -562,7 +594,9 @@ repo se hace público o se publica un espejo/release para la revisión.]`
   https://render.com/docs/free
 - Render. (2026). *Outbound bandwidth*. Render Docs.
   https://render.com/docs/outbound-bandwidth
-- Sobri, M., et al. (2022). A study of database connection pool in
-  microservice architecture. *JOIV: International Journal on Informatics
-  Visualization*. https://joiv.org/index.php/joiv/article/view/1094
+- Nor Sobri, N. A., Abas, M. A. H., Yassin, I. M., Megat Ali, M. S. A.,
+  Md Tahir, N., Zabidi, A., & Rizman, Z. I. (2022). A study of database
+  connection pool in microservice architecture. *JOIV: International Journal
+  on Informatics Visualization, 6*(2-2), 566–571.
+  https://doi.org/10.30630/joiv.6.2-2.1094
 - Supabase. (2026). *Supabase documentation*. https://supabase.com/docs

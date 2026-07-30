@@ -12,13 +12,19 @@ regeneran, basta con volver a correr este script.
 Uso (desde la raíz del repositorio, sin instalar nada):
     python3 Documentos/build_visuales.py
 
+Ademas copia a Documentos/figuras/ las tres figuras que el informe (articulo.md)
+inserta como Figuras 1, 2 y 3. load-tests/analysis/ esta en .gitignore, asi que
+el documento no puede depender de esa ruta.
+
 Entradas : Documentos/**/ *.src.html  ·  load-tests/analysis/fig_*.png
 Salidas  : Documentos/presentacion/dydi-defensa.html
            Documentos/divulgacion/dydi-infografia.html
+           Documentos/figuras/fig{1,2,3}-*.png
 """
 import base64
 import os
 import re
+import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +37,13 @@ TARGETS = [
 ]
 
 MARKER = re.compile(r"FIG:([A-Za-z0-9_.-]+\.png)")
+
+# Figuras que articulo.md inserta en §5.2, con el nombre que usa el documento.
+FIGURAS_INFORME = {
+    "fig_h1_barras.png": "fig1-caidas-ws-por-nivel.png",
+    "fig_h2_dumbbell.png": "fig2-ram-por-servicio.png",
+    "fig_h3_linea.png": "fig3-ram-en-el-tiempo.png",
+}
 
 
 def data_uri(name: str) -> str:
@@ -66,7 +79,21 @@ def build(src: str) -> str:
     return dst
 
 
+def sync_figuras_informe() -> None:
+    """Refresca las copias versionadas que cita articulo.md."""
+    dst_dir = os.path.join(HERE, "figuras")
+    os.makedirs(dst_dir, exist_ok=True)
+    for src_name, dst_name in FIGURAS_INFORME.items():
+        src = os.path.join(FIGS, src_name)
+        if not os.path.exists(src):
+            print(f"[aviso] falta {src_name}; no se actualizo {dst_name}")
+            continue
+        shutil.copyfile(src, os.path.join(dst_dir, dst_name))
+    print(f"[ok] Documentos/figuras/ ({len(FIGURAS_INFORME)} figuras del informe)")
+
+
 def main() -> int:
+    sync_figuras_informe()
     for src in TARGETS:
         if not os.path.exists(src):
             print(f"[omitido] no existe {os.path.relpath(src, ROOT)}")
