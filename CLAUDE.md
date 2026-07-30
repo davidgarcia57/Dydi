@@ -8,7 +8,7 @@ código, gana el código: corrige este archivo.
 SaaS de **accountability social**: grupos de amigos (máx. 8) rastrean hábitos
 diarios y gamifican las consecuencias. Si fallas durante la semana, entras a una
 **ruleta de penitencias** el fin de semana. Proyecto académico (UTD, Integradora
-2026), equipo de 6.
+2026), equipo de 4.
 
 **Objetivo de investigación (paper):** evaluar si una arquitectura de
 microservicios distribuida sobre la **capa gratuita de Render** (4 cuentas

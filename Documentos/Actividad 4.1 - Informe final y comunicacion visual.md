@@ -38,9 +38,8 @@ las cubre.
 | Equipos que evalúan desplegar sin presupuesto | El veredicto práctico y sus límites, sin metodología | Producto de divulgación (Act. 4.2b) |
 
 Decisión tomada: **informe académico en formato de artículo científico (IMRyD
-extendido)** con normas APA 7.ª edición. Se entrega a una columna; la extensión
-objetivo de ~6 páginas a dos columnas corresponde a la maquetación con la
-plantilla de la sede, si el trabajo se envía a publicación.
+extendido)** con normas APA 7.ª edición. Se entrega a una columna, con una extensión
+objetivo de ~6 páginas.
 
 Las tres opciones del planteamiento se evaluaron así:
 
@@ -59,8 +58,8 @@ Las tres opciones del planteamiento se evaluaron así:
 ## a.2 Estructura completa del informe
 
 Cada sección declara de dónde sale su evidencia y con qué unidad del curso se
-articula. Las extensiones son objetivo, medidas sobre la maquetación a dos
-columnas de una eventual publicación.
+articula. Las extensiones son objetivo, medidas sobre la maquetación entregada a
+una columna.
 
 | # | Sección | Contenido | Ext. | Origen de la evidencia | Articulación |
 |---|---|---|---|---|---|
@@ -152,7 +151,7 @@ medir en la Unidad I y lo que se reporta.
 |---|---|---|---|
 | Medir consumo de recursos bajo carga concurrente | La memoria crece proporcional a las conexiones y se concentra en la ruta WS; el peor servicio llega a 46.6 % del límite | RAM pico por servicio, 2 niveles × 3 rep. | §5.1, §5.2 |
 | Medir latencia y su degradación | El plano HTTP se degrada sin fallar: P95 de 826 a 1 045 ms (+26 %), 0 fallos en 64 706 peticiones | `summary.json` de k6 por corrida | §5.2 |
-| Localizar el punto de quiebre (H4) | Aparece en el nivel 1 000 y en el plano de tiempo real, con 23.87 % de conexiones caídas y establecimiento P95 de ~20 s | Umbrales predefinidos frente a la medición | §5.2 |
+| Localizar el punto de quiebre (H4) | Aparece en el nivel 1 000 y en el plano de tiempo real, con 23.87 % de conexiones caídas y establecimiento P95 de ~20 s. En el nivel 100 la latencia HTTP rebasa su criterio por margen estrecho (826 ms contra 800 ms), cruce que no califica como punto de quiebre por no ser sostenido | Umbrales predefinidos frente a la medición | §5.2 |
 | Caracterizar el costo de la capa gratuita | Cuatro restricciones operativas condicionan la viabilidad del sistema y también la del experimento | Bitácora y telemetría del incidente | §5.3, §5.4 |
 
 ## b.2 Síntesis de resultados
@@ -160,7 +159,8 @@ medir en la Unidad I y lo que se reporta.
 **Línea base (100 VUs).** 21 596 peticiones HTTP sin fallos (35.3 req/s sostenidas),
 408 sesiones WebSocket sin caídas, conexión media de 682 ms y latencia HTTP P95 de
 404 ms, con un consumo pico de 20.9 a 44.5 MB por servicio (4.1 % a 8.7 % de los
-512 MB). A esta escala la arquitectura opera con holgura de un orden de magnitud.
+512 MB). A esta escala la arquitectura opera con holgura de un orden de magnitud en
+memoria y de un factor de dos en latencia.
 
 **Matriz ejecutada (100 y 1 000 VUs, 6 corridas válidas de 6).**
 
@@ -176,8 +176,9 @@ medir en la Unidad I y lo que se reporta.
 | RAM pico habits | 20.8 MB (20.6–21.0) | 21.5 MB (20.7–21.5) |
 
 *Mediana de 3 repeticiones por nivel; mín–máx entre paréntesis. En negritas, los
-valores que cruzan un umbral operacional predefinido (caídas WS < 10 %,
-establecimiento WS P95 < 2 s, fallos HTTP < 5 %).*
+valores que cruzan uno de los seis criterios de servicio fijados antes de medir
+(latencia HTTP P95 < 800 ms, latencia HTTP P99 < 2 000 ms, fallos HTTP < 5 %,
+establecimiento WS P95 < 2 s, caídas WS < 10 %, verificaciones > 95 %).*
 
 **Arranque en frío.** Tras la suspensión por inactividad, la primera respuesta de
 `/health` tardó entre 10.7 y 13.5 s por servicio, contra 0.3 a 0.6 s en caliente.
@@ -203,7 +204,7 @@ seleccionada en la Unidad II.
 |---|---|---|
 | ¿Dónde se quiebra primero y por qué? | Por calidad de servicio del canal en vivo. El handshake WS valida membresía contra `groups-service`, de modo que la salud del tiempo real depende de un servicio transaccional y de su capa de datos | Nor Sobri et al. (2022): el *pool* de conexiones a la BD es determinante bajo estrés, y aquí es el eslabón que rompe la cadena |
 | ¿La fragmentación en 4 cuentas aísla o propaga fallos? | Hace las dos cosas. Aísla presupuestos (el egreso suspendió 2 cuentas y dejó intactas las otras 2) y propaga por dependencias (un realtime sano entregó 87 % de fallos por un groups bloqueado) | Newman (2021): aislamiento de recursos ≠ aislamiento de fallos |
-| ¿Qué margen real ofrece para uso académico? | A 100 conexiones concurrentes, holgura de un orden de magnitud; el umbral se cruza en algún punto entre 100 y 1 000 | Blinowski et al. (2022): línea base de expectativas en hardware restringido |
+| ¿Qué margen real ofrece para uso académico? | A 100 conexiones concurrentes hay holgura amplia en memoria, errores y estabilidad del canal en vivo, y ninguna en latencia HTTP (826 ms contra 800 ms); el criterio del canal en vivo se cruza en algún punto entre 100 y 1 000 | Blinowski et al. (2022): línea base de expectativas en hardware restringido |
 | ¿Cuántos usuarios reales son? | Unos 3 200 UAD (≈400 grupos llenos), como **estimación condicionada** por Ley de Little con supuestos declarados. Una cota independiente por cuota de egreso (1 100 a 3 700 UAD) converge al mismo orden | Little (1961) |
 
 **Contraste con la hipótesis.** H4, que postulaba un nivel ≤ 5 000 conexiones donde el
@@ -390,7 +391,7 @@ en cinco segundos y a quien quiere la causa raíz.
 |---|---|---|---:|---:|---|
 | Tiempo real | P95 de establecimiento WS | < 2 s | 918 ms | 19 974 ms | 🔴 |
 | HTTP | Peticiones fallidas | < 5 % | 0.00 % | 0.00 % | 🟢 |
-| HTTP | P95 de latencia | (sin umbral; se observa) | 826 ms | 1 045 ms | 🟡 +26 % |
+| HTTP | P95 de latencia | < 800 ms | 826 ms | 1 045 ms | 🔴 cruzado en los dos niveles |
 | Recursos | RAM del peor servicio, % de 512 MB | < 90 % | 10.1 % | 46.6 % | 🟢 |
 
 **Nivel 3, causa raíz y operación (¿por qué, y qué lo condiciona?).**

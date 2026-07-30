@@ -77,7 +77,10 @@
   /* --- utilidades --- */
   .cols{display:flex; gap:3.2em; align-items:center; margin-top:1.6em}
   .col{flex:1; min-width:0}
-  .fig{width:100%; border-radius:1em; background:var(--paper); border:.09em solid var(--hairline)}
+  /* Las figuras se guardan con fondo transparente (analyze_results.py), asi que
+     se apoyan directo en el crema de la lamina: sin caja blanca ni borde, que
+     era lo que las hacia ver pegadas de otro documento. */
+  .fig{width:100%; border-radius:1em}
   .fig-full{max-height:34em; object-fit:contain}
   .cap{font-size:1.2em; color:var(--ink-soft); margin-top:.9em; line-height:1.4}
   .pill{
@@ -124,6 +127,10 @@
   th{font-size:.85em; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); font-weight:700}
   td.n{text-align:right; font-family:var(--serif); font-size:1.15em}
   tr.bad td{background:var(--coral-soft); color:var(--coral-deep); font-weight:600}
+  /* La metrica se nombra en rojo en su etiqueta; el relleno rojo del valor va
+     solo en la celda que de verdad incumplio su criterio. */
+  td.ko{background:var(--coral-soft); color:var(--coral-deep); font-weight:600}
+  td.lbl-ko{color:var(--coral-deep); font-weight:600}
 
   /* portada */
   .cover{background:linear-gradient(160deg,#F7F2E9 0%, var(--cream) 45%, #EFE7D8 100%)}
@@ -160,7 +167,7 @@
     .stage{box-shadow:none; width:100%; height:auto; font-size:min(1vw,1.7778vh)}
     .slide{display:flex !important; position:relative; inset:auto;
            width:100em; height:56.25em; break-after:page; page-break-after:always}
-    .help{display:none}
+    .help, .chrome, .progress{display:none}
   }
 </style>
 </head>
@@ -358,7 +365,7 @@
       <div class="stat-card warn"><div class="stat" style="font-size:3.8em">8 días</div>
         <div class="stat-label">y Supabase pausó la base: todo respondía errores estando sano</div></div>
       <div class="stat-card warn"><div class="stat" style="font-size:3.8em">RAM ▲ CPU ▼</div>
-        <div class="stat-label">créditos de ráfaga agotados: memoria al tope con la CPU ociosa</div></div>
+        <div class="stat-label">firma medida: memoria al tope con la CPU ociosa. Causa más probable, no confirmada: créditos de CPU de la base agotados</div></div>
       <div class="stat-card good"><div class="stat" style="font-size:3.8em">−89.6 %</div>
         <div class="stat-label">de tráfico al activar compresión. Medido, no estimado</div></div>
     </div>
@@ -395,7 +402,7 @@
       <div class="col box" style="background:var(--sage-soft); border-color:#CFDEC3">
         <h3 style="color:var(--accent-deep)">Lo que podemos afirmar</h3>
         <ul>
-          <li class="yes">100 conexiones concurrentes con holgura de un orden de magnitud</li>
+          <li class="yes">100 conexiones concurrentes con holgura amplia en memoria y estabilidad, y ninguna en latencia</li>
           <li class="yes">A 1 000, el canal en vivo cruza su umbral: 23.87 % de caídas</li>
           <li class="yes">El quiebre llegó por acoplamiento entre servicios</li>
           <li class="yes">Las cuotas operativas condicionan la viabilidad</li>
@@ -452,16 +459,18 @@
     <table style="font-size:1.5em">
       <tr><th>Métrica</th><th style="text-align:right">100 VUs</th><th style="text-align:right">1 000 VUs</th></tr>
       <tr><td>Peticiones HTTP fallidas</td><td class="n">0.00 %</td><td class="n">0.00 % (0/64 706)</td></tr>
-      <tr><td>P95 HTTP</td><td class="n">826 ms (790–847)</td><td class="n">1 045 ms (955–1 138)</td></tr>
-      <tr class="bad"><td>Conexiones WS caídas</td><td class="n">0.00 % (0–1.92)</td><td class="n">23.87 % (23.59–24.16)</td></tr>
-      <tr class="bad"><td>P95 establecimiento WS</td><td class="n">918 ms (894–932)</td><td class="n">19 974 ms (19 817–20 251)</td></tr>
+      <tr><td class="lbl-ko">P95 HTTP <span style="opacity:.6">(límite 800 ms)</span></td><td class="n ko">826 ms (790–847)</td><td class="n ko">1 045 ms (955–1 138)</td></tr>
+      <tr><td class="lbl-ko">Conexiones WS caídas <span style="opacity:.6">(límite 10 %)</span></td><td class="n">0.00 % (0–1.92)</td><td class="n ko">23.87 % (23.59–24.16)</td></tr>
+      <tr><td class="lbl-ko">P95 establecimiento WS <span style="opacity:.6">(límite 2 s)</span></td><td class="n">918 ms (894–932)</td><td class="n ko">19 974 ms (19 817–20 251)</td></tr>
       <tr><td>RAM pico api-gateway</td><td class="n">43.6 MB</td><td class="n">238.5 MB</td></tr>
       <tr><td>RAM pico realtime</td><td class="n">42.8 MB</td><td class="n">231.3 MB</td></tr>
       <tr><td>RAM pico groups</td><td class="n">51.6 MB</td><td class="n">54.8 MB</td></tr>
       <tr><td>RAM pico habits</td><td class="n">20.8 MB</td><td class="n">21.5 MB</td></tr>
     </table>
-    <p class="cap" style="margin-top:1.4em">Umbrales predefinidos: fallos HTTP &lt; 5 % ·
-      caídas WS &lt; 10 % · establecimiento WS P95 &lt; 2 s. En rojo, los incumplidos.</p>
+    <p class="cap" style="margin-top:1.4em">Los seis criterios fijados antes de medir:
+      latencia HTTP P95 &lt; 800 ms · P99 &lt; 2 000 ms · fallos HTTP &lt; 5 % ·
+      establecimiento WS P95 &lt; 2 s · caídas WS &lt; 10 % · verificaciones &gt; 95 %.
+      En rojo, los incumplidos.</p>
   </section>
 
   <div class="progress" id="progress"></div>

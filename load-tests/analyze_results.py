@@ -201,15 +201,21 @@ for r in bank:
     freq["por_estado"][k] = freq["por_estado"].get(k, 0) + 1
 
 # ---------- graficos ----------
-INK, SEC, MUTED = "#0b0b0b", "#52514e", "#898781"
-GRID, BASE = "#e1e0d9", "#c3c2b7"
-BLUE, BLUE_L, AQUA, DEEMPH = "#2a78d6", "#86b6ef", "#1baf7a", "#c3c2b7"
+# Paleta del sistema de diseno de Dydi (los mismos tokens que tailwind.config.js
+# y las plantillas .src.html): calida y clara, sin azules. Antes estas figuras
+# usaban un azul #2a78d6 que no existe en el diseno y se veian pegadas de otro
+# documento encima del fondo crema del deck y de la infografia.
+INK, SEC, MUTED = "#2A251F", "#6F6557", "#A89C89"
+GRID, BASE = "#E7DECD", "#D6C9B6"
+TERRA, TERRA_L, SAGE, DEEMPH = "#C26F4D", "#E0BBA6", "#7CA39D", "#D6C9B6"
+CORAL = "#BC5C42"  # para lo que incumple un criterio
 from matplotlib import font_manager
 _fams = {f.name for f in font_manager.fontManager.ttflist}
 FONT = ["Segoe UI", "DejaVu Sans"] if "Segoe UI" in _fams else ["DejaVu Sans"]
 plt.rcParams.update({
     "font.family": FONT,
-    "figure.facecolor": "white", "axes.facecolor": "white",
+    "figure.facecolor": "none", "axes.facecolor": "none",
+    "savefig.facecolor": "none", "savefig.transparent": True,
     "axes.edgecolor": BASE, "axes.labelcolor": SEC,
     "xtick.color": MUTED, "ytick.color": MUTED,
     "xtick.labelsize": 9, "ytick.labelsize": 9,
@@ -236,11 +242,14 @@ fig, ax = plt.subplots(figsize=(6.4, 3.7), dpi=200)
 levels = [100, 1000]
 med = [statistics.median(drop_by_level[n]) for n in levels]
 x = [0, 1]
-ax.bar(x, med, width=0.42, color=BLUE, zorder=3)
+# la barra alta incumple el criterio de 10 %: se marca en coral
+ax.bar(x, med, width=0.42, zorder=3,
+       color=[CORAL if v > 10 else TERRA_L for v in med])
 for xi, n in zip(x, levels):  # repeticiones individuales
     ax.scatter([xi + 0.29] * 3, drop_by_level[n], s=22, color=INK, zorder=4)
 ax.axhline(10, color=MUTED, linewidth=1.2, linestyle=(0, (5, 4)), zorder=2)
-ax.text(2.05, 10.5, "umbral QoS: 10 %", va="bottom", ha="right", fontsize=9, color=SEC)
+ax.text(2.05, 10.5, "criterio de servicio: 10 %", va="bottom", ha="right",
+        fontsize=9, color=CORAL, fontweight="semibold")
 for xi, v in zip(x, med):
     ax.text(xi, v + 0.7, f"{v:.2f} %", ha="center", fontsize=10.5, color=INK, fontweight="semibold")
 ax.set_xticks(x); ax.set_xticklabels(["100 VUs", "1 000 VUs"], fontsize=10, color=SEC)
@@ -257,7 +266,7 @@ fig, ax = plt.subplots(figsize=(6.4, 3.7), dpi=200)
 run = next(r for r in s1 if r["nivel_vus"] == 1000 and r["repeticion"] == 1)
 caidas = round(run["ws_sessions"] * run["ws_drop_pct"] / 100)
 ok = run["ws_sessions"] - caidas
-wedges, _ = ax.pie([ok, caidas], colors=[BLUE, "#d03b3b"], startangle=90,
+wedges, _ = ax.pie([ok, caidas], colors=[TERRA, "#d03b3b"], startangle=90,
                    wedgeprops=dict(width=0.42, edgecolor="white", linewidth=2))
 ax.text(0, 0, f"{miles(run['ws_sessions'])}\nsesiones", ha="center", va="center", fontsize=10, color=SEC)
 ax.legend(wedges, [f"Completadas · {miles(ok)} ({100-run['ws_drop_pct']:.1f} %)",
@@ -283,8 +292,8 @@ ys = list(range(len(order)))[::-1]
 for y, svc in zip(ys, order):
     a, b = ram_med[svc][100], ram_med[svc][1000]
     ax.plot([a, b], [y, y], color=BASE, linewidth=2, zorder=2)
-    ax.scatter([a], [y], s=64, color=BLUE_L, zorder=3, edgecolors="white", linewidths=1)
-    ax.scatter([b], [y], s=64, color=BLUE, zorder=3, edgecolors="white", linewidths=1)
+    ax.scatter([a], [y], s=64, color=TERRA_L, zorder=3, edgecolors="white", linewidths=1)
+    ax.scatter([b], [y], s=64, color=TERRA, zorder=3, edgecolors="white", linewidths=1)
     ax.text(b + 12, y, f"{b:.0f} MB", va="center", fontsize=9.5, color=INK, fontweight="semibold")
     ax.text(min(a, b) - 12, y, NAMES[svc], va="center", ha="right", fontsize=10, color=SEC)
 ax.axvline(512, color=MUTED, linewidth=1.2, linestyle=(0, (5, 4)), zorder=1)
@@ -292,8 +301,8 @@ ax.text(500, -0.42, "límite Render: 512 MB ", fontsize=9, color=SEC, ha="right"
 ax.set_yticks([]); ax.set_xlim(-90, 560); ax.set_ylim(-0.6, len(order) - 0.1)
 ax.set_xlabel("RAM pico (MB, mediana de 3 repeticiones)", fontsize=9.5)
 ax.set_title("RAM pico por servicio: 100 → 1 000 VUs", pad=24, loc="left")
-leg = [Line2D([0], [0], marker="o", linestyle="", markersize=8, markerfacecolor=BLUE_L, markeredgecolor="white", label="100 VUs"),
-       Line2D([0], [0], marker="o", linestyle="", markersize=8, markerfacecolor=BLUE, markeredgecolor="white", label="1 000 VUs")]
+leg = [Line2D([0], [0], marker="o", linestyle="", markersize=8, markerfacecolor=TERRA_L, markeredgecolor="white", label="100 VUs"),
+       Line2D([0], [0], marker="o", linestyle="", markersize=8, markerfacecolor=TERRA, markeredgecolor="white", label="1 000 VUs")]
 ax.legend(handles=leg, loc="lower center", bbox_to_anchor=(0.58, 0.0), frameon=False, fontsize=9.5, labelcolor=SEC)
 ax.grid(axis="x", color=GRID, linewidth=0.8); ax.set_axisbelow(True)
 ax.spines["left"].set_visible(False); ax.spines["bottom"].set_color(BASE); ax.tick_params(length=0)
@@ -303,8 +312,8 @@ fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_h2_dumbbell.png")); plt.c
 fig, ax = plt.subplots(figsize=(6.4, 3.9), dpi=200)
 xs = list(range(len(order))); w = 0.34
 v100 = [ram_med[s][100] for s in order]; v1000 = [ram_med[s][1000] for s in order]
-ax.bar([i - w / 2 for i in xs], v100, width=w - 0.03, color=BLUE_L, zorder=3, label="100 VUs")
-ax.bar([i + w / 2 for i in xs], v1000, width=w - 0.03, color=BLUE, zorder=3, label="1 000 VUs")
+ax.bar([i - w / 2 for i in xs], v100, width=w - 0.03, color=TERRA_L, zorder=3, label="100 VUs")
+ax.bar([i + w / 2 for i in xs], v1000, width=w - 0.03, color=TERRA, zorder=3, label="1 000 VUs")
 for i, (a, b) in enumerate(zip(v100, v1000)):
     ax.text(i - w / 2, a + 8, f"{a:.0f}", ha="center", fontsize=8.5, color=SEC)
     ax.text(i + w / 2, b + 8, f"{b:.0f}", ha="center", fontsize=8.5, color=INK, fontweight="semibold")
@@ -321,7 +330,7 @@ fig.tight_layout(); fig.savefig(os.path.join(OUT, "fig_h2_barras.png")); plt.clo
 # --- Fig 3A: linea serie de tiempo RAM (GANADOR H3) ---
 series = ram_series(os.path.join(RESULTS, "20260704-210729-peak1000-rep1", "metrics.csv"))
 fig, ax = plt.subplots(figsize=(6.4, 3.9), dpi=200)
-colors = {"gateway": BLUE, "realtime": AQUA, "groups": DEEMPH, "habits": DEEMPH}
+colors = {"gateway": TERRA, "realtime": SAGE, "groups": DEEMPH, "habits": DEEMPH}
 for svc in ["groups", "habits", "gateway", "realtime"]:
     pts = series[svc]
     ax.plot([p[0] for p in pts], [p[1] for p in pts], color=colors[svc], linewidth=2, zorder=3)
@@ -329,7 +338,7 @@ for svc in ["groups", "habits", "gateway", "realtime"]:
     if svc == "habits":
         ly -= 14
     ax.text(lx, ly, NAMES[svc], va="center", fontsize=9.5, fontweight="semibold",
-            color={"gateway": BLUE, "realtime": "#0e8a5f", "groups": MUTED, "habits": MUTED}[svc])
+            color={"gateway": TERRA, "realtime": "#0e8a5f", "groups": MUTED, "habits": MUTED}[svc])
 ax.axhline(512, color=MUTED, linewidth=1.2, linestyle=(0, (5, 4)), zorder=2)
 ax.text(0.1, 522, "límite Render: 512 MB", fontsize=9, color=SEC)
 ax.set_ylim(0, 570); ax.set_xlim(0, max(p[0] for p in series["gateway"]) + 1.6)

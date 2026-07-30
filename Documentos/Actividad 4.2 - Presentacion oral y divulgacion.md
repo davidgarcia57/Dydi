@@ -278,6 +278,8 @@ respondemos». Nadie improvisa cifras.
 | ¿Por qué no llegó el OOM que esperaban? | Juan David | Porque la calidad del canal en vivo se degrada antes. La memoria crece proporcional a las conexiones, sin fuga, y proyectamos el OOM entre 2 500 y 5 000 |
 | ¿Esto lo puede replicar alguien más? | Keila | Sí. Arnés, datos crudos de las once corridas con su *commit*, bitácora y script de regeneración, todo versionado |
 | ¿Qué cambiarían para aguantar más? | Irvin | Aliviar la verificación de membresía por conexión, evaluar mitigaciones con corridas A/B y comparar contra un contenedor de pago único |
+| A 100 VUs su tabla dice 826 ms contra un límite de 800. ¿El quiebre no está en 100? | David | Cruzamos ese criterio y está marcado como hallazgo en la bitácora desde el día de la corrida. No es el punto de quiebre porque el protocolo exige incumplimiento sostenido y el mismo nivel midió 404 ms en otra ventana sobre código equivalente. Y la magnitud no se compara: 3 % de exceso en latencia con cero errores, contra 139 % en caídas |
+| ¿El establecimiento de ~20 s incluye las conexiones que nunca abrieron? | Keila | No, y el sesgo va en nuestra contra. k6 sólo registra ese tiempo cuando el socket abre, así que excluye al 23.87 % que se cayó: el costo real es peor que el publicado. Con la tasa de caídas pasa igual, una sesión puede aportar dos observaciones al denominador. Los dos sesgos hacen que lo reportado sea un piso, no un techo |
 
 ## a.9 Registro de la simulación de defensa
 

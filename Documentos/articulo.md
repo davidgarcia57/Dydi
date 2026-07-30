@@ -196,8 +196,8 @@ pausa durante las corridas para no contaminar percentiles.
 ### 4.4 Matriz experimental
 
 4 niveles de carga × 3 repeticiones por nivel, en ventanas horarias
-similares (una sola corrida en capa gratuita, con vecinos ruidosos, no es
-evidencia suficiente). La Tabla 2 detalla el diseño.
+similares, porque una sola corrida en capa gratuita, con vecinos ruidosos, no
+constituye evidencia suficiente. La Tabla 2 detalla el diseño.
 
 **Tabla 2.** Matriz experimental: niveles de carga, repeticiones y tiempos.
 
@@ -232,10 +232,9 @@ virtuales comparten la misma cuenta de pruebas, por lo que el experimento
 completo compartía una sola cubeta de *tokens*. Se estaba midiendo el limitador
 en lugar de la arquitectura.
 
-Se corrigió haciendo los límites configurables por variable de entorno
-(elevados a 2 000 req/s solo durante las corridas; los valores de producción se
-conservan por defecto) y se repitió el piloto, con el contraste que recoge la
-Tabla 3.
+Se corrigió haciendo los límites configurables por variable de entorno, elevados
+a 2 000 req/s solo durante las corridas y conservando los valores de producción
+por defecto, y se repitió el piloto, con el contraste que recoge la Tabla 3.
 
 **Tabla 3.** Piloto 1 (artefacto del instrumento) frente a piloto 2 (válido).
 
@@ -270,8 +269,8 @@ los 512 MB disponibles.
 | habits-service | 20.9 MB | 4.1 % |
 
 A 100 conexiones concurrentes la arquitectura opera con holgura de un orden de
-magnitud, lo que establece la línea base contra la cual contrastar los niveles
-superiores.
+magnitud en consumo de memoria y de un factor de dos en latencia, lo que
+establece la línea base contra la cual contrastar los niveles superiores.
 
 ### 5.2 Matriz ejecutada y localización del punto de quiebre
 
@@ -298,15 +297,45 @@ mín–máx entre repeticiones.
 | RAM pico groups | 51.6 MB (51.0–52.3) | 54.8 MB (49.9–60.4) |
 | RAM pico habits | 20.8 MB (20.6–21.0) | 21.5 MB (20.7–21.5) |
 
-Conforme a los criterios operacionales predefinidos (umbrales codificados en
-el instrumento antes de las corridas: conexiones WS caídas < 10 %,
-establecimiento P95 < 2 s), **el punto de quiebre del sistema se localiza en
-el nivel de 1 000 conexiones concurrentes, en el plano de tiempo real**: la
-mediana de caídas (23.87 %) más que duplica el umbral con dispersión mínima
-entre réplicas. La hipótesis H4, que postula un nivel ≤ 5 000 conexiones donde
-el sistema incumple sus umbrales, queda confirmada, con el matiz de que el
-quiebre llegó un orden de magnitud antes de lo esperado y por la vía de la
-calidad de servicio, con la memoria lejos de su límite.
+Los seis criterios de servicio quedaron codificados en el instrumento antes de
+las corridas (§4.3): latencia HTTP P95 < 800 ms, latencia HTTP P99 < 2 000 ms,
+peticiones HTTP fallidas < 5 %, establecimiento WS P95 < 2 s, conexiones WS
+caídas < 10 % y verificaciones correctas > 95 %. El protocolo define el punto de
+quiebre como el menor nivel cuya mediana de tres réplicas incumple de forma
+sostenida al menos uno de ellos.
+
+La matriz registra incumplimientos en los dos niveles, con magnitudes de orden
+distinto. En el nivel 100 la latencia HTTP P95 rebasa su criterio por margen
+estrecho: mediana de 826 ms contra 800 ms, dos réplicas por encima de la línea
+(825.94 y 847.28 ms) y una por debajo (789.66 ms). El orquestador dejó ese cruce
+anotado en la bitácora de la sesión al cierre de cada corrida. En el nivel 1 000
+el incumplimiento se concentra en el plano de tiempo real y por márgenes de otra
+escala: la mediana de conexiones caídas (23.87 %) más que duplica el 10 %
+permitido y el establecimiento P95 (19 974 ms) lo multiplica por diez, en las
+tres réplicas y con un rango de 0.57 puntos porcentuales.
+
+El nivel 100 no se declara punto de quiebre porque no satisface el criterio de
+sostenimiento. El mismo nivel arrojó 404 ms de latencia HTTP P95 en el piloto
+válido (§5.1), ejecutado en otra ventana horaria sobre una versión del código
+que difiere únicamente en un endpoint de perfil de usuario ajeno a las rutas
+medidas. Una diferencia de más del doble en el mismo indicador y el mismo nivel
+de carga, atribuible a la ventana y no al sistema, es la manifestación directa de
+la amenaza de vecinos ruidosos declarada en §7. El incumplimiento a 1 000 VUs, en
+cambio, se reproduce en las tres réplicas.
+
+**El punto de quiebre del sistema se localiza, por tanto, en el nivel de 1 000
+conexiones concurrentes y en el plano de tiempo real.** La hipótesis H4, que
+postula un nivel ≤ 5 000 conexiones donde el sistema incumple sus umbrales,
+queda confirmada, con el matiz de que el quiebre llegó un orden de magnitud
+antes de lo esperado y por la vía de la calidad de servicio, con la memoria
+lejos de su límite.
+
+Del cruce marginal en el nivel 100 se desprende un resultado adicional. El
+presupuesto de latencia HTTP de la capa gratuita está agotado ya en el nivel de
+carga más bajo evaluado, con el servicio más cargado al 10.1 % de su límite de
+memoria: la holgura que la plataforma ofrece a 100 conexiones concurrentes es
+amplia en memoria, tasa de error y estabilidad del canal en tiempo real, y nula
+en latencia.
 
 ![**Figura 1.** A 1 000 conexiones concurrentes se cae ~1 de cada 4 conexiones,
 más del doble del umbral de servicio, con dispersión mínima entre las tres
@@ -433,9 +462,10 @@ groups-service bloqueado. En esta clase de arquitectura, el aislamiento de
 recursos no implica aislamiento de fallos (Newman, 2021).
 
 **¿Qué margen real ofrece para uso académico?** A 100 conexiones concurrentes
-el sistema opera con un orden de magnitud de holgura en todos los indicadores;
-el umbral de servicio del canal en tiempo real se cruza en algún punto entre
-100 y 1 000. Para el caso de uso de la aplicación (grupos de ≤ 8 miembros con
+el sistema opera con un orden de magnitud de holgura en memoria, tasa de error y
+estabilidad del canal en tiempo real, y sin holgura alguna en latencia HTTP
+(§5.2); el umbral de servicio del canal en tiempo real se cruza en algún punto
+entre 100 y 1 000. Para el caso de uso de la aplicación (grupos de ≤ 8 miembros con
 check-ins diarios), cientos de usuarios concurrentes están dentro del margen
 seguro, suficiente para un despliegue académico o una validación
 temprana de producto, que es la población objetivo de la pregunta de
@@ -463,7 +493,7 @@ activos diarios da robustez a la estimación, que en todo caso queda
 condicionada a los supuestos declarados y no sustituye una medición con
 poblaciones reales (§7).
 
-**El costo operativo es parte del sistema.** Los hallazgos de §5.4 sugieren
+Los hallazgos de §5.4 sugieren que el costo operativo es parte del sistema y
 que evaluar "si la capa gratuita aguanta" exige mirar más allá de RAM y
 latencia: cuotas mensuales, pausas por inactividad y créditos de ráfaga
 convierten la viabilidad en una función del patrón de uso y del historial de
@@ -491,6 +521,16 @@ después.
 - **Instrumento (inyector único):** k6 corre desde una sola máquina/red; el
   ancho de banda del inyector podría haber sido cuello de botella en los
   niveles altos, que finalmente no se ejecutaron.
+- **Instrumento (definición de las métricas del canal en vivo):** dos decisiones
+  del inyector sesgan los resultados del plano WebSocket hacia la subestimación.
+  El tiempo de establecimiento se registra sólo cuando el socket alcanza el
+  estado abierto, de modo que los 19 974 ms del nivel 1 000 describen a las
+  conexiones que sí se establecieron y excluyen al 23.87 % que no lo consiguió.
+  La tasa de caídas acumula una observación al abrir la conexión y otra al
+  fallar, por lo que una misma sesión puede aportar dos entradas al denominador
+  y el 23.87 % queda por debajo de la proporción real de sesiones caídas. Ambos
+  sesgos operan en la misma dirección: el deterioro reportado es un piso del
+  deterioro real, no un techo.
 - **Alcance (niveles 2 500 y 5 000 no ejecutados):** el diseño contemplaba
   cuatro niveles; las restricciones operativas de la capa gratuita (§5.4)
   agotaron la ventana experimental antes de completarlos. El punto de quiebre
@@ -515,11 +555,12 @@ después.
 
 ## 8. Conclusiones y trabajo futuro
 
-**Respuesta a la pregunta de investigación.** Una arquitectura de
-microservicios en Go fragmentada en cuatro cuentas de la capa gratuita de
-Render sí sostiene tráfico concurrente con procesamiento en tiempo real, con
-un límite medido: a 100 conexiones concurrentes opera con holgura de un orden
-de magnitud (0 % de errores, P95 de 826 ms, ≤ 10.1 % de la memoria); a 1 000
+Una arquitectura de microservicios en Go fragmentada en cuatro cuentas de la
+capa gratuita de Render sí sostiene tráfico concurrente con procesamiento en
+tiempo real, y esa es la respuesta a la pregunta de investigación, con
+un límite medido: a 100 conexiones concurrentes cumple todos sus criterios de
+servicio salvo el de latencia, que roza su línea (0 % de errores, ≤ 10.1 % de la
+memoria, P95 de 826 ms contra un criterio de 800 ms); a 1 000
 conexiones el plano HTTP sigue sin fallar (0/64 706 peticiones) pero el canal
 en tiempo real cruza su umbral de servicio (23.87 % de conexiones caídas,
 establecimiento P95 de ~20 s). El punto de quiebre es real, está por debajo de
@@ -532,9 +573,9 @@ orden de 10³ usuarios activos diarios sostenidos durante el mes, una estimació
 en la que convergen, de forma independiente, la concurrencia validada y la
 cuota mensual de transferencia (§6).
 
-**Viabilidad operativa.** La respuesta técnica anterior es necesaria pero no
-suficiente: la viabilidad del free tier la terminan de definir sus reglas de
-operación. Este estudio documentó con telemetría propia cuatro de ellas: la
+Esa respuesta técnica es necesaria pero no suficiente, porque la viabilidad de
+la capa gratuita la terminan de definir sus reglas de operación. Este estudio
+documentó con telemetría propia cuatro de ellas: la
 cuota de egreso (mitigable con compresión, −89.6 % medido), la pausa por
 inactividad de la capa de datos, los créditos de ráfaga de la instancia de base
 de datos y la suspensión por inactividad de los servicios (arranques en frío de
@@ -542,16 +583,16 @@ de datos y la suspensión por inactividad de los servicios (arranques en frío d
 Para equipos que consideren esta clase de despliegue, administrar estos
 mecanismos forma parte del diseño desde el primer día.
 
-**Aporte metodológico.** La telemetría del lado del servidor no es opcional en
-estudios de carga sobre infraestructura compartida: detectó que el piloto
-inicial medía un limitador de tasa y no la arquitectura (88 % de fallos
-aparentes), y permitió distinguir un colapso por inanición de E/S (memoria al
-tope con CPU ociosa) de un colapso por cómputo, diagnósticos imposibles desde
-el cliente. El arnés completo (inyector, telemetría embebida de ~200 líneas
+El trabajo deja además una lección de método. La telemetría del lado del
+servidor no es opcional en estudios de carga sobre infraestructura compartida:
+detectó que el piloto inicial medía un limitador de tasa y no la arquitectura,
+con un 88 % de fallos aparentes, y permitió distinguir un colapso por inanición
+de E/S, con la memoria al tope y la CPU ociosa, de un colapso por cómputo.
+Ninguno de los dos diagnósticos era posible desde el cliente. El arnés completo (inyector, telemetría embebida de ~200 líneas
 por servicio, orquestación y bitácora) es replicable a costo cero y se publica
 junto con los datos crudos.
 
-**Trabajo futuro.** (1) Caracterizar el comportamiento posterior al quiebre en
+Quedan cuatro líneas abiertas. (1) Caracterizar el comportamiento posterior al quiebre en
 los niveles 2 500 y 5 000, incluida la localización del límite de memoria, con
 un plan de ejecución que administre los créditos de la capa de datos; (2)
 aislar el efecto de las mitigaciones (niveles de compresión, modos de pooling)
