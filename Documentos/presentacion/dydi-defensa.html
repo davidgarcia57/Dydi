@@ -304,11 +304,13 @@
       </div>
       <div class="col">
         <div class="hero-num" style="color:var(--coral-deep)">23.87<span style="font-size:.42em">%</span></div>
-        <div class="stat-label" style="font-size:1.5em">de las conexiones en vivo se caen<br>a 1 000 usuarios concurrentes</div>
+        <div class="stat-label" style="font-size:1.5em">de las conexiones en vivo<br>no logran establecerse a 1 000 usuarios</div>
         <div style="margin-top:1.6em"><span class="pill pill-bad">Umbral predefinido: 10 %</span></div>
         <p style="margin-top:1.6em">Las tres repeticiones dieron <strong>23.59, 23.87 y
           24.16 %</strong>. Con esa consistencia, el ruido de plataforma queda descartado
-          como explicación.</p>
+          como explicación. Y no son sesiones que se corten a medio vuelo:
+          <strong>todas son rechazos en el handshake</strong>, antes de que el socket
+          exista.</p>
         <p style="margin-top:1em">El plano HTTP, en cambio, <strong>no falla</strong>:
           0 errores en 64 706 peticiones, solo 26 % más lento.</p>
       </div>
@@ -345,7 +347,7 @@
       <div class="link"><b>1 · Conexión</b>Alguien abre un WebSocket</div>
       <div class="link"><b>2 · Verificación</b>realtime pregunta a groups: «¿pertenece a esta sala?»</div>
       <div class="link hot"><b>3 · Congestión</b>Esa ruta toca la base de datos y se satura</div>
-      <div class="link hot"><b>4 · Tormenta</b>Caen conexiones → reintentos → más handshakes</div>
+      <div class="link hot"><b>4 · Tormenta</b>Se rechazan conexiones → reintentos → más handshakes</div>
     </div>
     <p style="margin-top:2.4em">Es una decisión de seguridad correcta, porque cierra el
       sistema por defecto, pero <strong>ata la salud del canal en vivo a la latencia de un
@@ -462,6 +464,7 @@
       <tr><td class="lbl-ko">P95 HTTP <span style="opacity:.6">(límite 800 ms)</span></td><td class="n ko">826 ms (790–847)</td><td class="n ko">1 045 ms (955–1 138)</td></tr>
       <tr><td class="lbl-ko">Conexiones WS caídas <span style="opacity:.6">(límite 10 %)</span></td><td class="n">0.00 % (0–1.92)</td><td class="n ko">23.87 % (23.59–24.16)</td></tr>
       <tr><td class="lbl-ko">P95 establecimiento WS <span style="opacity:.6">(límite 2 s)</span></td><td class="n">918 ms (894–932)</td><td class="n ko">19 974 ms (19 817–20 251)</td></tr>
+      <tr><td>Verificaciones correctas <span style="opacity:.6">(límite &gt; 95 %)</span></td><td class="n">100.00 %</td><td class="n">95.67 % (95.60–95.74)</td></tr>
       <tr><td>RAM pico api-gateway</td><td class="n">43.6 MB</td><td class="n">238.5 MB</td></tr>
       <tr><td>RAM pico realtime</td><td class="n">42.8 MB</td><td class="n">231.3 MB</td></tr>
       <tr><td>RAM pico groups</td><td class="n">51.6 MB</td><td class="n">54.8 MB</td></tr>
@@ -470,7 +473,41 @@
     <p class="cap" style="margin-top:1.4em">Los seis criterios fijados antes de medir:
       latencia HTTP P95 &lt; 800 ms · P99 &lt; 2 000 ms · fallos HTTP &lt; 5 % ·
       establecimiento WS P95 &lt; 2 s · caídas WS &lt; 10 % · verificaciones &gt; 95 %.
-      En rojo, los incumplidos.</p>
+      En rojo, los incumplidos. Las verificaciones cumplen, pero por 0.6 puntos y sin
+      aportar evidencia independiente: sus fallas son las mismas del canal en vivo,
+      diluidas entre cinco veces más comprobaciones del plano HTTP. Es la razón de haber
+      fijado umbrales por plano en vez de un solo indicador agregado.</p>
+  </section>
+
+  <!-- ══ A3 · anexo ══ -->
+  <section class="slide annex" data-t="anexo" data-voz="Keila">
+    <div class="eyebrow">Anexo · fiabilidad de la medición</div>
+    <h2 style="font-size:2.6em">¿Y si fue casualidad?</h2>
+    <div class="cols" style="margin-top:1.2em; align-items:flex-start">
+      <div class="col" style="flex:1.15">
+        <table style="font-size:1.4em">
+          <tr><th>Variable</th><th style="text-align:right">CV a 100</th><th style="text-align:right">CV a 1 000</th></tr>
+          <tr class="bad"><td>Conexiones WS caídas</td><td class="n">173.4 %</td><td class="n">1.2 %</td></tr>
+          <tr><td>P95 establecimiento WS</td><td class="n">2.1 %</td><td class="n">1.1 %</td></tr>
+          <tr><td>P95 HTTP</td><td class="n">3.5 %</td><td class="n">8.8 %</td></tr>
+          <tr><td>RAM pico api-gateway</td><td class="n">0.3 %</td><td class="n">0.5 %</td></tr>
+          <tr><td>RAM pico realtime</td><td class="n">16.3 %</td><td class="n">28.1 %</td></tr>
+        </table>
+        <p class="cap" style="margin-top:1.2em">Coeficiente de variación entre las tres
+          repeticiones. El 173.4 % es artefacto: la media ronda cero (0, 0 y 1.92 %).</p>
+      </div>
+      <div class="col">
+        <p>La conclusión descansa en <strong>la variable más estable de todas</strong>:
+          las caídas a 1 000 VUs, con un CV de 1.2 %.</p>
+        <p style="margin-top:1.2em">La menos estable es la RAM de realtime (28.1 %), y por
+          eso sólo se usa para el patrón grueso —el crecimiento ×5— y nunca para una
+          proyección puntual.</p>
+        <p style="margin-top:1.2em">Dentro de una ventana horaria el sistema es casi
+          determinista. <strong>Entre ventanas distintas, no</strong>: el mismo nivel de
+          100 dio 826 ms y 404 ms en dos sesiones. Por eso se reporta mediana con rango y
+          no corridas únicas.</p>
+      </div>
+    </div>
   </section>
 
   <div class="progress" id="progress"></div>

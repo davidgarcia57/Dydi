@@ -21,7 +21,8 @@ consumo de recursos en microservicios.
 
 > **Una arquitectura de microservicios repartida en cuatro cuentas gratuitas sí
 > sostiene tráfico real, pero se rompe antes y por otra razón de la que se esperaba: a
-> 1 000 conexiones concurrentes se cae una de cada cuatro conexiones en vivo mientras
+> 1 000 conexiones concurrentes una de cada cuatro conexiones en vivo no logra
+> establecerse, mientras
 > la memoria del servicio más cargado va apenas al 46.6 % de su límite. Lo que lo tumba
 > es el acoplamiento entre servicios, con recursos de sobra.**
 
@@ -87,7 +88,7 @@ Objetivo: 13:00. Tope duro: 15:00. Cada quien defiende la parte que ejecutó.
 | 4 | La apuesta metodológica | El tiempo real es *nuestro* a propósito; si lo delegamos, sale del experimento | 0:50 | Irvin |
 | 5 | Cómo se midió | k6 por fuera, telemetría propia por dentro, 4 niveles × 3 repeticiones | 1:20 | Keila |
 | 6 | El piloto que casi nos engaña | 88 % de fallos causados por nuestro propio limitador de tasa | 1:10 | David |
-| 7 | Hallazgo 1: el quiebre | A 1 000 VUs se cae 1 de cada 4 conexiones, más del doble del umbral | 1:30 | Keila |
+| 7 | Hallazgo 1: el quiebre | A 1 000 VUs 1 de cada 4 conexiones no llega a establecerse, más del doble del umbral | 1:30 | Keila |
 | 8 | Hallazgo 2: la memoria sobra | El peor servicio va al 46.6 % del límite y aun así el sistema falla | 1:00 | Keila |
 | 9 | El mecanismo | El handshake en vivo depende de un servicio transaccional | 1:10 | Juan David |
 | 10 | La factura del free tier | Cuotas, pausas y créditos de ráfaga tumbaron el propio experimento | 1:00 | Irvin |
@@ -154,14 +155,17 @@ telemetría del lado del servidor habríamos publicado una mentira con gráficas
 bonitas.»
 
 **[5:50 · L7, Hallazgo 1: el quiebre · Keila]**
-«Este es el resultado. A 100 usuarios concurrentes, cero fallos y cero conexiones
-caídas. A 1 000, el plano HTTP sigue sin fallar, con cero errores en 64 706 peticiones y
-apenas 26 % más lento, pero el canal en vivo se rompe. Se cae el 23.87 % de las
-conexiones, una de cada cuatro. Nuestro umbral, fijado *antes* de correr, era 10 %. Y
-establecer una conexión pasó de novecientos milisegundos a veinte segundos. Miren la
-dispersión: 23.59, 23.87 y 24.16 por ciento en las tres repeticiones. Con esa
-consistencia, la explicación del mal día de la plataforma queda descartada. Es un
-límite del sistema.»
+«Este es el resultado. A 100 usuarios concurrentes, cero fallos HTTP y el canal en vivo
+estable: dos repeticiones en cero caídas y una en 1.92 %. A 1 000, el plano HTTP sigue
+sin fallar, con cero errores en 64 706 peticiones y apenas 26 % más lento, pero el canal
+en vivo se rompe. El 23.87 % de las conexiones no llega a establecerse, una de cada
+cuatro. Nuestro umbral, fijado *antes* de correr, era 10 %. Y las que sí conectaron
+tardaron veinte segundos en el percentil 95, contra novecientos milisegundos a 100.
+Miren la dispersión: 23.59, 23.87 y 24.16 por ciento en las tres repeticiones. Con esa
+consistencia, la explicación del mal día de la plataforma queda descartada. Es un límite
+del sistema. Y un detalle que importa para la lámina siguiente: ninguna de esas fallas
+es una sesión que se corte a medio vuelo. Todas son rechazos en el handshake, antes de
+que el socket exista.»
 
 **[7:20 · L8, Hallazgo 2: la memoria sobra · Keila]**
 «Y aquí está lo que no esperábamos. Nuestra hipótesis decía que moriría por falta de
@@ -222,7 +226,7 @@ sigla que no haya presentado.
 | No decir | Decir |
 |---|---|
 | «El P95 de latencia es 1 045 ms» | «El 95 % de las peticiones respondió en menos de un segundo» |
-| «23.87 % de *drop rate* en WS» | «Se cae una de cada cuatro conexiones en vivo» |
+| «23.87 % de *drop rate* en WS» | «Una de cada cuatro conexiones en vivo no logra conectarse» |
 | «No hubo OOM kill» | «El sistema nunca se quedó sin memoria; iba a la mitad» |
 | «Rampa de 1 000 VUs» | «Mil usuarios simulados conectándose al mismo tiempo» |
 | «*Cold start* de 13.5 s» | «El servicio dormido tarda trece segundos en despertar» |
@@ -238,9 +242,10 @@ completa.
 Se navega con `→` o espacio para avanzar, `←` para retroceder, `F` para pantalla
 completa y `P` para imprimir o exportar a PDF, que es el respaldo si falla el proyector.
 
-Tras la lámina 13 hay dos anexos que no se proyectan en la exposición y solo se
-abren si una pregunta lo pide: la serie de tiempo de memoria y la tabla completa
-de resultados. El archivo tiene 15 láminas en total.
+Tras la lámina 13 hay tres anexos que no se proyectan en la exposición y solo se
+abren si una pregunta lo pide: la serie de tiempo de memoria, la tabla completa de
+resultados y los coeficientes de variación que sostienen la fiabilidad de la medición.
+El archivo tiene 16 láminas en total.
 
 La regla de diseño aplicada es una idea por lámina y un número grande por lámina. El
 texto de la lámina no repite el guion y no hay viñetas para leer en voz alta. Las
@@ -274,12 +279,13 @@ respondemos». Nadie improvisa cifras.
 | Excluyeron corridas, ¿no es escoger datos convenientes? | Juan David | El criterio estaba predefinido en el protocolo y la exclusión fue por causa asignable, nunca por el valor de la métrica. Las corridas excluidas siguen publicadas con su evidencia |
 | ¿Por qué solo dos de los cuatro niveles? | David | Las reglas operativas del free tier agotaron la ventana, y documentarlo ya es un resultado. El quiebre había aparecido en el segundo nivel |
 | ¿El primer piloto no prueba que medían mal? | David | El piloto hizo justo su trabajo, que es validar el instrumento antes de medir. Ese episodio es nuestro aporte metodológico |
-| ¿Por qué medianas y no promedios? | Keila | Por los «vecinos ruidosos» de la capa gratuita. La mediana con rango resiste atípicos y muestra dispersión |
+| ¿Por qué medianas y no promedios? | Keila | Por los «vecinos ruidosos» de la capa gratuita, efecto documentado en la literatura de nubes públicas. La mediana con rango resiste atípicos y muestra la dispersión. El anexo de fiabilidad trae los coeficientes de variación: la variable que sostiene la conclusión tiene el más bajo de todos, 1.2 % |
 | ¿Por qué no llegó el OOM que esperaban? | Juan David | Porque la calidad del canal en vivo se degrada antes. La memoria crece proporcional a las conexiones, sin fuga, y proyectamos el OOM entre 2 500 y 5 000 |
 | ¿Esto lo puede replicar alguien más? | Keila | Sí. Arnés, datos crudos de las once corridas con su *commit*, bitácora y script de regeneración, todo versionado |
-| ¿Qué cambiarían para aguantar más? | Irvin | Aliviar la verificación de membresía por conexión, evaluar mitigaciones con corridas A/B y comparar contra un contenedor de pago único |
+| ¿Qué cambiarían para aguantar más? | Irvin | Primero comprimir, que es la única mitigación cuyo efecto medimos (89.6 % menos bytes) y la que nos dejó fuera de línea. Después desacoplar la verificación de membresía del handshake, que es el mecanismo del quiebre. Las cuatro van ordenadas por costo/beneficio medido en §8.1 del artículo |
 | A 100 VUs su tabla dice 826 ms contra un límite de 800. ¿El quiebre no está en 100? | David | Cruzamos ese criterio y está marcado como hallazgo en la bitácora desde el día de la corrida. No es el punto de quiebre porque el protocolo exige incumplimiento sostenido y el mismo nivel midió 404 ms en otra ventana sobre código equivalente. Y la magnitud no se compara: 3 % de exceso en latencia con cero errores, contra 139 % en caídas |
-| ¿El establecimiento de ~20 s incluye las conexiones que nunca abrieron? | Keila | No, y el sesgo va en nuestra contra. k6 sólo registra ese tiempo cuando el socket abre, así que excluye al 23.87 % que se cayó: el costo real es peor que el publicado. Con la tasa de caídas pasa igual, una sesión puede aportar dos observaciones al denominador. Los dos sesgos hacen que lo reportado sea un piso, no un techo |
+| ¿El establecimiento de ~20 s incluye las conexiones que nunca abrieron? | Keila | No, y ese sesgo va en nuestra contra: k6 registra el tiempo sólo cuando el socket abre, así que los 20 s describen a las que sí conectaron y excluyen al 23.87 % que no. En esa variable lo publicado es un piso. La tasa de caídas, en cambio, es exacta: el instrumento podría sumar dos observaciones por sesión, pero en las tres repeticiones las observaciones coinciden con las sesiones intentadas (4 634, 4 607 y 4 664), así que no hubo doble conteo y todas las fallas son rechazos en el handshake |
+| Uno de sus seis criterios, las verificaciones, pasó con 95.6 %. ¿No es margen de nada? | Keila | Es margen estrecho, y lo declaramos como debilidad del criterio y no del sistema. Sus fallas son las mismas del canal en vivo diluidas entre cinco veces más comprobaciones HTTP, así que un colapso total del tiempo real puede dejarlo en verde. Por eso el veredicto se lee por plano y no por un indicador agregado (§7 del artículo) |
 
 ## a.9 Registro de la simulación de defensa
 
@@ -345,7 +351,7 @@ Jerarquía visual de arriba hacia abajo, pensada para lectura en cascada:
 | Bloque | Contenido | Función |
 |---|---|---|
 | 1 · Titular | «Medimos hasta dónde aguanta gratis» y una línea de contexto | Gancho |
-| 2 · Los tres números | 100 conexiones con holgura · 1 de cada 4 caídas a 1 000 · 46.6 % de memoria usada al fallar | El hallazgo, legible en 5 segundos |
+| 2 · Los tres números | 100 conexiones con holgura · 1 de cada 4 sin conectar a 1 000 · 46.6 % de memoria usada al fallar | El hallazgo, legible en 5 segundos |
 | 3 · El giro | «Esperábamos que muriera de memoria. Se murió de acoplamiento», con las dos figuras enfrentadas | La idea que se comparte |
 | 4 · Lo que de verdad te va a doler | Cuota de transferencia · el servicio se duerme · la base de datos se pausa y tiene créditos | Utilidad práctica |
 | 5 · Qué haríamos distinto | Comprimir · desacoplar la validación del handshake · presupuestar el arranque en frío | Accionable |
@@ -358,7 +364,7 @@ Misma evidencia, otro registro. La comparación con el informe es explícita:
 
 | En el informe académico | En la infografía |
 |---|---|
-| «Conexiones WS caídas: 23.87 % (23.59–24.16), mediana de 3 repeticiones» | «Se cae 1 de cada 4 conexiones» |
+| «Conexiones WS caídas: 23.87 % (23.59–24.16), mediana de 3 repeticiones» | «1 de cada 4 conexiones no logra conectarse» |
 | «El servicio más cargado alcanzó el 46.6 % del límite de 512 MB» | «Le sobraba la mitad de la memoria cuando falló» |
 | «P95 de establecimiento WS: 19 974 ms» | «Conectarse pasó de 1 a 20 segundos» |
 | «Cuota de egreso de 5 GB/mes por cuenta; la Sesión 1 movió ~17.8 GB» | «Nos suspendieron dos cuentas por pasarnos de datos. La prueba tumbó al experimento» |
