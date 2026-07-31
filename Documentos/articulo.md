@@ -86,9 +86,12 @@ arquitecturas monolíticas y de microservicios, encontrando que en máquinas
 individuales de baja potencia el monolito puede superar al microservicio. Es una
 línea base de expectativas para hardware restringido que este estudio no
 replica (no se compara contra un monolito) pero sí contextualiza. Fernando y
-Engel (2025) compararon bibliotecas WebSocket en Node.js y Go con cargas de
-100 a 1 000 clientes, mostrando que las bibliotecas ligeras de Go superan los
-44 000 mensajes/s a carga máxima, lo que fundamenta la elección del lenguaje.
+Engel (2025) compararon cuatro bibliotecas WebSocket de Node.js y Go con cargas
+de hasta 1 000 clientes concurrentes: `ws`, `gorilla/websocket` y
+`coder/websocket` rebasaron los 44 000 mensajes/s en la prueba de eco, frente a
+27 152 de `socket.io`. El antecedente es directo y no analógico, porque
+`coder/websocket` es la biblioteca que sostiene el canal en vivo de este sistema
+(§3.1) y 1 000 clientes concurrentes es el nivel donde aquí aparece el quiebre.
 Nor Sobri et al. (2022) midieron el impacto del tamaño del pool de conexiones a
 bases de datos relacionales en microservicios bajo estrés, antecedente directo
 del acoplamiento con la capa de datos que este trabajo encontró determinante.
@@ -136,8 +139,9 @@ Cuatro servicios en Go 1.24 (enrutador chi v5, driver pgx v5):
 La Tabla 1 recoge cómo cada restricción de la capa gratuita se tradujo en una
 decisión de diseño concreta.
 
-**Tabla 1.** Restricciones de la capa gratuita de Render y decisiones de diseño
-que inducen.
+**Tabla 1**
+
+*Restricciones de la capa gratuita de Render y decisiones de diseño que inducen*
 
 | Restricción de Render Free | Decisión de diseño |
 |---|---|
@@ -199,7 +203,9 @@ pausa durante las corridas para no contaminar percentiles.
 similares, porque una sola corrida en capa gratuita, con vecinos ruidosos, no
 constituye evidencia suficiente. La Tabla 2 detalla el diseño.
 
-**Tabla 2.** Matriz experimental: niveles de carga, repeticiones y tiempos.
+**Tabla 2**
+
+*Matriz experimental: niveles de carga, repeticiones y tiempos*
 
 | Nivel (VUs pico) | Repeticiones | Duración por corrida | Reposo entre corridas |
 |---:|---:|---|---|
@@ -236,7 +242,9 @@ Se corrigió haciendo los límites configurables por variable de entorno, elevad
 a 2 000 req/s solo durante las corridas y conservando los valores de producción
 por defecto, y se repitió el piloto, con el contraste que recoge la Tabla 3.
 
-**Tabla 3.** Piloto 1 (artefacto del instrumento) frente a piloto 2 (válido).
+**Tabla 3**
+
+*Piloto 1 (artefacto del instrumento) frente a piloto 2 (válido)*
 
 | Métrica | Piloto 1 (artefacto) | Piloto 2 (válido) |
 |---|---:|---:|
@@ -259,7 +267,9 @@ tiempo de conexión promedio 682 ms (P95 805 ms); latencia HTTP promedio 221 ms,
 P95 404 ms. La Tabla 4 desglosa el consumo pico de memoria por servicio, sobre
 los 512 MB disponibles.
 
-**Tabla 4.** Consumo pico de memoria por servicio en la línea base (100 VUs).
+**Tabla 4**
+
+*Consumo pico de memoria por servicio en la línea base (100 VUs)*
 
 | Servicio | RAM pico | % del límite |
 |---|---:|---:|
@@ -283,8 +293,9 @@ la ventana experimental (§5.4). El dataset resultó suficiente para responder
 la pregunta de investigación, porque el punto de quiebre apareció ya en el
 segundo nivel. La Tabla 5 contrasta ambos niveles.
 
-**Tabla 5.** Mediana de las 3 repeticiones por nivel; entre paréntesis,
-mín–máx entre repeticiones.
+**Tabla 5**
+
+*Métricas de servicio en los niveles de 100 y 1 000 VUs*
 
 | Métrica | 100 VUs | 1 000 VUs |
 |---|---:|---:|
@@ -296,6 +307,10 @@ mín–máx entre repeticiones.
 | RAM pico realtime | 42.8 MB (36.6–50.7) | 231.3 MB (164.1–293.0) |
 | RAM pico groups | 51.6 MB (51.0–52.3) | 54.8 MB (49.9–60.4) |
 | RAM pico habits | 20.8 MB (20.6–21.0) | 21.5 MB (20.7–21.5) |
+
+*Nota.* Mediana de las tres réplicas por nivel; entre paréntesis, mín–máx entre
+réplicas. En negritas, los valores que cruzan uno de los seis criterios de
+servicio fijados antes de medir.
 
 Los seis criterios de servicio quedaron codificados en el instrumento antes de
 las corridas (§4.3): latencia HTTP P95 < 800 ms, latencia HTTP P99 < 2 000 ms,
@@ -337,13 +352,29 @@ memoria: la holgura que la plataforma ofrece a 100 conexiones concurrentes es
 amplia en memoria, tasa de error y estabilidad del canal en tiempo real, y nula
 en latencia.
 
-![**Figura 1.** A 1 000 conexiones concurrentes se cae ~1 de cada 4 conexiones,
-más del doble del umbral de servicio, con dispersión mínima entre las tres
-repeticiones.](figuras/fig1-caidas-ws-por-nivel.png)
+**Figura 1**
 
-![**Figura 2.** El costo de memoria se concentra en gateway y realtime (×5)
-mientras los servicios transaccionales permanecen planos, y aun así el peor se
-queda a menos de la mitad del límite de 512 MB.](figuras/fig2-ram-por-servicio.png)
+*Conexiones WebSocket caídas por nivel de carga*
+
+![](figuras/fig1-caidas-ws-por-nivel.png)
+
+*Nota.* A 1 000 conexiones concurrentes falla ~1 de cada 4, más del doble del
+umbral de servicio, con dispersión mínima entre las tres réplicas. La barra es
+la mediana de las tres; los puntos, cada réplica. El desglose del instrumento
+sitúa esas fallas en el handshake: son conexiones rechazadas antes de abrirse, no
+sesiones interrumpidas (§7).
+
+**Figura 2**
+
+*RAM pico por servicio en los niveles de 100 y 1 000 VUs*
+
+![](figuras/fig2-ram-por-servicio.png)
+
+*Nota.* El costo de memoria se concentra en gateway y realtime (×5) mientras los
+servicios transaccionales permanecen planos, y aun así el peor se queda a menos
+de la mitad del límite de 512 MB. Cada punto es la mediana de tres réplicas; la
+dispersión entre réplicas se consulta en la Tabla 5, que es donde se ve el rango
+de 164 a 293 MB de realtime.
 
 El contraste entre la Figura 1 y la Figura 2 resume el hallazgo: el sistema
 incumple su umbral de servicio mientras la memoria sobra.
@@ -371,14 +402,20 @@ La serie de tiempo de una corrida del nivel 1 000 (Figura 3) precisa esa
 proyección: el consumo sigue a la rampa de conexiones y se aplana al llegar a
 la meseta, sin crecimiento sostenido después del pico.
 
-![**Figura 3.** El consumo sigue a la rampa y se aplana en la meseta, señal de
-techo de carga y no de fuga de memoria.](figuras/fig3-ram-en-el-tiempo.png)
+**Figura 3**
+
+*RAM por servicio durante una corrida del nivel de 1 000 VUs*
+
+![](figuras/fig3-ram-en-el-tiempo.png)
+
+*Nota.* El consumo sigue a la rampa y se aplana en la meseta, señal de techo de
+carga y no de fuga de memoria. Serie de una sola corrida (réplica 1), muestreada
+cada 5 s desde `/metrics`.
 
 Nota de ventana horaria: el nivel 100 de la matriz reporta un P95 HTTP mayor
 que el del piloto del mismo nivel (826 ms vs. 404 ms, §5.1), ejecutado en otra
-ventana y commit. La diferencia es consistente con la amenaza de "vecinos
-ruidosos" (§7) y refuerza la decisión de reportar dispersión en lugar de
-corridas únicas.
+ventana y commit. Esa brecha se analiza en §5.5, donde separa la repetibilidad
+dentro de una ventana de la reproducibilidad entre ventanas distintas.
 
 ### 5.3 Arranque en frío
 
@@ -399,42 +436,116 @@ despertar se ejecuta como parte del pre-vuelo del instrumento.
 
 La ejecución del experimento reveló que las restricciones operativas del free
 tier actúan sobre el sistema, y sobre el experimento mismo, con la misma
-fuerza que los límites de cómputo. Se documentan cuatro, con su evidencia:
+fuerza que los límites de cómputo. Se documentan cuatro, con su evidencia.
 
-1. **Cuota de egreso (5 GB/mes por cuenta; Render, 2026b).** La Sesión 1 movió ~17.8 GB
-   (~3.03 GB por corrida), dominados por un payload de lectura de ~274 KB sin
-   comprimir; las cuentas del gateway y de groups fueron suspendidas por
-   exceso. La mitigación (compresión gzip en las respuestas) se midió
-   directamente: 270 788 → 28 114 bytes en el cable (−89.6 %), lo que reduce
-   el costo estimado por corrida a ~0.3 GB y vuelve sostenible el experimento.
-2. **Pausa por inactividad de la capa de datos.** Tras 8 días sin actividad
-   (el backend estuvo suspendido por la cuota de egreso), Supabase pausó el
-   proyecto: el pooler dejó de reconocer al tenant (`tenant/user not found`) y
-   todos los servicios con base de datos respondieron errores pese a estar
-   sanos. La restauración manual tomó ~2.5 minutos. La dependencia es
-   silenciosa: los servicios arrancan (el pool conecta de forma perezosa) y el
-   fallo solo aparece en la primera consulta.
-3. **Créditos de ráfaga de la capa de datos.** La instancia de base de datos
-   del plan gratuito (t3a.nano) es "burstable": acumula créditos de CPU en
-   reposo y los consume bajo carga. Dos corridas de re-validación a 1 000 VUs
-   ejecutadas ~1 hora después de restaurar el proyecto (créditos presumiblemente
-   agotados) colapsaron con una firma inequívoca de inanición de E/S:
-   87.9 % de conexiones WS caídas, groups-service con la memoria al tope
-   (518 MB de 512) pero la CPU casi ociosa (0.009–0.026 núcleos, contra 0.135
-   en la Sesión 1 sana), pool de conexiones saturado (10/10, cientos de
-   esperas) y una tormenta de reconexiones (17 151 sesiones WS intentadas contra
-   4 607–4 664 por corrida en la Sesión 1). En reposo, la misma consulta pesada resolvía en
-   74 ms y el servicio atendía 60/60 peticiones concurrentes con mediana de
-   0.54 s: lo que estrangula al servicio es el historial de consumo de la capa
-   de datos. Ambas corridas se excluyeron del dataset por criterio predefinido
-   (interferencia de configuración/estado) y quedan como evidencia operativa.
-4. **El modo de pooling importa (y no se ve).** El mismo colapso se reprodujo
-   con el pooler en modo sesión (5432) y en modo transacción (6543), lo que
-   descartó al modo como causa raíz en este caso; pero el diagnóstico
-   documentó que en modo sesión cada conexión cliente retiene una conexión de
-   backend, un multiplicador de riesgo bajo concurrencia que el diseño ya
-   anticipaba (`QueryExecModeExec` para compatibilidad con el pooler
-   transaccional).
+#### 5.4.1 Cuota de egreso
+
+La cuota es de 5 GB al mes por cuenta (Render, 2026b). La Sesión 1 movió
+~17.8 GB (~3.03 GB por corrida), dominados por un payload de lectura de ~274 KB
+sin comprimir, y las cuentas del gateway y de groups fueron suspendidas por
+exceso. La mitigación, compresión gzip en las respuestas, se midió
+directamente: 270 788 → 28 114 bytes en el cable (−89.6 %), lo que reduce el
+costo estimado por corrida a ~0.3 GB y vuelve sostenible el experimento.
+
+#### 5.4.2 Pausa por inactividad de la capa de datos
+
+Tras 8 días sin actividad, con el backend suspendido por la cuota de egreso,
+Supabase pausó el proyecto: el pooler dejó de reconocer al tenant
+(`tenant/user not found`) y todos los servicios con base de datos respondieron
+errores pese a estar sanos. La restauración manual tomó ~2.5 minutos. La
+dependencia es silenciosa, porque los servicios arrancan igual —el pool conecta
+de forma perezosa— y el fallo solo aparece en la primera consulta.
+
+#### 5.4.3 Créditos de ráfaga de la capa de datos
+
+La instancia de base de datos del plan gratuito (t3a.nano) es «burstable»:
+acumula créditos de CPU en reposo y los consume bajo carga. Dos corridas de
+re-validación a 1 000 VUs ejecutadas ~1 hora después de restaurar el proyecto,
+con los créditos presumiblemente agotados, colapsaron con una firma inequívoca
+de inanición de E/S: 87.2 % y 87.9 % de conexiones WS caídas, groups-service con
+la memoria al tope (518 MB de 512) pero la CPU casi ociosa (0.009–0.026 núcleos,
+contra 0.135 en la Sesión 1 sana), pool de conexiones saturado (10/10, cientos
+de esperas) y una tormenta de reconexiones (17 151 sesiones WS intentadas contra
+4 607–4 664 por corrida en la Sesión 1). En reposo, la misma consulta pesada
+resolvía en 74 ms y el servicio atendía 60/60 peticiones concurrentes con
+mediana de 0.54 s: lo que estrangula al servicio es el historial de consumo de
+la capa de datos. Ambas corridas se excluyeron del dataset por criterio
+predefinido, interferencia de configuración o de estado, y quedan como evidencia
+operativa.
+
+#### 5.4.4 El modo de pooling importa, y no se ve
+
+El mismo colapso se reprodujo con el pooler en modo sesión (5432) y en modo
+transacción (6543), lo que descartó al modo como causa raíz en este caso. Pero
+el diagnóstico documentó que en modo sesión cada conexión cliente retiene una
+conexión de backend, un multiplicador de riesgo bajo concurrencia que el diseño
+ya anticipaba (`QueryExecModeExec` para compatibilidad con el pooler
+transaccional).
+
+### 5.5 Fiabilidad de la medición
+
+Las tres réplicas de cada nivel corrieron sobre el mismo *commit*, en la misma
+ventana horaria y con el mismo pre-vuelo, así que miden repetibilidad y no
+reproducibilidad: dicen cuánto varía el sistema cuando nada cambia, no cuánto
+varía entre condiciones distintas. La Tabla 6 recoge el coeficiente de variación
+(CV = desviación estándar / media) de cada variable dependiente.
+
+**Tabla 6**
+
+*Coeficiente de variación entre las tres réplicas de cada nivel*
+
+| Variable | CV a 100 VUs | CV a 1 000 VUs |
+|---|---:|---:|
+| Conexiones WS caídas | 173.4 % | **1.2 %** |
+| P95 de establecimiento WS | 2.1 % | 1.1 % |
+| P95 HTTP | 3.5 % | 8.8 % |
+| RAM pico api-gateway | 0.3 % | 0.5 % |
+| RAM pico groups | 1.3 % | 9.5 % |
+| RAM pico habits | 1.0 % | 2.2 % |
+| RAM pico realtime | 16.3 % | **28.1 %** |
+
+*Nota.* Calculado sobre las tres réplicas válidas de cada nivel en la Sesión 1.
+En negritas, los dos valores que se discuten en el texto.
+
+La conclusión central descansa en la variable más estable del conjunto: las
+caídas de conexión a 1 000 VUs, con un CV de 1.2 % y 0.57 puntos porcentuales de
+rango entre réplicas. Eso descarta el ruido de plataforma como explicación del
+quiebre. En el extremo opuesto, la RAM de realtime es la menos repetible
+(CV de 28.1 %, entre 164 y 293 MB), así que sostiene el patrón grueso, el
+crecimiento ×5 en la ruta WS, y queda fuera de cualquier proyección puntual. El
+CV de 173.4 % en las caídas a 100 VUs no es dispersión sino artefacto: la media
+ronda cero, con dos réplicas en 0 % y una en 1.92 %, y el coeficiente pierde
+sentido cuando el denominador tiende a cero.
+
+La reproducibilidad entre ventanas es otro asunto, y es peor. El mismo nivel de
+100 VUs dio 404 ms de P95 HTTP en el piloto válido y 826 ms en la matriz (§5.2),
+más del doble, sobre un código que difiere en un endpoint ajeno a las rutas
+medidas. Dentro de una ventana el sistema es casi determinista; entre ventanas
+separadas por días, no. Esa asimetría es en sí un resultado sobre la capa
+gratuita, concuerda con lo que Leitner y Cito (2016) documentan para nubes
+públicas, y es la razón de reportar mediana con rango en lugar de corridas
+únicas, el criterio que Georges et al. (2007) fijaron para medir rendimiento en
+entornos no deterministas.
+
+Con n = 3 por nivel no se aplican pruebas de significancia, y se reporta
+estadística descriptiva: mediana, rango y CV. La distancia entre lo medido y el
+umbral en la variable que sostiene la conclusión, 23.87 % contra un límite de
+10 %, hace que el veredicto no dependa de un contraste inferencial.
+
+Tres soportes adicionales respaldan la trazabilidad del dato. El instrumento
+quedó versionado con el *commit hash* del código medido en cada `metadata.json`.
+El banco, los estadísticos y las seis figuras se regeneran con un solo comando
+desde los artefactos crudos: la regeneración de control ejecutada al cerrar el
+informe reprodujo `stats.json`, el banco y las tres figuras de forma idéntica
+byte a byte, de modo que ninguna cifra depende de una transcripción manual. Y
+las 11 corridas constan en la bitácora del experimento, 7 válidas y 4 excluidas,
+cada exclusión con su causa asignable (§7).
+
+El plano HTTP pide una nota de integridad. El escenario de tráfico REST usa
+llegadas a tasa constante, y k6 descarta iteraciones cuando no alcanza a
+sostener la tasa; a 1 000 VUs descartó entre 12 y 25 de unas 10 800 iteraciones
+por corrida. El 0 % de fallos HTTP no es, por tanto, un artefacto de peticiones
+que nunca se intentaron.
 
 ## 6. Discusión
 
@@ -452,13 +563,21 @@ Sesión 1 ya operaba al 100 % de su CPU, y la degradación se amplifica a
 tormenta. El plano HTTP, sin estado y con respuestas acotadas, se degrada de
 forma gradual (P95 +26 %) sin fallar.
 
+Conviene descartar la explicación más simple. La biblioteca de WebSocket no es el
+cuello de botella: Fernando y Engel (2025) midieron `coder/websocket` por encima
+de los 44 000 mensajes/s con 1 000 clientes concurrentes, el mismo orden de
+concurrencia en el que aquí falla el canal. Y el desglose del instrumento
+localiza las fallas antes de que el socket llegue a existir, en el rechazo del
+handshake y no en la sesión establecida (§7). Lo que se agota no es la capacidad
+de sostener sockets, sino la ruta de autorización que precede a cada uno.
+
 **¿La fragmentación en cuatro cuentas aísla o propaga los fallos?** Ambas
 cosas, y en direcciones instructivas. Aísla los presupuestos: el agotamiento
 de egreso suspendió las cuentas del gateway y de groups sin tocar las de
 habits y realtime. Pero propaga por las dependencias: un realtime-service
 perfectamente sano (104–137 MB, cero eventos perdidos en su difusor) entregó
-87.9 % de fallos de conexión porque su verificación de membresía atravesaba un
-groups-service bloqueado. En esta clase de arquitectura, el aislamiento de
+87.2 % y 87.9 % de fallos de conexión en las dos corridas, porque su
+verificación de membresía atravesaba un groups-service bloqueado. En esta clase de arquitectura, el aislamiento de
 recursos no implica aislamiento de fallos (Newman, 2021).
 
 **¿Qué margen real ofrece para uso académico?** A 100 conexiones concurrentes
@@ -504,16 +623,28 @@ después.
 
 ## 7. Amenazas a la validez
 
+Se sigue el esquema de cuatro categorías que Runeson y Höst (2009) proponen para
+estudios de caso en ingeniería de software: validez de constructo, validez
+interna, validez externa y fiabilidad.
+
 - **Constructo (carga de un solo usuario):** todos los VUs se autentican con la
   misma cuenta; los patrones de consulta y caché de base de datos no representan
   a miles de usuarios distintos. El límite de tasa por usuario se elevó por
   configuración durante las corridas (§4.6), documentando los valores.
 - **Interna (ruido de la plataforma):** en capa gratuita los recursos son
-  compartidos con inquilinos desconocidos ("vecinos ruidosos"); se mitiga con
-  3 repeticiones por nivel en ventanas horarias similares y reportando
+  compartidos con inquilinos desconocidos ("vecinos ruidosos"), un efecto que
+  Leitner y Cito (2016) documentan como propio de las nubes públicas; se mitiga
+  con 3 repeticiones por nivel en ventanas horarias similares y reportando
   la dispersión junto con los promedios. Errores transitorios del borde
   (Cloudflare 520/502) se observaron a razón de ~1/40 peticiones incluso en
   reposo.
+- **Fiabilidad (repetibilidad de la medición):** las tres réplicas por nivel
+  arrojan un CV de 1.2 % en la variable que sostiene la conclusión y de 28.1 % en
+  la menos estable del conjunto (§5.5). La repetibilidad dentro de una ventana es
+  alta y la reproducibilidad entre ventanas es baja, y por eso ninguna afirmación
+  del informe descansa en una corrida única. El arnés, los datos crudos y el
+  procedimiento de regeneración se publican para que un tercero pueda repetir la
+  medición (§9).
 - **Externa (generalización):** es un estudio de caso de un sistema (Go +
   Render + Supabase); los hallazgos informan sobre esta clase de arquitectura,
   no sobre cualquier PaaS gratuita. La replicabilidad se apoya en el artefacto
@@ -521,16 +652,29 @@ después.
 - **Instrumento (inyector único):** k6 corre desde una sola máquina/red; el
   ancho de banda del inyector podría haber sido cuello de botella en los
   niveles altos, que finalmente no se ejecutaron.
-- **Instrumento (definición de las métricas del canal en vivo):** dos decisiones
-  del inyector sesgan los resultados del plano WebSocket hacia la subestimación.
-  El tiempo de establecimiento se registra sólo cuando el socket alcanza el
-  estado abierto, de modo que los 19 974 ms del nivel 1 000 describen a las
-  conexiones que sí se establecieron y excluyen al 23.87 % que no lo consiguió.
-  La tasa de caídas acumula una observación al abrir la conexión y otra al
-  fallar, por lo que una misma sesión puede aportar dos entradas al denominador
-  y el 23.87 % queda por debajo de la proporción real de sesiones caídas. Ambos
-  sesgos operan en la misma dirección: el deterioro reportado es un piso del
-  deterioro real, no un techo.
+- **Instrumento (definición de las métricas del canal en vivo):** el tiempo de
+  establecimiento se registra sólo cuando el socket alcanza el estado abierto, de
+  modo que los 19 974 ms del nivel 1 000 describen a las conexiones que sí se
+  establecieron y excluyen al 23.87 % que no lo consiguió; en esa variable el
+  deterioro reportado es un piso y no un techo. La tasa de caídas, en cambio,
+  admite lectura exacta. El instrumento suma una observación al abrir la conexión
+  y otra al fallar, así que una misma sesión podría aportar dos entradas al
+  denominador; pero en las tres réplicas del nivel 1 000 el número de
+  observaciones coincide exactamente con el de sesiones intentadas (4 634, 4 607
+  y 4 664), de modo que no hubo doble conteo y las 1 106, 1 087 y 1 127 fallas
+  provienen íntegras del rechazo en el handshake, ninguna de una sesión ya
+  abierta. Eso precisa la naturaleza del quiebre, conexiones que no llegan a
+  establecerse en lugar de sesiones que se interrumpen, y respalda el mecanismo
+  de §6. El doble conteo sí aparece en la tercera réplica del nivel 100, con
+  8 sesiones, donde mueve la tasa de 1.96 % a 1.92 %.
+- **Instrumento (insensibilidad del criterio agregado):** el criterio de
+  verificaciones correctas > 95 % se cumplió en los dos niveles, pero por margen
+  estrecho a 1 000 VUs (95.60 a 95.74 %) y sin aportar evidencia independiente:
+  sus fallas son exactamente las del canal en vivo, diluidas entre las
+  verificaciones del plano HTTP, unas cinco veces más numerosas por corrida. Un
+  colapso completo del canal en tiempo real puede dejar ese criterio en verde, lo
+  que justifica haber fijado umbrales por plano en lugar de un solo indicador
+  agregado.
 - **Alcance (niveles 2 500 y 5 000 no ejecutados):** el diseño contemplaba
   cuatro niveles; las restricciones operativas de la capa gratuita (§5.4)
   agotaron la ventana experimental antes de completarlos. El punto de quiebre
@@ -592,6 +736,30 @@ Ninguno de los dos diagnósticos era posible desde el cliente. El arnés complet
 por servicio, orquestación y bitácora) es replicable a costo cero y se publica
 junto con los datos crudos.
 
+### 8.1 Recomendaciones para la práctica
+
+Las recomendaciones van ordenadas por la relación entre costo y beneficio que
+este estudio pudo medir, no por la que suele suponerse.
+
+1. **Comprimir las respuestas antes que cualquier otra optimización.** Es la
+   única mitigación cuyo efecto se midió de forma directa, un 89.6 % menos de
+   bytes en el cable, y ataca la restricción que dejó el sistema fuera de línea
+   (§5.4.1).
+2. **Desacoplar la verificación de membresía del handshake WebSocket**, con caché
+   con expiración o con un token firmado de sala. Es el mecanismo identificado
+   del quiebre (§6) y explica que un servicio de tiempo real sano entregara 87 %
+   de fallos por una capa transaccional bloqueada.
+3. **Tratar el ciclo de la capa de datos como decisión de diseño, no como detalle
+   de operación.** Los créditos de ráfaga hacen que el mismo sistema rinda
+   distinto según su historial de consumo (§5.4.3), así que dejarlo al azar de la
+   operación deja el rendimiento al azar.
+4. **Presupuestar el arranque en frío dentro de la experiencia de usuario.** Los
+   30 a 60 s de percepción de caída (§5.3) pesan más sobre un usuario real que
+   los 200 ms de diferencia en el P95, y se atienden con despertar en cascada y
+   un pinger externo.
+
+### 8.2 Trabajo futuro
+
 Quedan cuatro líneas abiertas. (1) Caracterizar el comportamiento posterior al quiebre en
 los niveles 2 500 y 5 000, incluida la localización del límite de memoria, con
 un plan de ejecución que administre los créditos de la capa de datos; (2)
@@ -617,7 +785,14 @@ proyecto, que es de acceso público: `https://github.com/davidgarcia57/Dydi`.
   WebSocket libraries on Node.js and Golang. *Sinkron: Jurnal dan Penelitian
   Teknik Informatika, 9*(4), 2051–2060.
   https://doi.org/10.33395/sinkron.v9i4.15266
+- Georges, A., Buytaert, D., & Eeckhout, L. (2007). Statistically rigorous Java
+  performance evaluation. *Proceedings of the 22nd Annual ACM SIGPLAN Conference
+  on Object-Oriented Programming Systems, Languages and Applications*, 57–76.
+  https://doi.org/10.1145/1297027.1297033
 - Grafana Labs. (2026). *k6 documentation*. https://grafana.com/docs/k6/
+- Leitner, P., & Cito, J. (2016). Patterns in the chaos—A study of performance
+  variation and predictability in public IaaS clouds. *ACM Transactions on
+  Internet Technology, 16*(3), 1–23. https://doi.org/10.1145/2885497
 - Lemos, E., Oliveira, R., Rodrigues, J., & Oliveira Neto, R. F. (2025). Deep
   learning model deployment in multiple cloud providers: An exploratory study
   using low computing power environments. *arXiv*.
@@ -625,15 +800,18 @@ proyecto, que es de acceso público: `https://github.com/davidgarcia57/Dydi`.
 - Little, J. D. C. (1961). A proof for the queuing formula: L = λW.
   *Operations Research, 9*(3), 383–387. https://doi.org/10.1287/opre.9.3.383
 - Newman, S. (2021). *Building microservices* (2.ª ed.). O'Reilly Media.
+- Nor Sobri, N. A., Abas, M. A. H., Yassin, I. M., Megat Ali, M. S. A.,
+  Md Tahir, N., Zabidi, A., & Rizman, Z. I. (2022). A study of database
+  connection pool in microservice architecture. *JOIV: International Journal
+  on Informatics Visualization, 6*(2-2), 566–571.
+  https://doi.org/10.30630/joiv.6.2-2.1094
 - Prometheus Authors. (2026). *Prometheus documentation*.
   https://prometheus.io/docs/
 - Render. (2026a). *Free instance types*. Render Docs.
   https://render.com/docs/free
 - Render. (2026b). *Outbound bandwidth*. Render Docs.
   https://render.com/docs/outbound-bandwidth
-- Nor Sobri, N. A., Abas, M. A. H., Yassin, I. M., Megat Ali, M. S. A.,
-  Md Tahir, N., Zabidi, A., & Rizman, Z. I. (2022). A study of database
-  connection pool in microservice architecture. *JOIV: International Journal
-  on Informatics Visualization, 6*(2-2), 566–571.
-  https://doi.org/10.30630/joiv.6.2-2.1094
+- Runeson, P., & Höst, M. (2009). Guidelines for conducting and reporting case
+  study research in software engineering. *Empirical Software Engineering,
+  14*(2), 131–164. https://doi.org/10.1007/s10664-008-9102-8
 - Supabase. (2026). *Supabase documentation*. https://supabase.com/docs

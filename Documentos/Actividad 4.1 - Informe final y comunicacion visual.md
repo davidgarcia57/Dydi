@@ -38,8 +38,10 @@ las cubre.
 | Equipos que evalúan desplegar sin presupuesto | El veredicto práctico y sus límites, sin metodología | Producto de divulgación (Act. 4.2b) |
 
 Decisión tomada: **informe académico en formato de artículo científico (IMRyD
-extendido)** con normas APA 7.ª edición. Se entrega a una columna, con una extensión
-objetivo de ~6 páginas.
+extendido)** con normas APA 7.ª edición. Se entrega a una columna. El documento
+resultante son unas 7 200 palabras que, en la maqueta de salida (Carta, márgenes de
+2.5 cm), ocupan 21 páginas con sus 6 tablas, 3 figuras y la bibliografía. El reparto
+por sección está en la tabla de §a.2.
 
 Las tres opciones del planteamiento se evaluaron así:
 
@@ -58,22 +60,22 @@ Las tres opciones del planteamiento se evaluaron así:
 ## a.2 Estructura completa del informe
 
 Cada sección declara de dónde sale su evidencia y con qué unidad del curso se
-articula. Las extensiones son objetivo, medidas sobre la maquetación entregada a
-una columna.
+articula. La columna de peso es la proporción de palabras que cada sección ocupa en
+el informe ya entregado, medida sobre `articulo.md`; no es una extensión objetivo.
 
-| # | Sección | Contenido | Ext. | Origen de la evidencia | Articulación |
+| # | Sección | Contenido | Peso | Origen de la evidencia | Articulación |
 |---|---|---|---|---|---|
-| 0 | Título, autores, resumen y palabras clave | Resumen estructurado (problema, método, resultado, aporte) | 0.3 p | Síntesis final | — |
-| 1 | Introducción | Problema (barrera económica del despliegue), pregunta de investigación, tres contribuciones | 0.6 p | Protocolo v2 §1–§3 | Unidad I (planteamiento y objetivos) |
-| 2 | Trabajo relacionado | Cuatro antecedentes y el hueco que deja la literatura | 0.5 p | Act. 3.1 (matriz de fuentes) | Unidad II (marco teórico) |
-| 3 | Arquitectura del sistema bajo prueba | Topología, los 4 servicios, decisiones de diseño condicionadas por el free tier | 0.7 p | Código del repositorio | — |
-| 4 | Metodología | Diseño, población/muestra, instrumentos, matriz experimental, procedimiento y validación del instrumento (piloto) | 1.2 p | Protocolo v2 · Act. 3.2 · Act. 3.3 | Unidad III (recolección) |
-| 5 | Resultados | Línea base, matriz ejecutada y punto de quiebre, arranque en frío, hallazgos operativos del free tier | 1.4 p | Act. 3.4 (banco) · Act. 3.5 | Unidad III |
-| 6 | Discusión | Mecanismo del quiebre, aislamiento frente a propagación, margen real de uso, traducción a usuarios, costo operativo | 1.0 p | Act. 3.5 y literatura de §2 | Unidad II y III |
-| 7 | Amenazas a la validez | Constructo, interna, externa, instrumento, alcance, exclusiones | 0.5 p | Bitácora `matriz.log` | Unidad III |
-| 8 | Conclusiones y trabajo futuro | Respuesta a la pregunta, viabilidad operativa, aporte metodológico, 4 líneas futuras | 0.5 p | Síntesis | Unidad I (cierre del objetivo) |
-| 9 | Disponibilidad de datos y código | Repositorio, arnés y datos crudos con *commit hash* por corrida | 0.1 p | `load-tests/` | — |
-| 10 | Referencias (APA 7) | 11 fuentes: 3 artículos arbitrados, 1 libro y 1 preprint, más documentación técnica | 0.4 p | Act. 3.1 | Unidad II |
+| 0 | Título, autores, resumen y palabras clave | Resumen estructurado (problema, método, resultado, aporte) | 5 % | Síntesis final | — |
+| 1 | Introducción | Problema (barrera económica del despliegue), pregunta de investigación, tres contribuciones | 5 % | Protocolo v2 §1–§3 | Unidad I (planteamiento y objetivos) |
+| 2 | Trabajo relacionado | Cuatro antecedentes y el hueco que deja la literatura | 4 % | Act. 3.1 (matriz de fuentes) | Unidad II (marco teórico) |
+| 3 | Arquitectura del sistema bajo prueba | Topología, los 4 servicios, decisiones de diseño condicionadas por el free tier | 4 % | Código del repositorio | — |
+| 4 | Metodología | Diseño, población/muestra, instrumentos, matriz experimental, procedimiento y validación del instrumento (piloto) | 10 % | Protocolo v2 · Act. 3.2 · Act. 3.3 | Unidad III (recolección) |
+| 5 | Resultados | Línea base, matriz ejecutada y punto de quiebre, arranque en frío, hallazgos operativos del free tier, fiabilidad de la medición | 35 % | Act. 3.4 (banco) · Act. 3.5 | Unidad III |
+| 6 | Discusión | Mecanismo del quiebre, aislamiento frente a propagación, margen real de uso, traducción a usuarios, costo operativo | 11 % | Act. 3.5 y literatura de §2 | Unidad II y III |
+| 7 | Amenazas a la validez | Constructo, interna, externa y fiabilidad (esquema de Runeson y Höst), instrumento, alcance, exclusiones | 11 % | Bitácora `matriz.log` | Unidad III |
+| 8 | Conclusiones y trabajo futuro | Respuesta a la pregunta, viabilidad operativa, aporte metodológico, 4 recomendaciones para la práctica y 4 líneas futuras | 10 % | Síntesis | Unidad I (cierre del objetivo) |
+| 9 | Disponibilidad de datos y código | Repositorio, arnés y datos crudos con *commit hash* por corrida | 1 % | `load-tests/` | — |
+| 10 | Referencias (APA 7) | 14 fuentes: 6 artículos de revista con revisión por pares (5 con indexación internacional verificable), 1 ponencia arbitrada, 1 libro, 1 preprint sin arbitrar y 5 documentos técnicos fechados | 4 % | Act. 3.1 | Unidad II |
 
 Hay dos decisiones de estructura que conviene poder sostener en la defensa.
 
@@ -111,7 +113,7 @@ y un revisor distintos.
 ## a.4 Criterios editoriales comunes
 
 Estas reglas se acordaron antes de repartir la redacción, para que el documento
-conserve una sola voz pese a tener seis redactores.
+conserve una sola voz pese a repartirse entre los cuatro integrantes del equipo.
 
 Ninguna cifra entra al texto sin procedencia. Toda cifra debe existir en
 `load-tests/analysis/stats.json` o en un artefacto de corrida; si no está ahí, no se
@@ -191,8 +193,8 @@ movió unos 17.8 GB contra los 5 GB mensuales por cuenta y provocó la suspensi�
 dos cuentas, y la compresión gzip midió 270 788 a 28 114 bytes, un 89.6 % menos. La
 pausa de la capa de datos tras 8 días de inactividad, con restauración manual de unos
 2.5 minutos. Los créditos de ráfaga de la instancia de base de datos, donde dos
-corridas colapsaron con 87.9 % de caídas, memoria al tope y CPU ociosa, la firma de
-una inanición de E/S. Y el modo de *pooling*, que quedó descartado como causa raíz en
+corridas colapsaron con 87.2 % y 87.9 % de caídas, memoria al tope y CPU ociosa, la
+firma de una inanición de E/S. Y el modo de *pooling*, que quedó descartado como causa raíz en
 este caso pero documentado como multiplicador de riesgo.
 
 ## b.3 Discusión: vínculo con el marco teórico y con la hipótesis
@@ -242,7 +244,10 @@ que se pudo medir:
 ## b.5 Confiabilidad, validez y limitaciones
 
 Esta declaración es requisito del entregable, y se sostiene con la dispersión medida
-en lugar de con afirmaciones cualitativas.
+en lugar de con afirmaciones cualitativas. Vive también dentro del informe: §5.5 de
+`articulo.md` recoge la tabla de coeficientes de variación y §7 incorpora la fiabilidad
+como la cuarta categoría de validez del esquema que Runeson y Höst (2009) proponen para
+estudios de caso en ingeniería de software, junto a constructo, interna y externa.
 
 ### Confiabilidad (repetibilidad de la medición)
 
@@ -316,8 +321,9 @@ publicado.
    (Cloudflare 502/520) a razón de aproximadamente 1 de cada 40 peticiones incluso en
    reposo.
 
-> Entregable parcial verificable (b): §5, §6, §7 y §8 de `articulo.md`, más el borrador
-> previo de la Actividad 3.5 del que derivan.
+> Entregable parcial verificable (b): §5, §6, §7 y §8 de `articulo.md` —con la
+> fiabilidad declarada en §5.5, las amenazas a la validez en §7 y las recomendaciones
+> en §8.1—, más el borrador previo de la Actividad 3.5 del que derivan.
 
 ---
 
@@ -338,8 +344,12 @@ algunas sirven para otro público aunque no funcionen dentro del informe.
 A las tres figuras finales se les aplicaron cuatro reglas de forma. El límite o umbral
 siempre queda visible, porque una medición sin su criterio no dice nada. La escala de
 magnitud arranca en cero. El valor va etiquetado junto a la marca, sin rejilla densa. Y
-los puntos de las repeticiones se dibujan junto a la mediana, para que la dispersión se
-vea sin ir a la tabla.
+donde la figura compara niveles, los puntos de las repeticiones se dibujan junto a la
+mediana para que la dispersión se vea sin ir a la tabla: eso es el caso de la Figura 1.
+En el *dumbbell* de la Figura 2 se dibujan solo las medianas, porque sobre un eje que
+llega a 512 MB los tres puntos de cada extremo se apilan hasta volverse un trazo único;
+su dispersión se remite a la Tabla 5 y queda declarada en el pie de la figura. La
+Figura 3 es una corrida única, así que la regla no le aplica.
 
 En el *dumbbell* de H2 esa última regla rinde un beneficio extra. Como el eje llega
 hasta 512 MB, el espacio vacío a la derecha de los puntos es la holgura de memoria: el
@@ -360,10 +370,12 @@ movimiento donde hace falta y no antes; ninguna se muestra «porque ya la tenía
 | 5 | Resolución: el veredicto con su precio | Sirve hasta cientos de usuarios concurrentes, y la factura llega por cuotas, pausas y créditos antes que por RAM | Figura 3 (la meseta) y §5.4 |
 
 **Regla de una frase por figura.** El pie de cada figura afirma algo. Describir los
-ejes es trabajo de la propia figura.
+ejes es trabajo de la propia figura. En el informe esa frase ocupa la *Nota* que APA 7
+coloca debajo de la imagen, mientras el número en negritas y el título en cursiva van
+arriba, como pide la norma: la afirmación se conserva y el formato cumple.
 
-- Figura 1: «A 1 000 conexiones concurrentes se cae ~1 de cada 4 conexiones, más del
-  doble del umbral, con dispersión mínima entre repeticiones.»
+- Figura 1: «A 1 000 conexiones concurrentes falla ~1 de cada 4, más del doble del
+  umbral, con dispersión mínima entre repeticiones.»
 - Figura 2: «El costo se concentra en gateway y realtime (×5) mientras los servicios
   transaccionales permanecen planos, y aun así el peor se queda a menos de la mitad del
   límite.»
@@ -398,7 +410,7 @@ en cinco segundos y a quien quiere la causa raíz.
 
 | Dimensión | Indicador | Fuente | Valor observado |
 |---|---|---|---|
-| Acoplamiento | Dependencia del handshake WS con `groups-service` | Diseño e incidente de la Sesión 2 | Un realtime sano entregó 87.9 % de fallos por un groups bloqueado |
+| Acoplamiento | Dependencia del handshake WS con `groups-service` | Diseño e incidente de la Sesión 2 | Un realtime sano entregó 87.2 % y 87.9 % de fallos por un groups bloqueado |
 | Cómputo | CPU del gateway durante la corrida | `/metrics` | 100 % de su asignación (0.1 vCPU) en Sesión 1 |
 | Capa de datos | Saturación del *pool* de conexiones | `/metrics` (pgx) | 10/10 en uso, cientos de esperas en el colapso |
 | Cuota | Egreso por corrida frente a 5 GB/mes por cuenta | Panel de Render | ~3.03 GB por corrida, ~0.3 GB con gzip (89.6 % menos) |
@@ -427,6 +439,11 @@ Las tres elegidas están insertadas en `articulo.md` §5.2 como Figuras 1, 2 y 3
 con copias versionadas en `Documentos/figuras/` para que el documento no dependa
 de `load-tests/analysis/`, que está fuera del control de versiones.
 
+La regeneración de control ejecutada al cerrar esta actividad reprodujo `stats.json`,
+el banco y las tres figuras del informe de forma idéntica byte a byte a partir de los
+artefactos crudos, lo que confirma que la cadena entre el dato y la figura no depende
+de ningún paso manual.
+
 Durante esta actividad se detectó y corrigió un defecto. En `fig_h1_pastel.png` la
 leyenda se recortaba por el borde derecho del lienzo, porque `tight_layout` no
 contempla una leyenda anclada fuera de los ejes. Esa figura no entra al informe, pero
@@ -442,8 +459,8 @@ salidas.
 # Cierre: integración del informe final
 
 Con las tres subtareas completadas, el informe final integrado es
-`Documentos/articulo.md`, con 10 secciones, 3 figuras, 5 tablas y 11 referencias
-en APA 7. Quedan dos pendientes editoriales
+`Documentos/articulo.md`, con las once secciones de §a.2, 3 figuras, 6 tablas y
+14 referencias en APA 7. Quedan dos pendientes editoriales
 declarados en el propio documento: la traducción del resumen al inglés si la sede lo
 exige, y la decisión sobre publicar el repositorio o un espejo para revisión.
 
