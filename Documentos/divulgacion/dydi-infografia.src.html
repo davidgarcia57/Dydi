@@ -12,6 +12,14 @@
   con la opción de gráficos de fondo activada). Cabe en UNA página.
 -->
 <style>
+  /* Tipografias de la marca, embebidas por build_visuales.py (subconjunto latino
+     de las variables de Google Fonts, OFL). Sin esto la pieza se imprime con
+     Georgia o Liberation Serif y pierde la identidad de Dydi. */
+  @font-face{font-family:'Newsreader';font-style:normal;font-weight:400 700;
+    font-display:block;src:url(FONT:Newsreader-sub.woff2) format('woff2')}
+  @font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:400 700;
+    font-display:block;src:url(FONT:HankenGrotesk-sub.woff2) format('woff2')}
+
   :root{
     --cream:#F4EEE3; --surface:#FCF9F3; --paper:#FFFFFF; --hairline:#E7DECD;
     --ink:#2A251F; --ink-soft:#6F6557; --ink-faint:#A89C89;
@@ -25,7 +33,7 @@
        display:flex; justify-content:center; padding:8mm 0; -webkit-font-smoothing:antialiased}
 
   .sheet{
-    width:210mm; min-height:297mm; padding:9mm 11mm 7mm;
+    width:210mm; min-height:297mm; padding:8.5mm 11mm 6mm;
     background:var(--cream); box-shadow:0 6mm 18mm rgba(42,37,31,.25);
     display:flex; flex-direction:column;
   }
@@ -35,13 +43,14 @@
   .deck{font-size:8.5pt; line-height:1.4; color:var(--ink-soft); margin-top:2mm; max-width:170mm}
   .deck b{color:var(--ink)}
 
-  h2{font-family:var(--serif); font-size:12pt; font-weight:600; margin-bottom:1.8mm}
-  .sec{margin-top:3.6mm}
+  h2{font-family:var(--serif); font-size:12.5pt; font-weight:600; margin-bottom:1.9mm;
+     padding-bottom:1mm; border-bottom:.35mm solid var(--hairline)}
+  .sec{margin-top:3mm}
 
   /* --- tres números --- */
   .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:2.8mm; margin-top:3.4mm}
-  .card{background:var(--surface); border:.35mm solid var(--hairline); border-radius:3.5mm; padding:2.8mm 3.2mm}
-  .card .n{font-family:var(--serif); font-weight:600; font-size:21pt; line-height:.92; letter-spacing:-.02em}
+  .card{background:var(--surface); border:.35mm solid var(--hairline); border-radius:3.5mm; padding:2.9mm 3.2mm 3mm}
+  .card .n{font-family:var(--serif); font-weight:600; font-size:29pt; line-height:.9; letter-spacing:-.025em}
   .card .l{font-size:7.2pt; line-height:1.3; color:var(--ink-soft); margin-top:1.6mm}
   .card.good{background:var(--sage-soft); border-color:#CFDEC3} .card.good .n{color:var(--accent-deep)}
   .card.bad{background:var(--coral-soft); border-color:#EFCBBE} .card.bad .n{color:var(--coral-deep)}
@@ -49,11 +58,11 @@
 
   /* --- el giro --- */
   .turn{background:var(--paper); border:.35mm solid var(--hairline); border-radius:3.5mm;
-        padding:3.4mm 4mm; margin-top:2.8mm}
-  .turn .claim{font-family:var(--serif); font-size:12pt; line-height:1.22; font-weight:600}
+        padding:3mm 3.6mm; margin-top:2.4mm}
+  .turn .claim{font-family:var(--serif); font-size:13.5pt; line-height:1.2; font-weight:600; letter-spacing:-.012em}
   .turn .claim em{color:var(--coral-deep); font-style:normal}
-  .figs{display:grid; grid-template-columns:1fr 1fr; gap:4mm; margin-top:2.4mm}
-  .figs img{width:100%; height:37mm; object-fit:contain; display:block}
+  .figs{display:grid; grid-template-columns:.82fr 1.18fr; gap:5mm; margin-top:3mm; align-items:end}
+  .figs img{width:100%; height:36mm; object-fit:contain; display:block}
   .figcap{font-size:7pt; line-height:1.3; color:var(--ink-soft); margin-top:1.2mm;
           border-top:.3mm solid var(--hairline); padding-top:1.2mm}
   .figcap b{color:var(--ink)}
@@ -76,7 +85,7 @@
 
   /* --- letra chica --- */
   .fine{background:#EFE7D8; border:.35mm dashed var(--ink-faint); border-radius:3.5mm;
-        padding:2.6mm 3.5mm; margin-top:3.4mm}
+        padding:2.4mm 3.2mm; margin-top:2.8mm}
   .fine h3{font-size:7pt; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
            color:var(--ink-soft); margin-bottom:1.6mm}
   .fine ul{list-style:none; display:grid; grid-template-columns:repeat(3,1fr); gap:1mm 4mm}
@@ -84,8 +93,9 @@
   .fine li::before{content:'•'; position:absolute; left:.6mm; color:var(--terracotta)}
   .fine li b{color:var(--ink)}
 
-  footer{margin-top:auto; padding-top:3mm; border-top:.35mm solid var(--hairline);
-         display:flex; justify-content:space-between; align-items:flex-end; gap:6mm}
+  footer{margin-top:auto; padding-top:2.4mm; border-top:.35mm solid var(--hairline);
+         display:flex; justify-content:space-between; align-items:flex-end; gap:5mm}
+  footer .who{flex:1.75} footer .link{flex:1}
   footer .who{font-size:6.8pt; line-height:1.42; color:var(--ink-soft)}
   footer .who b{color:var(--ink)}
   footer .link{font-size:6.8pt; line-height:1.42; color:var(--ink-soft); text-align:right}
@@ -115,34 +125,33 @@
   <div class="stats">
     <div class="card good">
       <div class="n">100</div>
-      <div class="l">usuarios a la vez, <b>cero errores</b> y alrededor del 10 % de la
-        memoria en uso. La respuesta, eso sí, ya iba al límite</div>
+      <div class="l">usuarios a la vez, <b>cero errores</b> y 10 % de la memoria en uso.
+        La respuesta ya iba al límite</div>
     </div>
     <div class="card bad">
       <div class="n">1 de 4</div>
-      <div class="l">conexiones en vivo <b>no logran conectarse</b> al llegar a mil
-        usuarios simultáneos</div>
+      <div class="l">conexiones en vivo <b>no llegan a abrirse</b> con mil usuarios
+        simultáneos</div>
     </div>
     <div class="card warn">
       <div class="n">46.6 %</div>
-      <div class="l">de la memoria usada <b>al momento de fallar</b>: le sobraba más de
-        la mitad</div>
+      <div class="l">de la memoria en uso <b>cuando falló</b>. Le sobraban 273 MB</div>
     </div>
   </div>
 
   <div class="turn">
-    <p class="claim">Esperábamos que se muriera de falta de memoria.
-      <em>Se murió de acoplamiento.</em></p>
+    <p class="claim">Buscábamos el momento en que se quedara sin memoria. Nunca llegó:
+      <em>empezó a rechazar conexiones con 273 MB libres.</em></p>
     <div class="figs">
       <div>
         <img src="FIG:fig_h1_pastel.png" alt="De 4 634 conexiones, 1 106 se cayeron">
-        <p class="figcap"><b>Lo que se rompe:</b> de cada cuatro personas que abren la app
-          a la vez, una pierde la conexión en vivo.</p>
+        <p class="figcap">De 4 634 intentos de conexión, <b>1 106 no entraron</b>. Una de
+          cada cuatro personas se queda fuera del canal en vivo.</p>
       </div>
       <div>
         <img src="FIG:fig_h2_dumbbell.png" alt="Memoria por servicio contra el límite de 512 MB">
-        <p class="figcap"><b>Lo que sobra:</b> el espacio a la derecha de los puntos es
-          memoria sin usar. El límite nunca se tocó.</p>
+        <p class="figcap">El punto oscuro es el consumo con mil usuarios; la línea de la
+          derecha, el techo de 512 MB. <b>Ese hueco nunca se usó.</b></p>
       </div>
     </div>
     <p class="why"><b>¿Por qué, entonces?</b> Cada vez que alguien abre una conexión en
@@ -157,7 +166,7 @@
     <h2>Lo que de verdad te va a doler</h2>
     <div class="pains">
       <div class="pain">
-        <b>Te suspenden por datos, no por CPU</b>
+        <b>Lo primero que se acaba es la transferencia</b>
         <span>La cuota es de 5 GB al mes por cuenta. Nuestras pruebas movieron 17.8 GB y
           suspendieron dos. Comprimir bajó el tráfico 89.6 %.</span>
       </div>
@@ -207,12 +216,12 @@
   <div class="fine">
     <h3>Letra chica: lo que sí medimos y lo que no</h3>
     <ul>
-      <li><b>Medido:</b> 100 y 1 000 usuarios simultáneos, tres repeticiones cada uno.</li>
-      <li><b>No probado:</b> planeábamos 2 500 y 5 000, pero las reglas del plan gratuito
+      <li><b>Lo que medimos:</b> 100 y 1 000 usuarios simultáneos, tres repeticiones cada uno.</li>
+      <li><b>Lo que no alcanzamos:</b> planeábamos 2 500 y 5 000, pero las reglas del plan gratuito
         agotaron nuestra ventana de pruebas.</li>
-      <li><b>Estimado, no medido:</b> ~3 200 usuarios activos al día. Sale de un cálculo con
-        supuestos declarados.</li>
-      <li><b>Es un caso, no una ley:</b> Go + Render + Supabase. Otra combinación puede
+      <li><b>Es un cálculo:</b> ~3 200 usuarios activos al día, con supuestos que dejamos
+        escritos. No lo probamos con gente real.</li>
+      <li><b>Hasta dónde llega:</b> medimos Go + Render + Supabase. Otra combinación puede
         romperse en otro lado.</li>
       <li><b>Sin datos de personas:</b> toda la carga fue simulada contra una cuenta de
         prueba; no participaron usuarios reales.</li>
@@ -229,7 +238,7 @@
       Cervantes Guerrero Keila Yuridia · Casiano Gamzi Juan David
     </div>
     <div class="link">
-      El artículo completo, el arnés de pruebas y los datos crudos<br>de las once corridas
+      El artículo completo, el arnés de pruebas y los datos crudos de las once corridas
       están publicados:
       <b>github.com/davidgarcia57/Dydi</b>
     </div>

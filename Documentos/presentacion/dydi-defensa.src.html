@@ -11,6 +11,14 @@
   Teclas: → / espacio avanza · ← retrocede · F pantalla completa · P imprime · Inicio/Fin
 -->
 <style>
+  /* Tipografias de la marca, embebidas por build_visuales.py (subconjunto latino
+     de las variables de Google Fonts, OFL). Sin esto la pieza se imprime con
+     Georgia o Liberation Serif y pierde la identidad de Dydi. */
+  @font-face{font-family:'Newsreader';font-style:normal;font-weight:400 700;
+    font-display:block;src:url(FONT:Newsreader-sub.woff2) format('woff2')}
+  @font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:400 700;
+    font-display:block;src:url(FONT:HankenGrotesk-sub.woff2) format('woff2')}
+
   :root{
     --cream:#F4EEE3; --surface:#FCF9F3; --paper:#FFFFFF; --hairline:#E7DECD;
     --ink:#2A251F; --ink-soft:#6F6557; --ink-faint:#A89C89;

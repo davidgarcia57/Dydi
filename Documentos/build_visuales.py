@@ -38,6 +38,13 @@ TARGETS = [
 
 MARKER = re.compile(r"FIG:([A-Za-z0-9_.-]+\.png)")
 
+# Tipografias de la marca. Van embebidas porque las piezas se imprimen a PDF en
+# maquinas que no las tienen instaladas: sin esto, Newsreader cae a Georgia o a
+# Liberation Serif y la pieza pierde la identidad. Son subconjuntos latinos de
+# las fuentes variables de Google Fonts (licencia OFL, que permite incrustar).
+FUENTES = os.path.join(HERE, "fuentes")
+MARKER_FONT = re.compile(r"FONT:([A-Za-z0-9_.-]+\.woff2)")
+
 # Figuras que articulo.md inserta en §5.2, con el nombre que usa el documento.
 FIGURAS_INFORME = {
     "fig_h1_barras.png": "fig1-caidas-ws-por-nivel.png",
@@ -52,6 +59,12 @@ def data_uri(name: str) -> str:
         return "data:image/png;base64," + base64.b64encode(fh.read()).decode("ascii")
 
 
+def font_uri(name: str) -> str:
+    path = os.path.join(FUENTES, name)
+    with open(path, "rb") as fh:
+        return "data:font/woff2;base64," + base64.b64encode(fh.read()).decode("ascii")
+
+
 def build(src: str) -> str:
     with open(src, encoding="utf-8") as fh:
         html = fh.read()
@@ -64,6 +77,14 @@ def build(src: str) -> str:
             "Regenéralas con load-tests/analyze_results.py antes de ensamblar."
         )
 
+    faltan_f = [n for n in set(MARKER_FONT.findall(html))
+                if not os.path.exists(os.path.join(FUENTES, n))]
+    if faltan_f:
+        raise SystemExit(
+            f"Faltan tipografias para {os.path.basename(src)}: {', '.join(sorted(faltan_f))}.\n"
+            "Viven en Documentos/fuentes/ y estan versionadas."
+        )
+
     cache: dict[str, str] = {}
 
     def repl(m: re.Match) -> str:
@@ -72,7 +93,14 @@ def build(src: str) -> str:
             cache[name] = data_uri(name)
         return cache[name]
 
-    out = MARKER.sub(repl, html)
+    def repl_font(m: re.Match) -> str:
+        name = m.group(1)
+        key = "font:" + name
+        if key not in cache:
+            cache[key] = font_uri(name)
+        return cache[key]
+
+    out = MARKER_FONT.sub(repl_font, MARKER.sub(repl, html))
     dst = src.replace(".src.html", ".html")
     with open(dst, "w", encoding="utf-8") as fh:
         fh.write(out)
