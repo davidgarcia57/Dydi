@@ -214,8 +214,12 @@ suelto) · estados loading/error/empty siempre · nada de `alert()` (usar toast)
 **Diseño (Dydi):** paleta cálida/clara, **sin dark mode** (no cambiar sin
 consultar). Tokens en `tailwind.config.js` + CSS vars. Fuentes: **Newsreader**
 (serif, números/títulos hero) + **Hanken Grotesk** (sans, UI). Regla de oro:
-número grande en Newsreader + etiqueta pequeña tenue. Aún **no hay logo** →
-wordmark de texto (`BrandWordmark`).
+número grande en Newsreader + etiqueta pequeña tenue. El logo ya existe: tres
+arcos (hairline / terracotta / sage-deep desplazado) con dos bolas de ruleta,
+dentro de `BrandWordmark`. Su versión estática vive en
+`frontend/public/favicon.svg` con los colores **hardcodeados** (un favicon se
+renderiza fuera del documento y no ve las CSS vars): si mueves esos tokens,
+mueve también ese archivo.
 
 **Commits:** historial limpio, **sin** línea `Co-Authored-By` (proyecto
 académico). Commitear/pushear solo cuando se pida.
