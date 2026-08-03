@@ -2,11 +2,18 @@ package db
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/dydi/groups-service/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// ErrProposalNotUpdated means the UPDATE matched no row: the proposal id does not
+// exist, or something already resolved it. Postgres reports that as a successful
+// statement with 0 rows, so without this check a lost update looks like a win.
+var ErrProposalNotUpdated = errors.New("proposal status update matched no rows")
 
 func scanProposal(row pgx.Row) (*model.Proposal, error) {
 	p := &model.Proposal{}
@@ -223,7 +230,7 @@ func CountApprovalVotes(ctx context.Context, pool *pgxpool.Pool, proposalID stri
 // UPDATE fails with "column resolved_by is of type uuid but expression is of
 // type text" — silently, since callers only log the error.
 func SetProposalStatus(ctx context.Context, pool *pgxpool.Pool, proposalID string, status model.ProposalStatus, resolvedBy *string) error {
-	_, err := pool.Exec(ctx,
+	tag, err := pool.Exec(ctx,
 		`UPDATE proposals
 		 SET status = $1,
 		     resolved_at = CASE WHEN $1 = 'open' THEN NULL ELSE NOW() END,
@@ -231,5 +238,14 @@ func SetProposalStatus(ctx context.Context, pool *pgxpool.Pool, proposalID strin
 		 WHERE id = $2`,
 		status, proposalID, resolvedBy,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	// An UPDATE that matches nothing is not an error to Postgres, so the caller
+	// would log success while the proposal stayed 'open' — exactly how a batch of
+	// votes was silently lost before. Make it loud instead.
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: id=%s status=%s", ErrProposalNotUpdated, proposalID, status)
+	}
+	return nil
 }

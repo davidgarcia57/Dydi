@@ -13,6 +13,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"testing"
 
@@ -136,6 +137,27 @@ func TestSetProposalStatusPersists(t *testing.T) {
 	}
 	if resolvedBy == nil || *resolvedBy != f.OwnerID {
 		t.Errorf("resolved_by: se esperaba %q, quedó %v", f.OwnerID, resolvedBy)
+	}
+}
+
+// TestSetProposalStatusNoRowsIsAnError cubre el otro modo de fallo silencioso: un
+// UPDATE que no encaja con ninguna fila. Postgres lo reporta como sentencia
+// exitosa con 0 filas, así que antes de comprobar RowsAffected el handler
+// registraba éxito mientras la propuesta se quedaba en 'open'.
+func TestSetProposalStatusNoRowsIsAnError(t *testing.T) {
+	pool := testPool(t)
+	resetDB(t, pool)
+	ctx := t.Context()
+
+	// UUID válido que no existe: el UPDATE es legal pero no toca nada.
+	const ausente = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+
+	err := db.SetProposalStatus(ctx, pool, ausente, model.ProposalApproved, nil)
+	if err == nil {
+		t.Fatal("SetProposalStatus devolvió nil con 0 filas afectadas")
+	}
+	if !errors.Is(err, db.ErrProposalNotUpdated) {
+		t.Errorf("se esperaba ErrProposalNotUpdated, salió: %v", err)
 	}
 }
 

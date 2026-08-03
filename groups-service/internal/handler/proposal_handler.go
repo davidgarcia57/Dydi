@@ -152,7 +152,9 @@ func (h *ProposalHandler) Vote(w http.ResponseWriter, r *http.Request) {
 
 	// A proposal past its deadline can no longer be voted on; close it lazily.
 	if time.Now().After(proposal.ExpiresAt) {
-		_ = db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalExpired, nil)
+		if err := db.SetProposalStatus(r.Context(), h.pool, proposalID, model.ProposalExpired, nil); err != nil {
+			slog.Error("failed to expire proposal lazily", "proposal_id", proposalID, "err", err)
+		}
 		writeError(w, http.StatusConflict, "proposal has expired")
 		return
 	}

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { api } from '../../lib/api';
@@ -574,7 +575,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wsAttemptsRef.current = 0;
     void connectWS();
 
+    // Android suspende el runtime de JS en segundo plano y throttlea los timers,
+    // asi que los reintentos se queman sin red y scheduleReconnect se apaga para
+    // siempre al llegar al tope. Sin esto el banner "Sin conexion en vivo" se
+    // quedaba fijo hasta cambiar de grupo o hasta que rotara el token (~1h).
+    // Volver al frente es la senal de que vale la pena empezar de cero.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active' || wsClosedRef.current) return;
+      if (wsRef.current?.readyState === WebSocket.OPEN) return;
+      wsAttemptsRef.current = 0;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      void connectWS();
+    });
+
     return () => {
+      appStateSub.remove();
       disconnectWS();
     };
 

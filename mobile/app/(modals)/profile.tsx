@@ -11,15 +11,28 @@ import { supabase } from '../../lib/supabase';
 export default function ProfileModal() {
   const router = useRouter();
   const { user, signOut, updateDisplayName } = useAuth();
-  const { group, leaveGroup, propose, resetGroup } = useApp();
+  const { group, myGroups, switchGroup, leaveGroup, propose, resetGroup } = useApp();
 
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'Tú');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
   const [feedback, setFeedback] = useState({ type: '', message: '' });
 
   const displayEmail = user?.email || '';
+
+  async function handleSwitchGroup(id: string) {
+    if (switching || id === group?.id) return;
+    setSwitching(id);
+    try {
+      await switchGroup(id);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSwitching(null);
+    }
+  }
 
   async function handleSaveProfile() {
     if (!displayName.trim()) return;
@@ -232,6 +245,39 @@ export default function ProfileModal() {
             <Text className="text-paper font-bold text-sm">Actualizar contraseña</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Cambiar de squad. Vivía en la pestaña Squad, que ahora es la semana
+            del equipo; es una preferencia del usuario, así que su lugar es aquí. */}
+        {myGroups.length > 1 && (
+          <View className="bg-paper p-5 rounded-3xl border border-hairline shadow-sm mb-5">
+            <Text className="font-serif text-xl font-semibold text-ink mb-1">Mis squads</Text>
+            <Text className="text-xs text-ink-soft mb-4">Cambia el squad activo.</Text>
+
+            <View className="gap-2">
+              {myGroups.map((g) => (
+                <TouchableOpacity
+                  key={g.id}
+                  activeOpacity={0.8}
+                  onPress={() => handleSwitchGroup(g.id)}
+                  className={`rounded-2xl border px-4 py-3 flex-row items-center justify-between ${
+                    g.id === group?.id ? 'border-sage-deep bg-sage-soft/30' : 'border-hairline bg-surface'
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-semibold ${g.id === group?.id ? 'text-sage-deep' : 'text-ink'}`}
+                  >
+                    {g.name}
+                  </Text>
+                  {switching === g.id ? (
+                    <ActivityIndicator size="small" color="#5C7650" />
+                  ) : g.id === group?.id ? (
+                    <Text className="text-xs font-bold text-sage-deep">Activo</Text>
+                  ) : null}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {group && (
           <View className="bg-paper p-5 rounded-3xl border border-hairline shadow-sm mb-5">
