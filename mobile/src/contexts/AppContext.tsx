@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { setupCheckinReminder, notifyRouletteOpened } from '../notifications';
 
 // Recuerda el último grupo activo para no rebotar siempre al primero.
@@ -565,20 +566,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const wsUrlBase = process.env.EXPO_PUBLIC_WS_URL || 'wss://api-gateway-j3yi.onrender.com';
-    const wsUrl = `${wsUrlBase}/ws/${groupID}?token=${token}`;
 
     wsClosedRef.current = false;
     wsAttemptsRef.current = 0;
-    connectWS(wsUrl);
+    void connectWS();
 
     return () => {
       disconnectWS();
     };
 
-    function connectWS(url: string) {
+    // El token se pide en CADA intento en vez de capturarse una vez. Supabase
+    // rota los access_token (~1h) y el cliente ya los renueva solo
+    // (autoRefreshToken), pero reusar el de la primera conexion hacia que todo
+    // reintento fallara el handshake en silencio hasta agotar los 10 y quedarse
+    // en "Sin conexion en vivo - reconectando..." para siempre. La web lo
+    // reconstruye por este mismo motivo.
+    async function connectWS() {
       if (wsClosedRef.current) return;
 
-      const ws = new WebSocket(url);
+      const { data } = await supabase.auth.getSession();
+      const fresh = data.session?.access_token;
+      if (!fresh) {
+        scheduleReconnect();
+        return;
+      }
+
+      const ws = new WebSocket(`${wsUrlBase}/ws/${groupID}?token=${encodeURIComponent(fresh)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -698,7 +711,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ws.onclose = () => {
         setWsConnected(false);
         if (!wsClosedRef.current) {
-          scheduleReconnect(url);
+          scheduleReconnect();
         }
       };
 
@@ -707,13 +720,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     }
 
-    function scheduleReconnect(url: string) {
+    function scheduleReconnect() {
       if (wsClosedRef.current || wsAttemptsRef.current >= 10) return;
       const wait = Math.min(1000 * Math.pow(2, wsAttemptsRef.current), 30_000);
       wsAttemptsRef.current += 1;
-      
+
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
-      reconnectTimerRef.current = setTimeout(() => connectWS(url), wait);
+      reconnectTimerRef.current = setTimeout(() => {
+        void connectWS();
+      }, wait);
     }
 
     function disconnectWS() {
