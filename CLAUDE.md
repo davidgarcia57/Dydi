@@ -46,6 +46,20 @@ Regla del proyecto: tras cualquier cambio, correr la suite COMPLETA (no solo lo
 tocado) desde la distro WSL (`wsl -d ubuntu bash -lc '...'`; Git Bash mangea las
 rutas). No enmascarar el exit code con `| tail` en el paso que valida.
 
+⚠️ **Usa git DESDE WSL, no desde Windows.** Si abres el repo por la ruta de red
+`\\wsl.localhost\Ubuntu\...` (VS Code sin "Reopen Folder in WSL", o PowerShell),
+el git de Windows no ve el bit de ejecución de Unix y marca como modificados los
+7 `.sh` ejecutables del repo (`verify.sh`, `scripts/*.sh`, `Documentos/export*.sh`).
+Commitear eso los normaliza a `100644` y rompe cualquier cosa que los invoque con
+`./`. Ya pasó una vez. Si quedaste atorado ahí, se restaura con:
+
+```sh
+git update-index --chmod=+x verify.sh scripts/*.sh Documentos/export*.sh
+```
+
+Por eso el CI los invoca con `bash script.sh` y nunca con `./script.sh`: así el
+pipeline sobrevive aunque el permiso se pierda. Mantén esa convención.
+
 **Atajo (un comando):** `./verify.sh` corre toda la suite en Docker (Go ×4 +
 frontend + móvil). Para una parte: `./verify.sh go|frontend|mobile`. Es lo mismo
 que el CI; úsalo antes de cada PR. (El hook de `lefthook` lo dispara en `pre-push`

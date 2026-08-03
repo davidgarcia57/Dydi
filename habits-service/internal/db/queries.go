@@ -139,7 +139,11 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID, d
 		     h.color,
 		     uh.scheduled_time::text,
 		     CASE WHEN c.id IS NOT NULL THEN 'done' ELSE 'pending' END AS status,
-		     c.note
+		     c.note,
+		     -- Desde cuándo cuenta el hábito para este miembro, en SU zona. El
+		     -- cliente usa esto para no pintar como fallados los días anteriores
+		     -- a la asignación.
+		     (uh.created_at AT TIME ZONE u.timezone)::date::text AS tracked_since
 		 FROM memberships gm
 		 JOIN users       u  ON u.id = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
@@ -160,7 +164,7 @@ func GetTodayCheckinsByGroup(ctx context.Context, pool *pgxpool.Pool, groupID, d
 		if err := rows.Scan(
 			&tc.UserID, &tc.DisplayName,
 			&tc.HabitID, &tc.HabitName, &tc.IconKey, &tc.Color,
-			&tc.ScheduledTime, &tc.Status, &tc.Note,
+			&tc.ScheduledTime, &tc.Status, &tc.Note, &tc.TrackedSince,
 		); err != nil {
 			return nil, err
 		}
@@ -314,9 +318,9 @@ func UsersShareGroup(ctx context.Context, pool *pgxpool.Pool, userA, userB strin
 }
 
 // IsEligibleForRoulette reports whether a debtor missed at least one habit-day
-// so far this week (Mon→yesterday) — the same rule GetEligibleMembers applies,
-// scoped to a single user. A roulette must not be opened against someone who
-// didn't actually fail. On Monday nobody is eligible yet.
+// so far this week — la misma regla que GetEligibleMembers, para un solo usuario.
+// No se debe abrir una ruleta contra quien no falló de verdad: nadie es elegible
+// los lunes, ni el día en que recibió el hábito.
 func IsEligibleForRoulette(ctx context.Context, pool *pgxpool.Pool, groupID, debtorID string) (bool, error) {
 	var exists bool
 	err := pool.QueryRow(ctx,
@@ -325,51 +329,64 @@ func IsEligibleForRoulette(ctx context.Context, pool *pgxpool.Pool, groupID, deb
 		     FROM memberships gm
 		     JOIN users       u  ON u.id = gm.user_id
 		     JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
-		     -- "today" and the week's Monday in the member's OWN timezone, so a
-		     -- late-night check-in counts for the right day instead of being
-		     -- bumped a day forward in UTC.
+		     -- "today" and la ventana juzgable en la zona del PROPIO miembro, para
+		     -- que un check-in de medianoche cuente el día correcto y no se corra
+		     -- un día en UTC.
 		     CROSS JOIN LATERAL (
-		         SELECT date_trunc('week', (now() AT TIME ZONE u.timezone))::date AS week_start,
-		                (now() AT TIME ZONE u.timezone)::date                     AS today
+		         SELECT (now() AT TIME ZONE u.timezone)::date AS today,
+		                -- La ventana arranca en el lunes O en el día en que se le
+		                -- asignó el hábito, el que sea más tarde: nadie puede fallar
+		                -- un hábito que todavía no tenía. Sin esto, quien entra al
+		                -- grupo un domingo aparecía con 6 fallos y entraba directo
+		                -- a la ruleta.
+		                GREATEST(
+		                    date_trunc('week', (now() AT TIME ZONE u.timezone))::date,
+		                    (uh.created_at AT TIME ZONE u.timezone)::date
+		                ) AS since
 		     ) d
 		     WHERE gm.group_id = $1 AND gm.user_id = $2 AND gm.status = 'active'
-		       AND (d.today - d.week_start) > 0
+		       AND (d.today - d.since) > 0
 		       AND (
 		           SELECT COUNT(*)
 		           FROM checkins c
 		           WHERE c.user_habit_id = uh.id
-		             AND c.checked_on >= d.week_start
+		             AND c.checked_on >= d.since
 		             AND c.checked_on <  d.today
-		       ) < (d.today - d.week_start)
+		       ) < (d.today - d.since)
 		 )`,
 		groupID, debtorID,
 	).Scan(&exists)
 	return exists, err
 }
 
-// GetEligibleMembers returns members who missed at least one habit Mon–yesterday.
-// On Monday the list is always empty.
+// GetEligibleMembers returns members who missed at least one habit-day so far
+// this week. La ventana empieza en el lunes o en el día en que el miembro recibió
+// el hábito, el que sea más tarde, así que la lista sale vacía los lunes y
+// también para quien acaba de entrar al grupo.
 func GetEligibleMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.EligibleMember, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT gm.user_id, u.display_name
 		 FROM memberships gm
 		 JOIN users       u  ON u.id = gm.user_id
 		 JOIN user_habits uh ON uh.user_id = gm.user_id AND uh.group_id = $1
-		 -- "today" and the week's Monday in each member's OWN timezone, so a
-		 -- late-night check-in is not bumped a day forward in UTC.
+		 -- Mismo criterio que IsEligibleForRoulette: zona del propio miembro y
+		 -- ventana que arranca cuando el hábito empezó a contar para él.
 		 CROSS JOIN LATERAL (
-		     SELECT date_trunc('week', (now() AT TIME ZONE u.timezone))::date AS week_start,
-		            (now() AT TIME ZONE u.timezone)::date                     AS today
+		     SELECT (now() AT TIME ZONE u.timezone)::date AS today,
+		            GREATEST(
+		                date_trunc('week', (now() AT TIME ZONE u.timezone))::date,
+		                (uh.created_at AT TIME ZONE u.timezone)::date
+		            ) AS since
 		 ) d
 		 WHERE gm.group_id = $1 AND gm.status = 'active'
-		   AND (d.today - d.week_start) > 0
+		   AND (d.today - d.since) > 0
 		   AND (
 		       SELECT COUNT(*)
 		       FROM checkins c
 		       WHERE c.user_habit_id = uh.id
-		         AND c.checked_on >= d.week_start
+		         AND c.checked_on >= d.since
 		         AND c.checked_on <  d.today
-		   ) < (d.today - d.week_start)
+		   ) < (d.today - d.since)
 		 ORDER BY u.display_name`,
 		groupID,
 	)

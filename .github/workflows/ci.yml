@@ -86,8 +86,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-integration-
             ${{ runner.os }}-go-
+      # Se invoca con `bash`, no con ./, igual que verify-action: asi el job no
+      # depende del bit de ejecucion. Un commit hecho con el git de Windows sobre
+      # la ruta \\wsl.localhost\ normaliza los .sh a 100644 y este job moria con
+      # permission denied a los 9 segundos, aunque el script estuviera intacto.
       - name: Tests de integracion
-        run: ./scripts/test-db.sh
+        run: bash scripts/test-db.sh
 
   # Gate unico: depende de todos. Marca ESTE como el unico required status check
   # en Settings -> Branches. Asi renombrar/agregar jobs NO rompe branch protection.

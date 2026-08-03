@@ -47,6 +47,8 @@ const STATUS_STYLE: Record<string, { strip: string; icon: string; iconColor: str
   pending: { strip: 'bg-amber', icon: '', iconColor: '' },
   missed: { strip: 'bg-coral', icon: '✗', iconColor: 'text-coral-deep' },
   future: { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
+  // Antes de tener el habito asignado: ni logro ni falta.
+  untracked: { strip: 'bg-hairline/40', icon: '', iconColor: '' },
 };
 
 const STATUS_PILL: Record<string, { cls: string; label: string }> = {
@@ -263,6 +265,11 @@ export default function TodayScreen() {
       if (i > todayIdx) return { label, status: 'future', date: dateStr, note: undefined };
       if (i === todayIdx) {
         return { label, status: checkin.status, date: dateStr, note: checkin.note };
+      }
+
+      // Antes de que el habito se le asignara no hay nada que fallar.
+      if (checkin.tracked_since && dateStr < checkin.tracked_since) {
+        return { label, status: 'untracked', date: dateStr, note: undefined };
       }
 
       const done = dates ? dates.has(dateStr) : false;

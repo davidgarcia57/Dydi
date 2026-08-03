@@ -364,6 +364,10 @@ func TestEligibilityMemberWhoCheckedInEveryDayIsNotEligible(t *testing.T) {
 	f := seedGroup(t, pool, "UTC")
 	ctx := t.Context()
 
+	// El hábito lleva 30 días asignado: si no, la ventana de fallos sería vacía
+	// y el test pasaría sin probar nada.
+	backdateHabitAssignment(t, pool, f, 30)
+
 	// Un check-in por cada día desde el lunes hasta ayer inclusive.
 	if _, err := pool.Exec(ctx,
 		`INSERT INTO checkins (user_habit_id, checked_on)
@@ -385,9 +389,24 @@ func TestEligibilityMemberWhoCheckedInEveryDayIsNotEligible(t *testing.T) {
 	}
 }
 
-// TestEligibilityMemberWithNoCheckinsIsEligible: cero check-ins → elegible.
-// Se salta el lunes: por diseño la ventana lunes..ayer está vacía ese día, así
-// que nadie es elegible y el test no probaría nada.
+// backdateHabitAssignment mueve la fecha de asignación del hábito al pasado. Sin
+// esto, seedGroup lo asigna HOY y —correctamente— el miembro nunca es elegible,
+// porque la ventana de fallos arranca el día de la asignación.
+func backdateHabitAssignment(t *testing.T, pool *pgxpool.Pool, f fixture, days int) {
+	t.Helper()
+	// make_interval en vez de concatenar texto: pgx no puede codificar un int
+	// como text para el operador ||.
+	_, err := pool.Exec(t.Context(),
+		`UPDATE user_habits SET created_at = now() - make_interval(days => $2) WHERE id = $1`,
+		f.UserHabitID, days)
+	if err != nil {
+		t.Fatalf("backdate user_habit: %v", err)
+	}
+}
+
+// TestEligibilityMemberWithNoCheckinsIsEligible: cero check-ins → elegible, pero
+// solo si el hábito ya llevaba tiempo asignado. Se salta el lunes: por diseño la
+// ventana está vacía ese día y el test no probaría nada.
 func TestEligibilityMemberWithNoCheckinsIsEligible(t *testing.T) {
 	pool := testPool(t)
 	resetDB(t, pool)
@@ -399,8 +418,11 @@ func TestEligibilityMemberWithNoCheckinsIsEligible(t *testing.T) {
 		t.Fatalf("leer fecha del servidor: %v", err)
 	}
 	if today.Weekday() == time.Monday {
-		t.Skip("en lunes la ventana lunes..ayer está vacía y nadie es elegible por diseño")
+		t.Skip("en lunes la ventana está vacía y nadie es elegible por diseño")
 	}
+
+	// El hábito lleva 30 días asignado: la ventana es toda la semana.
+	backdateHabitAssignment(t, pool, f, 30)
 
 	eligible, err := db.IsEligibleForRoulette(ctx, pool, f.GroupID, f.UserID)
 	if err != nil {
@@ -408,6 +430,64 @@ func TestEligibilityMemberWithNoCheckinsIsEligible(t *testing.T) {
 	}
 	if !eligible {
 		t.Error("sin check-ins en la semana el miembro debía ser elegible")
+	}
+}
+
+// TestEligibilityIgnoresDaysBeforeTheHabitExisted es la regresión del bug que se
+// veía en la web: entrar al grupo un domingo pintaba los seis días previos en
+// rojo y metía al recién llegado directo a la ruleta. Nadie puede fallar un
+// hábito que todavía no tenía.
+func TestEligibilityIgnoresDaysBeforeTheHabitExisted(t *testing.T) {
+	pool := testPool(t)
+	resetDB(t, pool)
+	f := seedGroup(t, pool, "UTC")
+	ctx := t.Context()
+
+	// seedGroup asigna el hábito HOY, que es justo el caso del bug.
+	eligible, err := db.IsEligibleForRoulette(ctx, pool, f.GroupID, f.UserID)
+	if err != nil {
+		t.Fatalf("IsEligibleForRoulette: %v", err)
+	}
+	if eligible {
+		t.Error("con el hábito asignado hoy no hay dia previo que fallar: no debía ser elegible")
+	}
+
+	// Y no debe aparecer en la lista del grupo.
+	members, err := db.GetEligibleMembers(ctx, pool, f.GroupID)
+	if err != nil {
+		t.Fatalf("GetEligibleMembers: %v", err)
+	}
+	for _, m := range members {
+		if m.UserID == f.UserID {
+			t.Error("tampoco debía salir en GetEligibleMembers")
+		}
+	}
+}
+
+// TestEligibilityCountsOnlyFromAssignmentDay: con el hábito asignado ayer y sin
+// check-ins, hoy ya hay exactamente un día fallado → elegible. Fija el borde.
+func TestEligibilityCountsOnlyFromAssignmentDay(t *testing.T) {
+	pool := testPool(t)
+	resetDB(t, pool)
+	f := seedGroup(t, pool, "UTC")
+	ctx := t.Context()
+
+	var today time.Time
+	if err := pool.QueryRow(ctx, `SELECT (now() AT TIME ZONE 'UTC')::date`).Scan(&today); err != nil {
+		t.Fatalf("leer fecha: %v", err)
+	}
+	if today.Weekday() == time.Monday {
+		t.Skip("en lunes la ventana de la semana no alcanza a incluir ayer")
+	}
+
+	backdateHabitAssignment(t, pool, f, 1)
+
+	eligible, err := db.IsEligibleForRoulette(ctx, pool, f.GroupID, f.UserID)
+	if err != nil {
+		t.Fatalf("IsEligibleForRoulette: %v", err)
+	}
+	if !eligible {
+		t.Error("hábito asignado ayer y sin check-in: ese día cuenta como fallado")
 	}
 }
 

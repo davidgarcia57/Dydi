@@ -33,6 +33,11 @@ type TodayCheckin struct {
 	ScheduledTime *string `json:"scheduled_time,omitempty"`
 	Status        string  `json:"status"` // "done" | "pending"
 	Note          *string `json:"note,omitempty"`
+	// TrackedSince es la fecha (en la zona del miembro) desde la que el hábito
+	// cuenta para él. Los días anteriores no son fallos: no tenía el hábito. Sin
+	// esto, la rejilla semanal pintaba en rojo toda la semana de quien entraba al
+	// grupo un domingo.
+	TrackedSince string `json:"tracked_since"`
 }
 
 // CheckinHistoryDay is one (member, habit, day-they-checked-in) tuple, used to
