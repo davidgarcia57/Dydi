@@ -206,19 +206,22 @@ onUnmounted(() => socketDisconnect?.())
       <section class="rounded-card bg-paper shadow-card p-4 sm:p-5 mb-5 overflow-x-auto">
         <div class="flex items-center justify-between gap-3 mb-4">
           <h2 class="text-eyebrow">LA SEMANA DEL SQUAD</h2>
-          <span class="text-[10px] text-ink-faint">L–V cuentan para la ruleta</span>
+          <span class="text-[10px] sm:text-xs text-ink-faint">L–V cuentan para la ruleta</span>
         </div>
 
-        <div class="min-w-[19rem]">
+        <!-- max-w acota la matriz: sin él el `flex-1` del nombre empuja las celdas
+             al extremo derecho de una tarjeta de ~1100px y deja un hueco de 800px
+             en medio, que es lo que hacía ver esta pantalla diminuta en escritorio. -->
+        <div class="min-w-[19rem] max-w-2xl">
           <!-- Encabezado de días -->
           <div class="flex items-center gap-3 px-2 mb-1">
-            <div class="w-6 flex-shrink-0" />
-            <span class="flex-1" />
+            <div class="w-8 flex-shrink-0" />
+            <span class="w-36 sm:w-52 flex-shrink-0" />
             <div class="flex gap-1">
               <span
                 v-for="(l, i) in MATRIX_LABELS"
                 :key="i"
-                class="w-6 text-center text-[9px] text-ink-faint font-medium"
+                class="w-6 sm:w-9 text-center text-[9px] sm:text-[11px] text-ink-faint font-medium"
               >
                 {{ l }}
               </span>
@@ -233,7 +236,9 @@ onUnmounted(() => socketDisconnect?.())
               :class="{ 'bg-gradient-to-r from-amber-soft/70 to-transparent': isPerfectWeek(row) }"
             >
               <BaseAvatar :name="row.display_name" size="sm" />
-              <span class="flex-1 min-w-0 text-xs font-semibold text-ink truncate">
+              <span
+                class="w-36 sm:w-52 flex-shrink-0 min-w-0 text-xs sm:text-sm font-semibold text-ink truncate"
+              >
                 {{ row.user_id === auth.user?.id ? 'Tú' : row.display_name }}
                 <span
                   v-if="isPerfectWeek(row)"
@@ -247,7 +252,7 @@ onUnmounted(() => socketDisconnect?.())
                 <div
                   v-for="(cell, i) in weekMatrixRow(row)"
                   :key="i"
-                  class="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold"
+                  class="w-6 h-6 sm:w-9 sm:h-9 rounded-md sm:rounded-lg flex items-center justify-center text-[10px] sm:text-sm font-bold"
                   :class="MATRIX_CELL[cell.status]"
                 >
                   {{ MATRIX_ICON[cell.status] ?? '' }}

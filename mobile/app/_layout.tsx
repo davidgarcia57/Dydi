@@ -48,7 +48,17 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="(modals)" options={{ presentation: 'modal', headerShown: false }} />
+          {/* (modals) no es una ruta: el directorio no tiene _layout, asi que
+              expo-router solo conoce las pantallas de dentro. Declararlo como
+              grupo tiraba "No route named (modals) exists in nested children". */}
+          <Stack.Screen
+            name="(modals)/checkin"
+            options={{ presentation: 'modal', headerShown: false }}
+          />
+          <Stack.Screen
+            name="(modals)/profile"
+            options={{ presentation: 'modal', headerShown: false }}
+          />
         </Stack>
       </AppProvider>
     </AuthProvider>

@@ -9,7 +9,7 @@ services:
       HABITS_SERVICE_URL: http://habits-service:8083
       REALTIME_SERVICE_URL: http://realtime-service:8084
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL}
-      ALLOWED_ORIGINS: http://localhost:5173
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8081
       # Shared secret the gateway stamps on every proxied request so the backend
       # services can trust it came through here (JWT already validated).
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
@@ -75,7 +75,7 @@ services:
       PING_INTERVAL_SECONDS: 30
       WRITE_WAIT_SECONDS: 10
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
-      ALLOWED_ORIGINS: http://localhost:5173
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8081
       # Used to verify a user belongs to a group before accepting their WebSocket.
       GROUPS_SERVICE_URL: http://groups-service:8082
     healthcheck:
@@ -110,6 +110,9 @@ services:
       - "8081:8081"
     environment:
       EXPO_PUBLIC_API_URL: http://localhost:8080
+      # Sin esto el codigo cae a su fallback, que apunta al gateway de Render: el
+      # movil en local abria su WebSocket contra PRODUCCION.
+      EXPO_PUBLIC_WS_URL: ws://localhost:8080
       EXPO_PUBLIC_SUPABASE_URL: ${VITE_SUPABASE_URL}
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
     command: sh -c "npm install --legacy-peer-deps && npx expo start --web --clear"

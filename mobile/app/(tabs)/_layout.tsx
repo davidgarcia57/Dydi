@@ -92,7 +92,7 @@ export default function TabLayout() {
 
     {/* Aviso de tiempo real caído (el socket reintenta con backoff) */}
     {group && !wsConnected && (
-      <View pointerEvents="none" className="absolute bottom-24 left-0 right-0 items-center">
+      <View style={{ pointerEvents: 'none' }} className="absolute bottom-24 left-0 right-0 items-center">
         <View className="rounded-full bg-amber-soft border border-amber/40 px-4 py-2">
           <Text className="text-xs font-semibold text-amber-deep">
             Sin conexión en vivo — reconectando…

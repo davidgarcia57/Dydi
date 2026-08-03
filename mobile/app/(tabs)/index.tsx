@@ -512,32 +512,58 @@ export default function TodayScreen() {
         <View className="rounded-3xl bg-paper border border-hairline flex-row text-center mb-6 overflow-hidden shadow-sm">
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-sage-deep">{stats.done}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">cumplieron</Text>
+            <Text className="text-[10px] text-ink-soft mt-0.5">
+              {stats.done === 1 ? 'cumplió' : 'cumplieron'}
+            </Text>
           </View>
           <View className="w-[1px] bg-hairline" />
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-amber-deep">{stats.pending}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">pendientes</Text>
+            <Text className="text-[10px] text-ink-soft mt-0.5">
+              {stats.pending === 1 ? 'pendiente' : 'pendientes'}
+            </Text>
           </View>
           <View className="w-[1px] bg-hairline" />
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-coral-deep">{stats.missed}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">fallaron</Text>
+            <Text className="text-[10px] text-ink-soft mt-0.5">
+              {stats.missed === 1 ? 'falló' : 'fallaron'}
+            </Text>
           </View>
         </View>
 
-        {/* Squad list */}
+        {/* Squad list. El titulo no puede ser "El squad hoy": esa es la tarjeta de
+            presencia de arriba, y dos secciones con el mismo nombre en la misma
+            pantalla no se distinguen. */}
         <View className="mb-4">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="font-bold text-sm text-ink">El squad hoy</Text>
+            <Text className="font-bold text-sm text-ink">La semana de cada uno</Text>
             <Text className="text-xs text-ink-soft">Lun → Dom</Text>
           </View>
 
           {squadMembers.length === 0 ? (
-            <View className="rounded-3xl bg-surface border border-hairline py-8 px-4 items-center justify-center">
-              <Text className="text-sm text-ink-soft text-center leading-snug">
-                Propón un hábito en la pestaña Votar para ver al squad aquí.
-              </Text>
+            // squadMembers excluye al propio usuario, asi que vacio significa
+            // "estas solo" — no "no hay habitos". Antes salia el mensaje de
+            // proponer un habito incluso teniendo hábitos ya asignados.
+            <View className="rounded-3xl bg-surface border border-hairline py-8 px-5 items-center">
+              {todayCheckins.length === 0 ? (
+                <Text className="text-sm text-ink-soft text-center leading-snug">
+                  Propón un hábito en la pestaña Votar para ver al squad aquí.
+                </Text>
+              ) : (
+                <>
+                  <Text className="text-sm text-ink-soft text-center leading-snug mb-3">
+                    Por ahora el squad eres tú. Invita a alguien y compara semanas.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/squad')}
+                    className="rounded-full bg-terracotta px-5 py-2.5"
+                  >
+                    <Text className="text-paper font-bold text-xs">Invitar al squad</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : (
             <View className="gap-3">
