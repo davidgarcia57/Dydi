@@ -217,12 +217,17 @@ func CountApprovalVotes(ctx context.Context, pool *pgxpool.Pool, proposalID stri
 // SetProposalStatus updates a proposal's status. When the status leaves 'open',
 // resolved_at is stamped (required by the schema's resolved-state CHECK) and
 // resolved_by records who triggered it (nil for system/expiry resolutions).
+//
+// The $3::uuid cast is load-bearing: comparing $1 against 'open' anchors the
+// parameters to text, so without it Postgres types $3 as text and the whole
+// UPDATE fails with "column resolved_by is of type uuid but expression is of
+// type text" — silently, since callers only log the error.
 func SetProposalStatus(ctx context.Context, pool *pgxpool.Pool, proposalID string, status model.ProposalStatus, resolvedBy *string) error {
 	_, err := pool.Exec(ctx,
 		`UPDATE proposals
 		 SET status = $1,
 		     resolved_at = CASE WHEN $1 = 'open' THEN NULL ELSE NOW() END,
-		     resolved_by = CASE WHEN $1 = 'open' THEN NULL ELSE $3 END
+		     resolved_by = CASE WHEN $1 = 'open' THEN NULL ELSE $3::uuid END
 		 WHERE id = $2`,
 		status, proposalID, resolvedBy,
 	)
