@@ -1,8 +1,8 @@
 <script setup>
 // Iconos de línea animados, uno por hábito del catálogo (icon_key). Mismo
-// espíritu que WaterBottle: trazo con currentColor (el padre elige el color),
+// espíritu que HabitHero: trazo con currentColor (el padre elige el color),
 // movimiento sutil y continuo (solo transform/opacity → GPU), y respeto por
-// prefers-reduced-motion. El agua conserva su WaterBottle aparte.
+// prefers-reduced-motion.
 defineProps({
   iconKey: { type: String, default: '' },
   size: { type: Number, default: 40 },

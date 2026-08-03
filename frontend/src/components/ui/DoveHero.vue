@@ -1,6 +1,6 @@
 <script setup>
 // La paloma del perdón: cuerpo de papel con contorno de tinta, ala que aletea
-// suave y una ramita de olivo. Mismo espíritu que WaterBottle — escena física,
+// suave y una ramita de olivo. Mismo espíritu que HabitHero — escena física,
 // animación ambiental, sin emojis.
 defineProps({
   size: { type: Number, default: 72 },
