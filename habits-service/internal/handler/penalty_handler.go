@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -561,26 +559,9 @@ func (h *PenaltyHandler) notifyRealtime(groupID, eventType string, data any) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		h.realtimeURL+"/internal/broadcast", bytes.NewReader(payload))
-	if err != nil {
-		log.Printf("notifyRealtime: request build error: %v", err)
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
-		req.Header.Set("X-Internal-Token", tok)
-	}
-	resp, err := internalClient.Do(req)
-	if err != nil {
-		log.Printf("notifyRealtime: broadcast to %s failed: %v", h.realtimeURL, err)
-		return
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		log.Printf("notifyRealtime: broadcast returned %d", resp.StatusCode)
+	// Same cold-start retry as the habits broadcast: every caller is a
+	// `go h.notifyRealtime(...)`, so waiting here never delays the spin.
+	if !broadcast(h.realtimeURL, payload) {
+		log.Printf("notifyRealtime: gave up broadcasting to %s", h.realtimeURL)
 	}
 }

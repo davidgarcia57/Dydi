@@ -4,7 +4,19 @@ const BASE = import.meta.env.VITE_API_URL
 
 const delay = (ms) => new Promise((res) => setTimeout(res, ms))
 
-const MAX_RETRIES = 3
+// Render's edge answers 502 *immediately* while a spun-down service boots — it
+// does not hold the request — so this budget has to outlast the cold start, not
+// the request. Worst case is gateway AND habits both spun down, and they boot in
+// sequence (habits only starts once the gateway is up and forwards to it):
+// ~13s + ~13s measured. With the 8s cap the backoff sleeps 1+2+4+8+8+8+8 = 39s
+// across 8 attempts, which covers it. The old budget of 3 attempts slept 1+2 =
+// 3s and gave up ~10s early, which is what surfaced "No pudimos cargar tu
+// grupo" on the first load of the morning.
+//
+// This is a ceiling, not a wait: an attempt that lands as soon as the service is
+// up returns right then, so raising it only costs time in the case that was
+// going to fail anyway.
+const MAX_RETRIES = 8
 const PER_ATTEMPT_TIMEOUT = 30_000 // ms — a single attempt never hangs forever
 
 export async function api(path, options = {}, retries = MAX_RETRIES) {

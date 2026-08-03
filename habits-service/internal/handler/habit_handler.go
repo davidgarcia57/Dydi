@@ -144,27 +144,58 @@ func (h *HabitHandler) notifyRealtime(groupID, userID, eventType string, data an
 		log.Printf("notifyRealtime: marshal error: %v", err)
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		h.realtimeURL+"/internal/broadcast", bytes.NewReader(payload))
-	if err != nil {
-		log.Printf("notifyRealtime: request build error: %v", err)
-		return
+	// A spun-down realtime-service takes ~13s to cold start on Render free, so a
+	// single 3s attempt dropped every event silently. Every caller is a `go
+	// h.notifyRealtime(...)`, so retrying here never delays the user's response.
+	if !broadcast(h.realtimeURL, payload) {
+		log.Printf("notifyRealtime: gave up broadcasting to %s", h.realtimeURL)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
-		req.Header.Set("X-Internal-Token", tok)
+}
+
+// broadcast posts to realtime-service, retrying with backoff to ride out a cold
+// start. Attempts land at ~0s/2s/6s/14s, which outlasts the boot. Reports whether
+// the event was delivered.
+func broadcast(realtimeURL string, payload []byte) bool {
+	backoff := 2 * time.Second
+	for attempt := 0; attempt < 4; attempt++ {
+		if attempt > 0 {
+			time.Sleep(backoff)
+			backoff *= 2
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			realtimeURL+"/internal/broadcast", bytes.NewReader(payload))
+		if err != nil {
+			cancel()
+			log.Printf("notifyRealtime: request build error: %v", err)
+			return false
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if tok := os.Getenv("INTERNAL_TOKEN"); tok != "" {
+			req.Header.Set("X-Internal-Token", tok)
+		}
+
+		resp, err := internalClient.Do(req)
+		if err != nil {
+			cancel()
+			log.Printf("notifyRealtime: broadcast to %s failed: %v", realtimeURL, err)
+			continue
+		}
+		status := resp.StatusCode
+		_ = resp.Body.Close()
+		cancel()
+
+		if status < 400 {
+			return true
+		}
+		// 4xx is our own bug (bad token / bad payload); retrying won't fix it.
+		log.Printf("notifyRealtime: broadcast returned %d", status)
+		if status < 500 {
+			return false
+		}
 	}
-	resp, err := internalClient.Do(req)
-	if err != nil {
-		log.Printf("notifyRealtime: broadcast to %s failed: %v", h.realtimeURL, err)
-		return
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		log.Printf("notifyRealtime: broadcast returned %d", resp.StatusCode)
-	}
+	return false
 }
 
 func (h *HabitHandler) GetTodayCheckins(w http.ResponseWriter, r *http.Request) {

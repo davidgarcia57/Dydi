@@ -4,7 +4,13 @@ const BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api-gateway-j3yi.onrend
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-const MAX_ATTEMPTS = 3;
+// Render's edge answers 502 instantly while a spun-down service boots, so this
+// budget must outlast the cold start, not the request. Worst case is gateway AND
+// habits both spun down, booting in sequence: ~13s + ~13s measured. Backoff
+// sleeps 1+2+4+8+8+8+8 = 39s across 8 attempts; 3 attempts slept only 3s and gave
+// up before the service was up. It is a ceiling, not a wait — an attempt that
+// lands once the service is up returns right then.
+const MAX_ATTEMPTS = 8;
 const PER_ATTEMPT_TIMEOUT = 30_000; // ms
 
 export async function api(path: string, options: RequestInit = {}, attempts = MAX_ATTEMPTS): Promise<any> {
