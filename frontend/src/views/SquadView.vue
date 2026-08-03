@@ -59,6 +59,12 @@ function dayStrip(checkin) {
     if (i === todayIdx) return { label, status: checkin?.status ?? 'pending', note: checkin?.note }
     // Past day: real history — a check-in that date means done, otherwise missed.
     const date = dateForIdx(i, todayIdx)
+    // …salvo los días anteriores a que el hábito se le asignara: no se puede
+    // fallar algo que todavía no tenías. Quien entra al grupo un domingo veía
+    // toda la semana en rojo.
+    if (checkin?.tracked_since && date < checkin.tracked_since) {
+      return { label, status: 'untracked' }
+    }
     const done = dates ? dates.has(date) : false
     return { label, status: done ? 'done' : 'missed', note: habits.weekNotes[`${key}:${date}`] }
   })
@@ -69,6 +75,8 @@ const STATUS_STYLE = {
   pending: { strip: 'bg-amber', icon: '', iconColor: '' },
   missed: { strip: 'bg-coral', icon: '✗', iconColor: 'text-coral-deep' },
   future: { strip: 'border border-dashed border-hairline bg-transparent', icon: '', iconColor: '' },
+  // Antes de tener el hábito: ni logro ni falta.
+  untracked: { strip: 'bg-hairline/40', icon: '', iconColor: '' },
 }
 
 function memberStatus(row) {
@@ -88,6 +96,7 @@ const MATRIX_CELL = {
   pending: 'bg-amber text-amber-deep',
   missed: 'bg-coral text-coral-deep',
   future: 'border border-dashed border-hairline text-transparent',
+  untracked: 'bg-hairline/40 text-transparent',
 }
 
 const MATRIX_ICON = { done: '✓', partial: '~', missed: '✗' }
@@ -98,11 +107,15 @@ function weekMatrixRow(row) {
     if (i > todayIdx) return { label, status: 'future' }
     if (i === todayIdx) return { label, status: memberStatus(row) }
     const date = dateForIdx(i, todayIdx)
+    // Un miembro puede tener hábitos asignados en fechas distintas: ese día solo
+    // se juzgan los que ya contaban. Si ninguno contaba, el día no se juzga.
+    const tracked = row.habits.filter((h) => !h.tracked_since || date >= h.tracked_since)
+    if (!tracked.length) return { label, status: 'untracked' }
     let done = 0
-    for (const h of row.habits) {
+    for (const h of tracked) {
       if (habits.weekHistory[`${row.user_id}:${h.habit_id}`]?.has(date)) done++
     }
-    if (done === row.habits.length) return { label, status: 'done' }
+    if (done === tracked.length) return { label, status: 'done' }
     return { label, status: done > 0 ? 'partial' : 'missed' }
   })
 }
@@ -113,7 +126,7 @@ function isPerfectWeek(row) {
   const cells = weekMatrixRow(row)
   return (
     cells.some((c) => c.status === 'done') &&
-    cells.every((c) => c.status === 'done' || c.status === 'future')
+    cells.every((c) => c.status === 'done' || c.status === 'future' || c.status === 'untracked')
   )
 }
 

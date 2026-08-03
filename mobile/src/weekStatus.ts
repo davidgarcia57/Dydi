@@ -3,7 +3,14 @@
 // estos helpers alimentan el badge "en riesgo" y el pulso del squad sin
 // pegarle otra vez a la API.
 
-type CheckinLike = { user_id: string; habit_id: string; status: string };
+type CheckinLike = {
+  user_id: string;
+  habit_id: string;
+  status: string;
+  // Fecha (YYYY-MM-DD) desde la que el hábito cuenta para el miembro. La manda
+  // el backend en /habits/checkins/{group}/today.
+  tracked_since?: string;
+};
 
 export function mondayIndex(date = new Date()): number {
   const dow = date.getDay();
@@ -31,6 +38,10 @@ export function elapsedWeekdays(): string[] {
 
 // Fallos acumulados L–V del usuario esta semana: días pasados sin check-in,
 // sumados por hábito. Requiere weekHistory cargado.
+//
+// No cuenta los días anteriores a que el hábito se le asignara: nadie puede
+// fallar algo que todavía no tenía. Sin esa guarda, entrar al grupo un domingo
+// mostraba "6 fallos esta semana" y metía al recién llegado directo a la ruleta.
 export function missedThisWeek(
   userID: string,
   todayCheckins: CheckinLike[],
@@ -43,6 +54,7 @@ export function missedThisWeek(
   for (const c of mine) {
     const done = weekHistory[`${c.user_id}:${c.habit_id}`];
     for (const day of days) {
+      if (c.tracked_since && day < c.tracked_since) continue;
       if (!done?.has(day)) missed++;
     }
   }

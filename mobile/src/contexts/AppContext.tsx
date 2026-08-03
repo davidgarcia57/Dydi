@@ -40,6 +40,9 @@ export interface Checkin {
   scheduled_time?: string;
   note?: string;
   checked_on?: string;
+  // Fecha desde la que el habito cuenta para el miembro: los dias anteriores no
+  // son fallos. La manda el backend en /habits/checkins/{group}/today.
+  tracked_since?: string;
 }
 
 interface CheckinHistoryEntry {
