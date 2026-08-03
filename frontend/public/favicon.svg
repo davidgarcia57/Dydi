@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <!-- Favicon de Dydi: la misma marca de BrandWordmark.vue, en estático.
+       Los colores van hardcodeados a los tokens de tailwind.config.js porque un
+       favicon se renderiza fuera del documento y no ve las CSS vars:
+         hairline #E7DECD · terracotta #C26F4D · sage-deep #7CA39D · ink #2A251F
+       Si cambias esos tokens, cambia también este archivo. -->
+  <rect width="240" height="240" rx="52" fill="#F4EEE3" />
+  <g transform="translate(120, 120)">
+    <!-- Segmento 3: hairline -->
+    <circle cx="0" cy="0" r="66" fill="none" stroke="#E7DECD" stroke-width="22"
+            stroke-linecap="round" stroke-dasharray="108 307" transform="rotate(240)" />
+    <!-- Segmento 1: terracotta -->
+    <circle cx="0" cy="0" r="66" fill="none" stroke="#C26F4D" stroke-width="22"
+            stroke-linecap="round" stroke-dasharray="108 307" />
+    <!-- Segmento 2: sage-deep, desplazado (la "consecuencia") -->
+    <g transform="rotate(120) translate(0, 12)">
+      <circle cx="0" cy="0" r="66" fill="none" stroke="#7CA39D" stroke-width="22"
+              stroke-linecap="round" stroke-dasharray="108 307" />
+    </g>
+    <!-- Bolas de ruleta -->
+    <circle cx="78" cy="-38" r="8" fill="#2A251F" />
+    <circle cx="90" cy="-20" r="5" fill="#6F6557" />
+  </g>
+</svg>
