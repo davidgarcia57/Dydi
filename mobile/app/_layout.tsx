@@ -16,6 +16,7 @@ import { View, ActivityIndicator } from 'react-native';
 
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { AppProvider } from '../src/contexts/AppContext';
+import ServerWakeup from '../src/components/ServerWakeup';
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -60,6 +61,10 @@ export default function RootLayout() {
             options={{ presentation: 'modal', headerShown: false }}
           />
         </Stack>
+        {/* Despues del Stack a proposito: en RN el hermano posterior pinta
+            encima, y este splash tiene que cubrir tambien el login — si el
+            gateway esta dormido, no sirve dejar al usuario teclear y esperar. */}
+        <ServerWakeup />
       </AppProvider>
     </AuthProvider>
   );
