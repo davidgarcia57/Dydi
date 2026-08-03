@@ -6,13 +6,13 @@ describe('useFormatters', () => {
 
   describe('formatStreak', () => {
     it('singular para 1 día', () => {
-      expect(formatStreak(1)).toBe('1 day')
+      expect(formatStreak(1)).toBe('1 día')
     })
     it('plural para más de 1 día', () => {
-      expect(formatStreak(7)).toBe('7 days')
+      expect(formatStreak(7)).toBe('7 días')
     })
     it('cero días', () => {
-      expect(formatStreak(0)).toBe('0 days')
+      expect(formatStreak(0)).toBe('0 días')
     })
   })
 

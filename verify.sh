@@ -11,6 +11,10 @@
 #   ./verify.sh go:habits-service
 #   ./verify.sh frontend         # solo el frontend Vue
 #   ./verify.sh mobile           # solo el typecheck del movil
+#
+# NO incluye los tests de integracion: esos llevan la build tag `integration` y
+# necesitan un Postgres, asi que viven en ./scripts/test-db.sh (que levanta uno
+# efimero). El CI corre los dos. Si tocas SQL, corre tambien test-db.sh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

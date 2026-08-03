@@ -1,11 +1,15 @@
 <script setup>
 import { computed, ref } from 'vue'
-import WaterBottle from './WaterBottle.vue'
 
-// Ilustración grande y animada por hábito, en el mismo espíritu que
-// WaterBottle: escena "física" con formas rellenas, colores propios de cada
-// escena + tokens de marca para contornos, un loop ambiental sutil y una
-// reacción al tocarla. El agua conserva su WaterBottle original.
+// Ilustración grande y animada por hábito: escena "física" con formas rellenas,
+// colores propios de cada escena + tokens de marca para contornos, un loop
+// ambiental sutil y una reacción al tocarla.
+//
+// El agua vivía aparte en WaterBottle.vue y se salía del molde: viewBox 200×360
+// contra el 200×240 de las demás (con size=150 medía 270px de alto contra 180,
+// así que no cabía en el hueco), sin la sombra de piso compartida, con su propio
+// gesto al tocar y sin la guarda de prefers-reduced-motion. Ahora es una escena
+// más, conservando su identidad: olas, burbujas y tapa de terracota.
 const props = defineProps({
   iconKey: { type: String, default: '' },
   habitName: { type: String, default: '' },
@@ -13,6 +17,7 @@ const props = defineProps({
 })
 
 const labels = {
+  water: 'Agua',
   exercise: 'Ejercicio',
   steps: 'Pasos',
   fruit: 'Fruta o verdura',
@@ -31,7 +36,13 @@ const isWater = computed(
   () => props.iconKey === 'water' || /agua|water/i.test(props.habitName || '')
 )
 
-const label = computed(() => labels[props.iconKey] || props.habitName || 'Hábito')
+const label = computed(() =>
+  isWater.value ? labels.water : labels[props.iconKey] || props.habitName || 'Hábito'
+)
+
+// Los ids de clipPath son globales en el documento: si hay dos héroes de agua en
+// pantalla (lista + detalle), un id fijo haría que el segundo recorte al primero.
+const clipId = `hh-water-${Math.random().toString(36).slice(2, 9)}`
 
 const popping = ref(false)
 function pop() {
@@ -43,10 +54,7 @@ function pop() {
 </script>
 
 <template>
-  <WaterBottle v-if="isWater" :size="size" />
-
   <svg
-    v-else
     class="hh"
     :class="{ pop: popping }"
     :width="size"
@@ -61,8 +69,52 @@ function pop() {
     <!-- Sombra de piso compartida -->
     <ellipse cx="100" cy="212" rx="56" ry="8" fill="var(--color-ink)" opacity="0.08" />
 
+    <!-- Agua: botella con el agua ondulando y burbujas subiendo -->
+    <g v-if="isWater" class="scene">
+      <defs>
+        <clipPath :id="clipId">
+          <path
+            d="M84 56 L84 69 Q84 75 79 79 Q59 87 59 107 L59 185 Q59 202 82 202 L118 202 Q141 202 141 185 L141 107 Q141 87 121 79 Q116 75 116 69 L116 56 Z"
+          />
+        </clipPath>
+      </defs>
+
+      <g :clip-path="`url(#${clipId})`">
+        <rect x="59" y="140" width="82" height="66" fill="#4F9FB0" />
+        <!-- Dos olas a distinta velocidad: la de atrás más lenta y tenue. -->
+        <path
+          class="wave w2"
+          d="M-40 140 q22 7 44 0 t44 0 t44 0 t44 0 t44 0 t44 0 L284 210 L-40 210 Z"
+          fill="#4F9FB0"
+        />
+        <path
+          class="wave w1"
+          d="M-40 135 q22 -8 44 0 t44 0 t44 0 t44 0 t44 0 t44 0 L284 210 L-40 210 Z"
+          fill="#7FC4D1"
+        />
+        <g fill="#FFFFFF" opacity="0.5">
+          <circle class="drop dr1" cx="86" cy="196" r="3.2" />
+          <circle class="drop dr2" cx="108" cy="199" r="2.4" />
+          <circle class="drop dr3" cx="98" cy="194" r="2.8" />
+        </g>
+      </g>
+
+      <!-- Brillo del cristal -->
+      <rect x="68" y="112" width="6" height="72" rx="3" fill="#FFFFFF" opacity="0.22" />
+
+      <path
+        d="M80 52 L80 68 Q80 74 74 78 Q54 86 54 106 L54 186 Q54 206 78 206 L122 206 Q146 206 146 186 L146 106 Q146 86 126 78 Q120 74 120 68 L120 52 Z"
+        fill="none"
+        stroke="var(--color-ink)"
+        stroke-width="4"
+        stroke-linejoin="round"
+      />
+      <rect x="77" y="28" width="46" height="24" rx="6" fill="var(--color-terracotta)" />
+      <rect x="82" y="47" width="36" height="8" rx="3" fill="var(--color-terracotta)" />
+    </g>
+
     <!-- Ejercicio: barra con discos haciendo repeticiones -->
-    <g v-if="iconKey === 'exercise'" class="scene">
+    <g v-else-if="iconKey === 'exercise'" class="scene">
       <g class="reps">
         <rect x="34" y="128" width="132" height="7" rx="3.5" fill="var(--color-ink)" />
         <rect x="38" y="114" width="12" height="35" rx="5" fill="#A85B39" />
@@ -472,6 +524,54 @@ function pop() {
   }
   100% {
     transform: scale(1, 1);
+  }
+}
+
+/* Agua */
+.wave {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.w1 {
+  animation: hh-wmove 3s linear infinite;
+}
+.w2 {
+  animation: hh-wmove 4.6s linear infinite;
+  opacity: 0.5;
+}
+.hh:hover .w1 {
+  animation-duration: 1.3s;
+}
+.hh:hover .w2 {
+  animation-duration: 2s;
+}
+@keyframes hh-wmove {
+  to {
+    transform: translateX(-88px);
+  }
+}
+.drop {
+  transform-box: fill-box;
+  animation: hh-bubble 4.2s ease-in infinite;
+  opacity: 0;
+}
+.dr2 {
+  animation-delay: 1.4s;
+}
+.dr3 {
+  animation-delay: 2.8s;
+}
+@keyframes hh-bubble {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(-58px);
+    opacity: 0;
   }
 }
 

@@ -32,10 +32,12 @@ async function onChange(event) {
 </script>
 
 <template>
-  <label class="block">
+  <label class="relative block">
     <span class="sr-only">Grupo activo</span>
+    <!-- appearance-none: sin esto el navegador dibuja su propia flecha con estilo
+         del sistema operativo, que rompe con el resto de los controles. -->
     <select
-      class="w-full rounded-xl border border-hairline bg-paper px-3 py-2 text-sm font-semibold text-ink focus:outline-none focus:border-sage-deep"
+      class="w-full appearance-none rounded-xl border border-hairline bg-paper pl-3 pr-9 py-2 text-sm font-semibold text-ink focus:outline-none focus:border-sage-deep"
       :value="group.group?.id ?? ''"
       @change="onChange"
     >
@@ -45,5 +47,14 @@ async function onChange(event) {
       </option>
       <option value="__new__">+ Crear o unirme a otro…</option>
     </select>
+    <svg
+      class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      aria-hidden="true"
+    >
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
   </label>
 </template>

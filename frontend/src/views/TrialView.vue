@@ -632,7 +632,10 @@ onUnmounted(() => {
 
     <!-- ═══════════════════ ENTRY VIEW ════════════════════════════════════════ -->
     <template v-else-if="view === 'entry' && entry">
-      <div class="max-w-md mx-auto">
+      <!-- Vista enfocada (una sola ruleta): se acota, pero con max-w-2xl como el
+           resto de las páginas enfocadas. Un max-w-md suelto la dejaba en 448px,
+           una columna de celular en escritorio. -->
+      <div class="max-w-2xl mx-auto">
         <header class="flex items-center gap-3 mb-5">
           <button
             class="w-9 h-9 rounded-full flex items-center justify-center bg-surface border border-hairline"

@@ -12,13 +12,14 @@ En Dydi, el compromiso es público (para tu squad):
 1. **Crear squad e invitar:** Un usuario funda un grupo y trae a sus amigos (máx. 8).
 2. **Proponer y votar:** En equipo, proponen qué hábitos quieren rastrear (ej. "30 min de código", "leer 20 páginas").
 3. **Check-ins diarios:** Cada miembro reporta su cumplimiento; el progreso se sincroniza al instante en las pantallas de todos.
-4. **Consecuencias (La Ruleta):** Quien falla durante la semana entra al sorteo del sábado. El grupo vota un castigo y la ruleta decide el resultado final.
+4. **Consecuencias (La Ruleta):** Quien falla durante la semana entra al sorteo. El grupo vota un castigo y la ruleta decide el resultado final. La abre un miembro cuando toca (por convención, el sábado): el backend valida que el deudor sí falló, pero no impone el día.
 
 ---
 
 ## 📸 Evidencia Visual
 
-*(Las capturas se encuentran disponibles en la carpeta [`docs/screenshots/`](docs/screenshots/README.md). Se incluirán visualizaciones reales en cuanto el ambiente despliegue con datos de prueba).*
+Aún no hay capturas en el repo. El checklist de qué vistas hay que fotografiar
+está en [`docs/screenshots/README.md`](docs/screenshots/README.md).
 
 ---
 

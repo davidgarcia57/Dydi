@@ -6,12 +6,14 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import HabitHero from '@/components/ui/HabitHero.vue'
 import HabitIcon from '@/components/ui/HabitIcon.vue'
+import { useFormatters } from '@/composables/useFormatters'
 import { Flame } from 'lucide-vue-next'
 
 const router = useRouter()
 const auth = useAuthStore()
 const group = useGroupStore()
 const habits = useHabitsStore()
+const { formatStreak } = useFormatters()
 
 // 'loading' | 'error' | 'no-habit' | 'select' | 'confirm' | 'success' | 'done'
 const step = ref('loading')
@@ -177,7 +179,9 @@ async function submit() {
       </h1>
       <p class="text-sm text-ink-soft mb-8">
         Racha actual:
-        <span class="font-bold text-terracotta">{{ habits.streaks[auth.user?.id] ?? 0 }} días</span>
+        <span class="font-bold text-terracotta">
+          {{ formatStreak(habits.streaks[auth.user?.id] ?? 0) }}
+        </span>
       </p>
       <button
         class="rounded-pill bg-ink text-paper px-8 py-3.5 font-bold text-sm"
@@ -268,7 +272,7 @@ async function submit() {
           class="flex items-center gap-1.5 rounded-pill bg-amber-soft text-amber-deep px-3 py-1.5 text-xs font-bold"
         >
           <span>★</span>
-          <span>{{ prevStreak }} días de racha</span>
+          <span>{{ formatStreak(prevStreak) }} de racha</span>
         </div>
       </div>
 
@@ -348,8 +352,9 @@ async function submit() {
         </p>
         <p class="text-xs text-ink-faint">El squad verá tu check-in al instante</p>
 
-        <!-- Optional note -->
-        <div class="mt-8 w-full">
+        <!-- Optional note. Acotada: sin el max-w el textarea se estiraba a todo
+             el ancho del viewport en escritorio (1400px para una nota de 2 renglones). -->
+        <div class="mt-8 w-full max-w-md">
           <label class="block">
             <span class="text-eyebrow mb-2 block">NOTA OPCIONAL</span>
             <textarea

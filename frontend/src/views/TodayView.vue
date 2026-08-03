@@ -315,8 +315,10 @@ onUnmounted(() => {
           <!-- Progress bar -->
           <div class="flex justify-between text-xs mb-1.5">
             <span class="text-ink-faint">Semana {{ weekNumber }}</span>
-            <span class="text-terracotta font-semibold">
-              {{ stats.done }} de {{ group.members.length || '—' }} al corriente
+            <!-- Sin miembros cargados todavía no se anuncia un conteo: "0 de —"
+                 filtraba el placeholder a la pantalla. -->
+            <span v-if="group.members.length" class="text-terracotta font-semibold">
+              {{ stats.done }} de {{ group.members.length }} al corriente
             </span>
           </div>
           <div class="h-1.5 rounded-full bg-hairline">
