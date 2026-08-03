@@ -68,11 +68,32 @@ jobs:
             ${{ runner.os }}-npm-mobile-
             ${{ runner.os }}-npm-
 
+  # Tests que SI ejecutan el SQL, contra un Postgres efimero (nunca Supabase).
+  # Van aparte porque el resto de la suite corre sin BD: los tests con la build
+  # tag `integration` quedan fuera de `go test ./...` por diseno.
+  integration:
+    name: Integration (Postgres efimero)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .gocache
+            .gomodcache
+          key: ${{ runner.os }}-go-integration-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-integration-
+            ${{ runner.os }}-go-
+      - name: Tests de integracion
+        run: ./scripts/test-db.sh
+
   # Gate unico: depende de todos. Marca ESTE como el unico required status check
   # en Settings -> Branches. Asi renombrar/agregar jobs NO rompe branch protection.
   ci-success:
     name: CI Success
-    needs: [go, frontend, mobile]
+    needs: [go, frontend, mobile, integration]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -80,8 +101,9 @@ jobs:
         run: |
           if [ "${{ needs.go.result }}" != "success" ] \
           || [ "${{ needs.frontend.result }}" != "success" ] \
-          || [ "${{ needs.mobile.result }}" != "success" ]; then
-            echo "::error::CI fallo  (go=${{ needs.go.result }} frontend=${{ needs.frontend.result }} mobile=${{ needs.mobile.result }})"
+          || [ "${{ needs.mobile.result }}" != "success" ] \
+          || [ "${{ needs.integration.result }}" != "success" ]; then
+            echo "::error::CI fallo  (go=${{ needs.go.result }} frontend=${{ needs.frontend.result }} mobile=${{ needs.mobile.result }} integration=${{ needs.integration.result }})"
             exit 1
           fi
           echo "Todo verde."
