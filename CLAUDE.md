@@ -51,6 +51,21 @@ frontend + móvil). Para una parte: `./verify.sh go|frontend|mobile`. Es lo mism
 que el CI; úsalo antes de cada PR. (El hook de `lefthook` lo dispara en `pre-push`
 solo para lo que cambiaste.)
 
+**Dos niveles de test — usa el que corresponde:**
+
+1. **Sin BD** (`./verify.sh`): los tests de `main_test.go` construyen el router
+   con `setupRouter(nil)`, así que solo ejercitan las guardas que retornan antes
+   de tocar la BD (falta header → 400, falta campo → 400). Son rápidos y no
+   necesitan nada.
+2. **Con BD** (`./scripts/test-db.sh`): build tag `integration`, Postgres
+   efímero. Aquí se ejecuta el SQL de verdad.
+
+**Si tocas SQL, el nivel 1 no te cubre.** Un `UPDATE` con un desajuste de tipos
+compila, pasa el lint, pasa `verify.sh` en verde y falla siempre en producción —
+ya pasó una vez (`SetProposalStatus`, uuid vs text; el handler solo lo logueaba
+y respondía 204). Los tests de `integration` existen por eso: corre
+`./scripts/test-db.sh` además de `verify.sh` cuando cambies queries o migraciones.
+
 **Go (cada uno de los 4 servicios):**
 ```sh
 docker run --rm -v "$(pwd)/<svc>":/app -v "$(pwd)/.gocache":/gocache \
@@ -157,6 +172,7 @@ Leen `.env` y van por Docker/curl; no instalan nada.
 | `./scripts/q.sh "SELECT …"` | Query **read-only** a Supabase (sesión forzada a `default_transaction_read_only=on`; un write falla por diseño). También `-f archivo.sql`. |
 | `./scripts/hit.sh GET habits /habits` | Golpea un servicio **directo** estampando `X-Internal-Token` + `X-User-ID` (sin JWT). Para el gateway: `DYDI_JWT=<token> ./scripts/hit.sh GET gateway /groups`. Simula otro usuario con `DYDI_USER=<uuid>`. |
 | `./scripts/logs.sh habits -f` | Tail de logs (slog JSON) de un servicio del compose. Alias: `gateway`/`groups`/`habits`/`realtime`. |
+| `./scripts/test-db.sh` | Tests de integración contra un Postgres **efímero** (nunca Supabase): aplica `supabase/test-shim.sql` + las migraciones reales y corre los tests con build tag `integration`. Filtra con `./scripts/test-db.sh habits-service TestSpin`; `V=1` para verboso. |
 
 ## Build del APK móvil (release)
 
@@ -330,9 +346,15 @@ que tocaste.
 2. Cualquiera propone un hábito → el grupo vota (mayoría del electorado
    congelado) → si gana, se asigna a todos los miembros activos.
 3. Check-in diario por hábito asignado.
-4. Sábado: ruleta de penitencias para quien falló lun–vie (catálogo JSON,
-   `crypto/rand`); crea una `debt` y la transmite por realtime.
+4. Ruleta de penitencias para quien falló lun–vie (catálogo JSON, `crypto/rand`);
+   crea una `debt` y la transmite por realtime. **La abre un miembro**
+   (`POST /penalties/roulette`): no hay scheduler, el sábado es la convención
+   del grupo, no algo que el backend imponga. Lo que sí valida el servidor es la
+   elegibilidad (`IsEligibleForRoulette`: el deudor realmente falló esta semana)
+   y una entrada única por deudor/semana (`week_start`).
 5. Las deudas caducan al final de la semana siguiente (sin resolución manual).
+   La caducidad es **lazy**, no un job: las queries filtran por
+   `expires_at > CURRENT_DATE`.
 
 ## Responsables del experimento (paper)
 
