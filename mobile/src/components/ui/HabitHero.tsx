@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useId } from 'react';
 import { Pressable } from 'react-native';
-import Svg, { Circle, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, Path, Rect } from 'react-native-svg';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -9,7 +9,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import WaterBottle from './WaterBottle';
 
 // Ilustración grande por hábito — espejo del HabitHero del frontend web:
 // escena "física" con formas rellenas y colores de marca. En móvil la escena
@@ -43,7 +42,10 @@ export default function HabitHero({
 
   // Mismo hook robusto que el web: icon_key manda, el nombre rescata.
   const isWater = iconKey === 'water' || /agua|water/i.test(habitName || '');
-  if (isWater) return <WaterBottle size={size} />;
+
+  // Los ids de SVG son globales al documento y checkin.tsx monta tres HabitHero
+  // a la vez: con un id fijo, el recorte del primero se aplicaria a los otros.
+  const clipId = `hh-water-${useId().replace(/:/g, '')}`;
 
   function onPress() {
     pop.value = withSequence(withTiming(0.93, { duration: 110 }), withSpring(1));
@@ -55,6 +57,38 @@ export default function HabitHero({
         <Svg width={size} height={size * 1.2} viewBox="0 0 200 240">
           {/* Sombra de piso compartida */}
           <Ellipse cx={100} cy={212} rx={56} ry={8} fill={INK} opacity={0.08} />
+
+          {/* Agua: botella con el agua dentro. Sin animacion por elemento — en
+              movil toda la escena comparte el bob y el pop, como las demas. */}
+          {isWater && (
+            <G>
+              <Defs>
+                <ClipPath id={clipId}>
+                  <Path d="M84 56 L84 69 Q84 75 79 79 Q59 87 59 107 L59 185 Q59 202 82 202 L118 202 Q141 202 141 185 L141 107 Q141 87 121 79 Q116 75 116 69 L116 56 Z" />
+                </ClipPath>
+              </Defs>
+              <G clipPath={`url(#${clipId})`}>
+                <Rect x={59} y={140} width={82} height={66} fill="#4F9FB0" />
+                <Path
+                  d="M59 141 q11 6 22 0 t22 0 t22 0 t22 0 L147 210 L53 210 Z"
+                  fill="#7FC4D1"
+                />
+                <Circle cx={86} cy={190} r={3.2} fill="#FFFFFF" opacity={0.5} />
+                <Circle cx={104} cy={196} r={2.4} fill="#FFFFFF" opacity={0.5} />
+                <Circle cx={96} cy={178} r={2.8} fill="#FFFFFF" opacity={0.45} />
+              </G>
+              <Rect x={68} y={112} width={6} height={72} rx={3} fill="#FFFFFF" opacity={0.22} />
+              <Path
+                d="M80 52 L80 68 Q80 74 74 78 Q54 86 54 106 L54 186 Q54 206 78 206 L122 206 Q146 206 146 186 L146 106 Q146 86 126 78 Q120 74 120 68 L120 52 Z"
+                fill="none"
+                stroke={INK}
+                strokeWidth={4}
+                strokeLinejoin="round"
+              />
+              <Rect x={77} y={28} width={46} height={24} rx={6} fill={TERRACOTTA} />
+              <Rect x={82} y={47} width={36} height={8} rx={3} fill={TERRACOTTA} />
+            </G>
+          )}
 
           {/* Ejercicio: barra con discos */}
           {iconKey === 'exercise' && (
@@ -335,6 +369,7 @@ export default function HabitHero({
 
           {/* Fallback: destello grande */}
           {![
+            'water',
             'exercise',
             'steps',
             'fruit',

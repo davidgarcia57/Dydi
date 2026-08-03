@@ -15,6 +15,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
 import HabitHero from '../../src/components/ui/HabitHero';
 import HabitIcon from '../../src/components/ui/HabitIcon';
+import { formatStreak } from '../../lib/format';
 
 export default function CheckinModal() {
   const router = useRouter();
@@ -195,7 +196,7 @@ export default function CheckinModal() {
                 {myHabits[0]?.habit_name ?? 'Tu hábito'}
               </Text>
               <Text className="text-sm text-ink-soft text-center mb-8">
-                Racha actual: <Text className="font-bold text-terracotta">{prevStreak} días</Text>
+                Racha actual: <Text className="font-bold text-terracotta">{formatStreak(prevStreak)}</Text>
               </Text>
               <TouchableOpacity
                 activeOpacity={0.8}
@@ -262,7 +263,7 @@ export default function CheckinModal() {
                   
                   {/* Streak chip */}
                   <View className="flex-row items-center gap-1 rounded-full bg-amber-soft px-3 py-1.5 border border-amber/10">
-                    <Text className="text-xs font-bold text-amber-deep">★ {prevStreak} días de racha</Text>
+                    <Text className="text-xs font-bold text-amber-deep">★ {formatStreak(prevStreak)} de racha</Text>
                   </View>
                 </View>
 

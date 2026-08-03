@@ -187,7 +187,10 @@ export default function TodayScreen() {
   }, [todayCheckins]);
 
   const progressPct = useMemo(() => {
-    const total = members.length + 1; // members + me
+    // GET /groups/{id}/members ya incluye al llamador, asi que el +1 que habia
+    // aqui contaba doble al propio usuario: con 1 miembro decia "de 2" y con los
+    // 8 del maximo diria "de 9". La web usa members.length sin sumar nada.
+    const total = members.length;
     return total ? Math.round((stats.done / total) * 100) : 0;
   }, [members.length, stats.done]);
 
@@ -388,13 +391,19 @@ export default function TodayScreen() {
               <Text className="font-serif text-2xl font-semibold text-terracotta leading-tight mb-3">
                 Es fin de semana de penitencias
               </Text>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => router.push('/(tabs)/shame')}
-                className="self-start rounded-full bg-terracotta px-5 py-2.5"
-              >
-                <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
-              </TouchableOpacity>
+              {/* El boton solo aparece si el aviso de arriba no trae ya uno: en fin
+                  de semana y estando en el bote, ambas tarjetas mostraban un
+                  "Ir a la ruleta" identico, uno encima del otro. Gana el aviso,
+                  que es el personal ("estas en el bote con N fallos"). */}
+              {!riskBanner?.cta && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => router.push('/(tabs)/shame')}
+                  className="self-start rounded-full bg-terracotta px-5 py-2.5"
+                >
+                  <Text className="text-paper text-sm font-bold">Ir a la ruleta →</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
           <View className="flex-row items-baseline gap-2 mb-4">
@@ -415,12 +424,15 @@ export default function TodayScreen() {
           </View>
           )}
 
-          {/* Progress bar */}
+          {/* Progress bar. Sin miembros cargados no se anuncia el conteo: "0 de 0"
+              (o el viejo "0 de 1") era ruido antes de tener la data real. */}
           <View className="flex-row justify-between text-xs mb-1.5">
             <Text className="text-ink-faint">Semana {weekNumber}</Text>
-            <Text className="text-terracotta font-semibold">
-              {stats.done} de {members.length + 1} al corriente
-            </Text>
+            {members.length > 0 && (
+              <Text className="text-terracotta font-semibold">
+                {stats.done} de {members.length} al corriente
+              </Text>
+            )}
           </View>
           <View className="h-2 rounded-full bg-hairline overflow-hidden">
             <View className="h-full rounded-full bg-terracotta" style={{ width: `${progressPct}%` }} />
