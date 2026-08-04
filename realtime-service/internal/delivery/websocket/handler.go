@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -16,27 +15,6 @@ import (
 	"github.com/dydi/realtime-service/internal/usecase"
 	"github.com/go-chi/chi/v5"
 )
-
-// allowedOriginPatterns returns the list of origin patterns for WebSocket
-// handshake validation. When ALLOWED_ORIGINS is empty (local dev), it returns
-// ["*"] to accept any origin — matching the previous InsecureSkipVerify behavior.
-func allowedOriginPatterns() []string {
-	raw := os.Getenv("ALLOWED_ORIGINS")
-	if raw == "" {
-		return []string{"*"}
-	}
-	parts := strings.Split(raw, ",")
-	patterns := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if s := strings.TrimSpace(p); s != "" {
-			patterns = append(patterns, s)
-		}
-	}
-	if len(patterns) == 0 {
-		return []string{"*"}
-	}
-	return patterns
-}
 
 // isMember asks groups-service whether userID is an active member of groupID,
 // before we let them subscribe to that group's live events. Fail closed: if the
@@ -115,9 +93,18 @@ func WebSocketHandler(h *usecase.HubUseCase) http.HandlerFunc {
 		}
 
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			// Validate the Origin header against the configured allowed origins.
-			// In local dev ALLOWED_ORIGINS is empty → accept all (like before).
-			OriginPatterns: allowedOriginPatterns(),
+			// The browser Origin allowlist is enforced by the gateway
+			// (api-gateway/internal/middleware/ws_origin.go), not here. Behind the
+			// WS proxy Host has been rewritten to this service, so coder/websocket's
+			// same-origin shortcut can never match and the allowlist would have to
+			// enumerate the synthetic Origin of every client platform — which is
+			// what silently rejected every React Native handshake with a 403.
+			//
+			// What actually authorizes this socket is still fully in force above:
+			// requireInternalToken proves the request came through the gateway, the
+			// gateway validated the JWT to produce X-User-ID, and isMember checks
+			// membership of this specific group.
+			OriginPatterns: []string{"*"},
 		})
 		if err != nil {
 			return

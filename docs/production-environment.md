@@ -35,7 +35,9 @@ de Vercel y nunca se copia a documentación, commits o mensajes.
 - `HABITS_SERVICE_URL=https://dydi-jeru.onrender.com`
 - `REALTIME_SERVICE_URL=https://realtime-service-4mg6.onrender.com`
 - `SUPABASE_JWKS_URL=https://iuorcsmjgyljyzebfhbc.supabase.co/auth/v1/.well-known/jwks.json`
-- `ALLOWED_ORIGINS=https://dydi-xi.vercel.app`
+- `ALLOWED_ORIGINS=https://dydi-xi.vercel.app` — gobierna CORS **y** el allowlist
+  de `Origin` del handshake WebSocket. El móvil no necesita ir en esta lista: su
+  `Origin` es el de este mismo gateway y pasa por same-origin.
 - `INTERNAL_TOKEN=<mismo secreto en los cuatro servicios>`
 - `WAKE_TOKEN=<solo gateway y cron externo>`
 - `RATE_LIMIT_RPS=5`
@@ -60,13 +62,15 @@ de Vercel y nunca se copia a documentación, commits o mensajes.
 ### Render — realtime-service-4mg6
 
 - `GROUPS_SERVICE_URL=https://groups-service-mev3.onrender.com`
-- `ALLOWED_ORIGINS=https://dydi-xi.vercel.app`
 - `INTERNAL_TOKEN=<secreto compartido>`
 - `MAX_CONNECTIONS_PER_GROUP=8`
 - `PING_INTERVAL_SECONDS=30`
 - `WRITE_WAIT_SECONDS=10`
 
-Realtime no recibe variables ni credenciales de Supabase.
+Realtime no recibe variables ni credenciales de Supabase. Tampoco
+`ALLOWED_ORIGINS`: el allowlist de `Origin` del WebSocket lo aplica el gateway,
+el único punto donde el `Host` sigue siendo el público real. Si la variable quedó
+puesta en Render de antes, ya es inerte y se puede borrar.
 
 ## Cold starts
 

@@ -178,7 +178,10 @@ func setupRouter() *chi.Mux {
 		r.Mount("/penalties", proxy.To(os.Getenv("HABITS_SERVICE_URL")))
 	})
 
-	r.With(apimiddleware.Auth, apimiddleware.RateLimit(limiter)).Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
+	// WSOrigin goes first: a handshake from a disallowed origin is refused before
+	// it can cost a JWKS lookup. It has to run here rather than in
+	// realtime-service because the proxy rewrites Host — see ws_origin.go.
+	r.With(apimiddleware.WSOrigin, apimiddleware.Auth, apimiddleware.RateLimit(limiter)).Mount("/ws", proxy.WebSocket(os.Getenv("REALTIME_SERVICE_URL")))
 
 	return r
 }

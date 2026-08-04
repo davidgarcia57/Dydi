@@ -75,7 +75,9 @@ services:
       PING_INTERVAL_SECONDS: 30
       WRITE_WAIT_SECONDS: 10
       INTERNAL_TOKEN: ${INTERNAL_TOKEN}
-      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:8081
+      # Sin ALLOWED_ORIGINS a proposito: el allowlist de Origin del WebSocket lo
+      # aplica el gateway, que es el unico punto donde el Host todavia es el
+      # publico real (api-gateway/internal/middleware/ws_origin.go).
       # Used to verify a user belongs to a group before accepting their WebSocket.
       GROUPS_SERVICE_URL: http://groups-service:8082
     healthcheck:

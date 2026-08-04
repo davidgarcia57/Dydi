@@ -752,14 +752,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       };
 
-      ws.onclose = () => {
+      // Un handshake rechazado (403/401) llega aqui como un cierre 1006 pelado,
+      // igual que una caida de red — por eso el rechazo por Origin se veia solo
+      // como "reconectando..." y sobrevivio semanas. Loguear code/reason hace que
+      // el proximo rechazo determinista se distinga de un flake de red.
+      ws.onclose = (ev) => {
         setWsConnected(false);
         if (!wsClosedRef.current) {
+          console.warn(`[dydi] ws cerrado (code=${ev?.code ?? '?'}, reason=${ev?.reason || 'sin reason'})`);
           scheduleReconnect();
         }
       };
 
-      ws.onerror = () => {
+      ws.onerror = (ev) => {
+        console.warn(`[dydi] ws error: ${(ev as { message?: string })?.message ?? 'desconocido'}`);
         ws.close();
       };
     }
