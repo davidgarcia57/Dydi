@@ -56,6 +56,21 @@ export const useGroupStore = defineStore('group', () => {
     return data
   }
 
+  // Un código corto suelto (lo único que la UI muestra) se resuelve en el
+  // servidor; el formato viejo `uuid:CODIGO` sigue funcionando para los enlaces y
+  // mensajes que ya andan circulando.
+  async function joinByCode(inviteCode) {
+    const g = await api('/api/groups/join-by-code', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: inviteCode }),
+    })
+    await loadGroup(g.id)
+    if (!myGroups.value.find((x) => x.id === g.id)) {
+      myGroups.value = [...myGroups.value, group.value]
+    }
+    return g
+  }
+
   async function joinGroup(groupID, inviteCode) {
     await api(`/api/groups/${groupID}/join`, {
       method: 'POST',
@@ -113,6 +128,7 @@ export const useGroupStore = defineStore('group', () => {
     switchGroup,
     createGroup,
     joinGroup,
+    joinByCode,
     leaveGroup,
     reset,
     setMemberOnline,

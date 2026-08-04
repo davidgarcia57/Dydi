@@ -7,6 +7,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
+import { inviteMessage } from '../../src/inviteLink';
 
 export default function ProfileModal() {
   const router = useRouter();
@@ -114,8 +115,7 @@ export default function ProfileModal() {
 
   async function shareInvite() {
     if (!group) return;
-    const code = `${group.id}:${group.invite_code}`;
-    const text = `¡Únete a mi squad "${group.name}" en Dydi!\nCódigo: ${code}`;
+    const text = inviteMessage(group.name, group.id, group.invite_code);
     try {
       await Share.share({ message: text, title: 'Únete a Dydi' });
     } catch (e) {

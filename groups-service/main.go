@@ -113,6 +113,9 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		r.Post("/groups", h.CreateGroup)
 		r.Get("/groups/{id}", h.GetGroup)
 		r.Post("/groups/{id}/join", h.JoinGroup)
+		// Ruta fija antes del comodín {id}: unirse teniendo solo el código corto,
+		// que es lo único que la UI muestra.
+		r.Post("/groups/join-by-code", h.JoinByCode)
 		r.Get("/groups/{id}/members", h.ListMembers)
 		r.Delete("/groups/{id}/leave", h.LeaveGroup)
 

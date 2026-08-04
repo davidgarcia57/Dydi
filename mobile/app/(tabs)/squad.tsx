@@ -6,6 +6,7 @@ import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import { mondayIndex } from '../../src/weekStatus';
 import SoloSquadFigure from '../../src/components/ui/SoloSquadFigure';
+import { inviteMessage } from '../../src/inviteLink';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -155,7 +156,7 @@ export default function SquadScreen() {
 
   function copyInviteCode() {
     if (!group) return;
-    const code = `${group.id}:${group.invite_code}`;
+    const code = inviteMessage(group.name, group.id, group.invite_code);
     try {
       Clipboard.setString(code);
       setCopied(true);
@@ -167,8 +168,8 @@ export default function SquadScreen() {
 
   async function shareInvite() {
     if (!group) return;
-    const code = `${group.id}:${group.invite_code}`;
-    const text = `¡Únete a mi squad "${group.name}" en Dydi!\nCódigo de invitación: ${code}`;
+    const code = inviteMessage(group.name, group.id, group.invite_code);
+    const text = code;
     try {
       await Share.share({ message: text, title: 'Únete a Dydi' });
     } catch (e) {

@@ -120,6 +120,7 @@ interface AppContextType {
   autoLoad: () => Promise<boolean>;
   createGroup: (name: string) => Promise<Group>;
   joinGroup: (groupID: string, inviteCode: string) => Promise<void>;
+  joinByCode: (inviteCode: string) => Promise<any>;
   leaveGroup: () => Promise<void>;
   resetGroup: () => void;
 
@@ -268,6 +269,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMyGroups(prev => [...prev.filter(g => g.id !== data.id), { id: data.id, name: data.name }]);
     AsyncStorage.setItem(ACTIVE_GROUP_KEY, data.id).catch(() => {});
     return data;
+  }
+
+  // Un codigo corto suelto (lo unico que la UI muestra) lo resuelve el servidor;
+  // el formato viejo `uuid:CODIGO` sigue sirviendo para mensajes ya enviados.
+  async function joinByCode(inviteCode: string) {
+    const g = await api('/api/groups/join-by-code', {
+      method: 'POST',
+      body: JSON.stringify({ invite_code: inviteCode }),
+    });
+    await loadGroup(g.id);
+    loadMyGroups().catch(() => {});
+    return g;
   }
 
   async function joinGroup(groupID: string, inviteCode: string) {
@@ -782,6 +795,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         autoLoad,
         createGroup,
         joinGroup,
+        joinByCode,
         leaveGroup,
         resetGroup,
 

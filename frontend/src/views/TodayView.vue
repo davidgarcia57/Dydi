@@ -7,6 +7,7 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 import { showToast } from '@/composables/useToast'
+import { inviteMessage } from '@/inviteLink'
 import { missedThisWeek, mondayIndex } from '@/composables/useWeekStatus'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
@@ -23,9 +24,8 @@ const loadError = ref(false)
 
 async function shareInvite() {
   if (!group.group?.invite_code || !group.group?.id) return
-  // Join expects the full "{groupID}:{inviteCode}" code (see OnboardingView).
-  const code = `${group.group.id}:${group.group.invite_code}`
-  const text = `¡Únete a mi squad "${group.group.name}" en Dydi!\nCódigo de invitación: ${code}`
+  const code = group.group.invite_code
+  const text = inviteMessage(group.group.name, group.group.id, code)
   if (navigator.share) {
     try {
       await navigator.share({
@@ -34,8 +34,10 @@ async function shareInvite() {
       })
     } catch (e) {}
   } else {
-    await navigator.clipboard.writeText(code)
-    showToast(`Código copiado: ${code}`)
+    // Sin share sheet se copia el mensaje completo con enlace, no el código
+    // suelto: pegarlo en WhatsApp debe seguir siendo un tap para quien lo recibe.
+    await navigator.clipboard.writeText(text)
+    showToast('Invitación copiada con enlace')
   }
 }
 

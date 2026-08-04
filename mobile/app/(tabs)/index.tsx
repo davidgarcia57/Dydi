@@ -17,6 +17,7 @@ import SoloSquadFigure from '../../src/components/ui/SoloSquadFigure';
 import SquadPulse from '../../src/components/SquadPulse';
 import TargetGlyph from '../../src/components/ui/TargetGlyph';
 import { missedThisWeek } from '../../src/weekStatus';
+import { inviteMessage } from '../../src/inviteLink';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -280,8 +281,8 @@ export default function TodayScreen() {
 
   async function shareInvite() {
     if (!group) return;
-    const code = `${group.id}:${group.invite_code}`;
-    const text = `¡Únete a mi squad "${group.name}" en Dydi!\nCódigo de invitación: ${code}`;
+    const code = inviteMessage(group.name, group.id, group.invite_code);
+    const text = code;
     try {
       await Share.share({
         message: text,

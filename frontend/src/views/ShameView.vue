@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
+import { inviteMessage } from '@/inviteLink'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import GroupSwitcher from '@/components/GroupSwitcher.vue'
 
@@ -127,7 +128,7 @@ async function copyInviteCode() {
 
 async function shareInvite() {
   if (!inviteCode.value) return
-  const text = 'Únete a mi squad "' + group.group.name + '" en Dydi. Código: ' + inviteCode.value
+  const text = inviteMessage(group.group.name, group.group.id, group.group.invite_code)
   if (navigator.share) {
     try {
       await navigator.share({ title: 'Únete a Dydi', text })

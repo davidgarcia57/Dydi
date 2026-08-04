@@ -1,10 +1,19 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { readPendingInvite } from '@/pendingInvite'
 
 const routes = [
   {
     path: '/login',
     component: () => import('@/views/LoginView.vue'),
+    meta: { public: true },
+  },
+  // Pública a propósito: el caso que importa es que te inviten sin tener cuenta.
+  // JoinView guarda la invitación y rebota al login; el guard de abajo la
+  // recupera en cuanto hay sesión.
+  {
+    path: '/join',
+    component: () => import('@/views/JoinView.vue'),
     meta: { public: true },
   },
   {
@@ -54,9 +63,12 @@ router.beforeEach((to) => {
   if (!to.meta.public && !auth.isLoggedIn) {
     return '/login'
   }
-  // Ya logueado → rebotar de /login a /today
+  // Ya logueado → rebotar de /login. Si quedó una invitación pendiente (llegó por
+  // enlace sin sesión y tuvo que registrarse), se retoma en vez de caer en /today
+  // y dejarlo fuera del squad al que lo invitaron.
   if (to.path === '/login' && auth.isLoggedIn) {
-    return '/today'
+    const pending = readPendingInvite()
+    return pending ? { path: '/join', query: { g: pending.g, c: pending.c } } : '/today'
   }
 })
 

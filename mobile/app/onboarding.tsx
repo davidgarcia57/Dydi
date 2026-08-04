@@ -14,10 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useApp } from '../src/contexts/AppContext';
 import BrandWordmark from '../src/components/ui/BrandWordmark';
+import { inviteMessage } from '../src/inviteLink';
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { createGroup, joinGroup } = useApp();
+  const { createGroup, joinGroup, joinByCode } = useApp();
   
   // 'home' | 'create' | 'join' | 'created'
   const [step, setStep] = useState<'home' | 'create' | 'join' | 'created'>('home');
@@ -54,16 +55,19 @@ export default function OnboardingScreen() {
     if (!joinCode.trim() || loading) return;
     setErrMsg('');
 
-    // Expected format: "{groupID}:{inviteCode}"
-    const parts = joinCode.trim().split(':');
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      setErrMsg('Formato inválido. Debe ser el código completo que te compartieron.');
-      return;
-    }
-
     setLoading(true);
+
+    // Se acepta el codigo corto suelto (lo unico que la UI muestra) y tambien el
+    // viejo `uuid:CODIGO`, que sigue circulando en mensajes ya enviados.
+    const raw = joinCode.trim();
+    const parts = raw.split(':');
+
     try {
-      await joinGroup(parts[0], parts[1]);
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        await joinGroup(parts[0], parts[1]);
+      } else {
+        await joinByCode(raw);
+      }
       router.replace('/(tabs)');
     } catch (e: any) {
       setErrMsg(e?.error ?? e?.message ?? 'Código inválido o grupo no encontrado.');
@@ -74,7 +78,7 @@ export default function OnboardingScreen() {
 
   function copyInviteCode() {
     if (!createdGroup) return;
-    const code = `${createdGroup.id}:${createdGroup.invite_code}`;
+    const code = inviteMessage(createdGroup.name, createdGroup.id, createdGroup.invite_code);
     try {
       Clipboard.setString(code);
       setCopied(true);

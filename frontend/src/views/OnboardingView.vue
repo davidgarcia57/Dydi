@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { inviteMessage } from '@/inviteLink'
 import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
@@ -39,17 +40,19 @@ async function submitCreate() {
 async function submitJoin() {
   if (!joinCode.value.trim() || loading.value) return
   errMsg.value = ''
-
-  // Expected format: "{groupID}:{inviteCode}"
-  const parts = joinCode.value.trim().split(':')
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    errMsg.value = 'Formato inválido. Debe ser el código completo que te compartieron.'
-    return
-  }
-
   loading.value = true
+
+  // Se acepta el código corto suelto (lo único que la UI muestra) y también el
+  // viejo `uuid:CODIGO`, que sigue circulando en mensajes ya enviados.
+  const raw = joinCode.value.trim()
+  const parts = raw.split(':')
+
   try {
-    await group.joinGroup(parts[0], parts[1])
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      await group.joinGroup(parts[0], parts[1])
+    } else {
+      await group.joinByCode(raw)
+    }
     router.replace('/today')
   } catch (e) {
     errMsg.value = e?.error ?? e?.message ?? 'Código inválido o grupo no encontrado.'
@@ -60,7 +63,11 @@ async function submitJoin() {
 
 function copyInviteCode() {
   if (!createdGroup.value) return
-  const code = `${createdGroup.value.id}:${createdGroup.value.invite_code}`
+  const code = inviteMessage(
+    createdGroup.value.name,
+    createdGroup.value.id,
+    createdGroup.value.invite_code
+  )
   navigator.clipboard?.writeText(code)
   copied.value = true
   setTimeout(() => {
@@ -200,8 +207,8 @@ const copied = ref(false)
           Pega el código que te compartieron
         </h1>
         <p class="text-xs text-ink-soft mb-8">
-          El código completo tiene el formato<br />
-          <span class="font-mono">id-del-grupo:código-acceso</span>
+          Son 8 caracteres, como <span class="font-mono">J4VZF3YT</span>. Si te llegó un enlace,
+          ábrelo y entras directo.
         </p>
 
         <label class="block mb-6">

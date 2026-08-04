@@ -130,7 +130,47 @@ func (h *GroupHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	already, err := db.IsMember(r.Context(), h.pool, groupID, userID)
+	h.addMemberToGroup(w, r, group, userID)
+}
+
+// JoinByCode resuelve el grupo desde el código de invitación solo, sin necesitar
+// su id en la ruta. Existe porque la UI ya solo muestra la parte corta del código
+// (`J4VZF3YT`, dictable por teléfono) en vez del `uuid:CODIGO` completo: sin este
+// endpoint, quien teclea a mano lo que ve no podría entrar.
+func (h *GroupHandler) JoinByCode(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	var body struct {
+		InviteCode string `json:"invite_code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.InviteCode == "" {
+		writeError(w, http.StatusBadRequest, "invite_code is required")
+		return
+	}
+
+	group, err := db.GetGroupByInviteCode(r.Context(), h.pool, body.InviteCode)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "group not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	h.addMemberToGroup(w, r, group, userID)
+}
+
+// addMemberToGroup es la cola compartida de JoinGroup y JoinByCode: valida que no
+// sea ya miembro, respeta el tope del grupo y agrega la membresía.
+func (h *GroupHandler) addMemberToGroup(
+	w http.ResponseWriter, r *http.Request, group *model.Group, userID string,
+) {
+	already, err := db.IsMember(r.Context(), h.pool, group.ID, userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -140,7 +180,7 @@ func (h *GroupHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	count, err := db.CountMembers(r.Context(), h.pool, groupID)
+	count, err := db.CountMembers(r.Context(), h.pool, group.ID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "db error")
 		return
@@ -150,7 +190,7 @@ func (h *GroupHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.AddMember(r.Context(), h.pool, groupID, userID, "member"); err != nil {
+	if err := db.AddMember(r.Context(), h.pool, group.ID, userID, "member"); err != nil {
 		writeError(w, http.StatusInternalServerError, "could not join group")
 		return
 	}
