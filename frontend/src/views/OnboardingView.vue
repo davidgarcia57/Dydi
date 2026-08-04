@@ -4,6 +4,7 @@ import { inviteMessage } from '@/inviteLink'
 import { useRouter } from 'vue-router'
 import { useGroupStore } from '@/stores/group'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
+import { errorMessage } from '@/errorMessage'
 
 const router = useRouter()
 const group = useGroupStore()
@@ -31,7 +32,7 @@ async function submitCreate() {
     createdGroup.value = await group.createGroup(groupName.value.trim())
     step.value = 'created'
   } catch (e) {
-    errMsg.value = e?.error ?? e?.message ?? 'No se pudo crear el grupo.'
+    errMsg.value = errorMessage(e, 'No se pudo crear el grupo. Intenta de nuevo.')
   } finally {
     loading.value = false
   }
@@ -55,7 +56,10 @@ async function submitJoin() {
     }
     router.replace('/today')
   } catch (e) {
-    errMsg.value = e?.error ?? e?.message ?? 'Código inválido o grupo no encontrado.'
+    errMsg.value = errorMessage(
+      e,
+      'Ese código no corresponde a ningún grupo. Revísalo con quien te invitó.'
+    )
   } finally {
     loading.value = false
   }

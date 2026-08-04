@@ -6,6 +6,7 @@ import { useGroupStore } from '@/stores/group'
 import { showToast } from '@/composables/useToast'
 import { savePendingInvite, clearPendingInvite } from '@/pendingInvite'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
+import { errorMessage } from '@/errorMessage'
 
 // Invitación de un tap. La ruta es pública porque el caso que importa es que te
 // inviten SIN tener cuenta: aquí se guarda la invitación, se manda al login, y el
@@ -47,7 +48,10 @@ onMounted(async () => {
       router.replace('/today')
       return
     }
-    error.value = e?.error ?? 'No pudimos usar esta invitación. Pídele al squad un código nuevo.'
+    error.value = errorMessage(
+      e,
+      'No pudimos usar esta invitación. Pídele al squad un código nuevo.'
+    )
   }
 })
 </script>

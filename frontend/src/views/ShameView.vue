@@ -9,6 +9,7 @@ import { useProposalsStore } from '@/stores/proposals'
 import { inviteMessage } from '@/inviteLink'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import GroupSwitcher from '@/components/GroupSwitcher.vue'
+import { errorMessage } from '@/errorMessage'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -90,7 +91,7 @@ async function saveProfile() {
     syncProfileForm()
     setFeedback('success', 'Tu nombre se actualizó.')
   } catch (error) {
-    setFeedback('error', error?.error ?? error?.message ?? 'No pudimos actualizar tu perfil.')
+    setFeedback('error', errorMessage(error, 'No pudimos actualizar tu perfil. Intenta de nuevo.'))
   } finally {
     profileSaving.value = false
   }
@@ -140,7 +141,7 @@ async function handleRotate() {
     await group.rotateInviteCode()
     rotateMsg.value = 'Código nuevo listo. El anterior ya no sirve.'
   } catch (error) {
-    rotateMsg.value = error?.error ?? 'No se pudo generar un código nuevo.'
+    rotateMsg.value = errorMessage(error, 'No se pudo generar un código nuevo. Intenta de nuevo.')
   } finally {
     rotating.value = false
     confirmRotate.value = false
@@ -181,7 +182,7 @@ async function handleDeleteAccount() {
     router.replace('/login')
   } catch (error) {
     confirmDelete.value = false
-    setFeedback('error', error?.error ?? error?.message ?? 'No pudimos borrar tu cuenta.')
+    setFeedback('error', errorMessage(error, 'No pudimos borrar tu cuenta. Intenta de nuevo.'))
   } finally {
     deletingAccount.value = false
   }
@@ -196,7 +197,7 @@ async function proposeDissolve() {
     confirmDissolve.value = false
     setFeedback('success', 'Propuesta enviada. El squad vota disolver el grupo en Votar.')
   } catch (error) {
-    setFeedback('error', error?.error ?? error?.message ?? 'No se pudo crear la propuesta.')
+    setFeedback('error', errorMessage(error, 'No se pudo crear la propuesta. Intenta de nuevo.'))
   } finally {
     proposingDissolve.value = false
   }
@@ -210,7 +211,7 @@ async function handleLeaveGroup() {
     router.replace('/onboarding')
   } catch (error) {
     confirmLeave.value = false
-    setFeedback('error', error?.error ?? error?.message ?? 'No pudimos sacarte del grupo.')
+    setFeedback('error', errorMessage(error, 'No pudimos sacarte del grupo. Intenta de nuevo.'))
   } finally {
     leavingGroup.value = false
   }

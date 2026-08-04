@@ -421,9 +421,19 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <h2 class="font-serif text-3xl font-semibold text-ink mb-4 leading-snug">
+          <h2 class="font-serif text-3xl font-semibold text-ink mb-2 leading-snug">
             ¿Ya hiciste el tuyo?
           </h2>
+
+          <!-- Qué es un check-in, dicho donde importa. La app no lo explicaba en
+               ningún lado: el onboarding es transaccional (crear/unirse) y ninguna
+               vista decía qué es ni por qué conviene marcarlo. NN/g midió que los
+               tutoriales no mejoran el desempeño, y Apple HIG prefiere "tips
+               contextuales" a un flujo de onboarding. Espejo del móvil. -->
+          <p class="text-xs text-ink-soft mb-4 leading-relaxed max-w-[52ch]">
+            Marcar un hábito es tu check-in del día. Si dejas pendientes de lunes a viernes, entras
+            a la ruleta el sábado.
+          </p>
 
           <!-- Habit list (one row per assigned habit). Gated en loaded: sin la
                guarda, el primer render mostraba un flash de "no tienes hábito"

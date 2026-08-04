@@ -6,6 +6,7 @@ import { useHabitsStore } from '@/stores/habits'
 import { useProposalsStore } from '@/stores/proposals'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import HabitIcon from '@/components/ui/HabitIcon.vue'
+import { errorMessage } from '@/errorMessage'
 
 const router = useRouter()
 const group = useGroupStore()
@@ -109,7 +110,7 @@ async function propose(habit, type = 'add_habit') {
     await store.propose(group.group.id, type, { habitID: habit.id })
     tab.value = 'propuestas'
   } catch (e) {
-    proposeErr.value = e?.error ?? e?.message ?? 'No se pudo crear la propuesta.'
+    proposeErr.value = errorMessage(e, 'No se pudo crear la propuesta. Intenta de nuevo.')
   } finally {
     proposing.value = null
   }
@@ -121,7 +122,7 @@ async function castVote(proposalID, approved) {
   try {
     await store.vote(proposalID, approved)
   } catch (e) {
-    voteErr.value = e?.error ?? e?.message ?? 'No se pudo registrar el voto.'
+    voteErr.value = errorMessage(e, 'No se pudo registrar tu voto. Intenta de nuevo.')
   } finally {
     votingID.value = null
   }

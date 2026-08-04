@@ -12,6 +12,7 @@ import PageContainer from '@/components/ui/PageContainer.vue'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import SparkleGlyph from '@/components/ui/SparkleGlyph.vue'
+import { errorMessage } from '@/errorMessage'
 
 const auth = useAuthStore()
 const group = useGroupStore()
@@ -139,7 +140,7 @@ async function proposeKick(row) {
     confirmKick.value = null
     showToast('Propuesta enviada. El squad la vota en Votar.')
   } catch (e) {
-    showToast(e?.error ?? e?.message ?? 'No se pudo proponer la expulsión.')
+    showToast(errorMessage(e, 'No se pudo proponer la expulsión. Intenta de nuevo.'))
   } finally {
     kicking.value = null
   }

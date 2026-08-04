@@ -10,6 +10,7 @@ import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import RouletteWheel from '@/components/ui/RouletteWheel.vue'
 import DoveHero from '@/components/ui/DoveHero.vue'
 import { Dices, PartyPopper } from 'lucide-vue-next'
+import { errorMessage } from '@/errorMessage'
 
 // Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
 // miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
@@ -172,7 +173,7 @@ async function openRoulette(member) {
     await penalties.loadSuggestions(penalties.activeEntry.id)
     view.value = 'entry'
   } catch (e) {
-    error.value = e?.error ?? 'No se pudo abrir la ruleta'
+    error.value = errorMessage(e, 'No se pudo abrir la ruleta. Intenta de nuevo.')
   } finally {
     loading.value = false
   }
@@ -187,7 +188,7 @@ async function enterEntry(e) {
     await penalties.loadSuggestions(e.id)
     view.value = 'entry'
   } catch (err) {
-    error.value = err?.error ?? 'No se pudo abrir la ruleta'
+    error.value = errorMessage(err, 'No se pudo abrir la ruleta. Intenta de nuevo.')
   } finally {
     loading.value = false
   }
@@ -203,7 +204,7 @@ async function completeDebt(debt) {
     await penalties.completeDebt(debt.id)
     showToast('Penitencia cumplida')
   } catch (e) {
-    error.value = e?.error ?? 'No se pudo marcar la deuda'
+    error.value = errorMessage(e, 'No se pudo marcar la deuda. Intenta de nuevo.')
   } finally {
     completing.value = null
     confirmComplete.value = null
@@ -221,7 +222,7 @@ async function forgiveDebt(debt) {
     await penalties.forgiveDebt(debt.id)
     showToast('Deuda perdonada')
   } catch (e) {
-    error.value = e?.error ?? 'No se pudo perdonar la deuda'
+    error.value = errorMessage(e, 'No se pudo perdonar la deuda. Intenta de nuevo.')
   } finally {
     forgiving.value = null
     confirmForgive.value = null
@@ -239,7 +240,7 @@ async function submitSuggestion() {
     sugEmoji.value = ''
     showForm.value = false
   } catch (e) {
-    error.value = e?.error ?? 'No se pudo enviar'
+    error.value = errorMessage(e, 'No se pudo enviar tu penitencia. Intenta de nuevo.')
   } finally {
     sending.value = false
   }
@@ -255,7 +256,7 @@ async function doSpin() {
     // Pedimos el ganador real primero
     result = await penalties.spin(entry.value.id)
   } catch (e) {
-    error.value = e?.error ?? 'Error al girar'
+    error.value = errorMessage(e, 'No se pudo girar la ruleta. Intenta de nuevo.')
     spinning.value = false
     return
   }
@@ -345,7 +346,7 @@ async function loadPage() {
       }
     }
   } catch (e) {
-    error.value = e?.error ?? 'No se pudo cargar la ruleta'
+    error.value = errorMessage(e, 'No se pudo cargar la ruleta. Intenta de nuevo.')
     loadFailed.value = true
   } finally {
     pageLoading.value = false
@@ -368,7 +369,14 @@ onUnmounted(() => {
           <h1 class="font-serif text-2xl font-semibold text-ink">Ruleta</h1>
           <span class="text-eyebrow">{{ group.group?.name ?? '' }}</span>
         </div>
-        <p class="text-xs text-ink-faint mt-0.5">Penitencias del ciclo actual</p>
+        <!-- La regla del juego, dicha aquí. "Penitencias del ciclo actual" describe
+             el tono pero no explica qué hacer. NN/g H6 (reconocer antes que
+             recordar): la causa vive en Hoy y la consecuencia se ejecuta acá, así
+             que esta vista tiene que cargar con el recuerdo. Espejo del móvil. -->
+        <p class="text-xs text-ink-soft mt-1 leading-relaxed max-w-[62ch]">
+          Quien deja pendientes de lunes a viernes cae en el bote. El sábado cualquiera del squad
+          gira por esa persona y le toca una penitencia al azar.
+        </p>
       </header>
 
       <div
