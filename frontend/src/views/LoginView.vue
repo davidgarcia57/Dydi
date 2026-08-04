@@ -467,6 +467,31 @@ const fieldInput =
           </button>
         </p>
       </div>
+
+      <!-- Descarga del APK, solo en móvil. La versión de escritorio vive en la
+           columna del hero, que es `hidden lg:flex`, así que en un teléfono el
+           enlace no existía — justo donde más sirve, porque es el dispositivo
+           donde se puede instalar. Mismo permalink a la última release. -->
+      <div class="w-full max-w-[22rem] mt-6 text-center lg:hidden">
+        <a
+          :href="APK_URL"
+          class="inline-flex items-center justify-center gap-2 w-full rounded-pill bg-ink text-paper px-6 py-3 text-sm font-bold active:opacity-80 transition-opacity"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"
+            />
+          </svg>
+          Descargar la app para Android
+        </a>
+        <p class="text-xs text-ink-faint mt-2 leading-relaxed">
+          Android te va a preguntar si permites instalar desde el navegador. Es normal: la app no
+          está en Play Store.
+        </p>
+      </div>
     </main>
   </div>
 </template>

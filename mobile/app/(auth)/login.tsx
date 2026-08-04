@@ -190,7 +190,7 @@ export default function LoginScreen() {
                 <View className="flex-col gap-1.5">
                   <Text className="text-xs font-bold text-ink">Nombre</Text>
                   <TextInput
-                    className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-[15px] text-ink font-sans"
+                    className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-sm text-ink font-sans"
                     placeholder="Tu nombre o apodo"
                     placeholderTextColor="#A89C89"
                     value={displayName}
@@ -204,7 +204,7 @@ export default function LoginScreen() {
               <View className="flex-col gap-1.5">
                 <Text className="text-xs font-bold text-ink">Correo</Text>
                 <TextInput
-                  className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-[15px] text-ink font-sans"
+                  className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-sm text-ink font-sans"
                   placeholder="tu@correo.com"
                   placeholderTextColor="#A89C89"
                   value={email}
@@ -218,7 +218,7 @@ export default function LoginScreen() {
               <View className="flex-col gap-1.5">
                 <Text className="text-xs font-bold text-ink">Contraseña</Text>
                 <TextInput
-                  className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-[15px] text-ink font-sans"
+                  className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-sm text-ink font-sans"
                   placeholder="Mínimo 6 caracteres"
                   placeholderTextColor="#A89C89"
                   value={password}
@@ -233,7 +233,7 @@ export default function LoginScreen() {
                 <View className="flex-col gap-1.5">
                   <Text className="text-xs font-bold text-ink">Confirmar contraseña</Text>
                   <TextInput
-                    className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-[15px] text-ink font-sans"
+                    className="w-full bg-surface border border-hairline rounded-xl px-4 py-3 text-sm text-ink font-sans"
                     placeholder="Repítela una vez"
                     placeholderTextColor="#A89C89"
                     value={confirmPassword}

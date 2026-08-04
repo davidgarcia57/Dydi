@@ -212,7 +212,7 @@ export default function SquadScreen() {
       <View className="px-6 py-4 border-b border-hairline/30 bg-cream">
         <View className="flex-row items-baseline justify-between">
           <Text className="font-serif text-2xl font-semibold text-ink">Squad</Text>
-          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
             {group?.name ?? ''}
           </Text>
         </View>
@@ -243,10 +243,10 @@ export default function SquadScreen() {
             {/* ── La semana del squad: miembros × L–V ───────────────────────── */}
             <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm">
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
                   LA SEMANA DEL SQUAD
                 </Text>
-                <Text className="text-[9px] text-ink-faint">L–V cuentan</Text>
+                <Text className="text-micro text-ink-faint">L–V cuentan</Text>
               </View>
 
               {!squadRows.length ? (
@@ -272,7 +272,7 @@ export default function SquadScreen() {
                       {MATRIX_LABELS.map((l, i) => (
                         <Text
                           key={i}
-                          className="w-7 text-center text-[9px] font-medium text-ink-faint"
+                          className="w-7 text-center text-micro font-medium text-ink-faint"
                         >
                           {l}
                         </Text>
@@ -294,7 +294,7 @@ export default function SquadScreen() {
                           <View
                             className={`w-7 h-7 rounded-full items-center justify-center ${getAvatarBg(row.display_name)}`}
                           >
-                            <Text className="text-paper text-[10px] font-bold">
+                            <Text className="text-paper text-micro font-bold">
                               {getInitials(row.display_name)}
                             </Text>
                           </View>
@@ -304,7 +304,7 @@ export default function SquadScreen() {
                               {row.user_id === user?.id ? 'Tú' : row.display_name}
                             </Text>
                             {perfect ? (
-                              <Text className="text-[9px] font-bold text-amber-deep">
+                              <Text className="text-micro font-bold text-amber-deep">
                                 semana perfecta
                               </Text>
                             ) : null}
@@ -316,7 +316,7 @@ export default function SquadScreen() {
                                 key={i}
                                 className={`w-7 h-7 rounded-lg items-center justify-center ${MATRIX_CELL[status]}`}
                               >
-                                <Text className={`text-[10px] font-bold ${MATRIX_TEXT[status]}`}>
+                                <Text className={`text-micro font-bold ${MATRIX_TEXT[status]}`}>
                                   {MATRIX_ICON[status] ?? ''}
                                 </Text>
                               </View>
@@ -331,7 +331,7 @@ export default function SquadScreen() {
             </View>
 
             {/* ── Miembros ──────────────────────────────────────────────────── */}
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">
+            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">
               MIEMBROS DEL SQUAD ({members.filter((m) => m.user_id !== user?.id).length + 1})
             </Text>
 
@@ -401,7 +401,7 @@ export default function SquadScreen() {
                       }`}
                     >
                       <Text
-                        className={`text-[10px] font-bold ${
+                        className={`text-micro font-bold ${
                           confirmKick === member.user_id ? 'text-paper' : 'text-ink-faint'
                         }`}
                       >
@@ -424,7 +424,7 @@ export default function SquadScreen() {
 
             {/* ── Invitar ───────────────────────────────────────────────────── */}
             <View className="rounded-3xl bg-paper border border-hairline p-5 mb-8 shadow-sm">
-              <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3">
+              <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3">
                 INVITAR AL SQUAD
               </Text>
 
@@ -446,7 +446,7 @@ export default function SquadScreen() {
                   teclea. El payload completo sigue viajando en Copiar y
                   Compartir. */}
               <View className="rounded-2xl bg-cream-2 border border-hairline/60 px-4 py-3 mb-4 items-center">
-                <Text className="text-[9px] font-bold text-ink-soft tracking-wider uppercase mb-1">
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-1">
                   CÓDIGO DEL SQUAD
                 </Text>
                 <Text className="font-mono text-xl font-bold text-ink tracking-[0.2em]">
@@ -486,7 +486,7 @@ export default function SquadScreen() {
                 onPress={handleRotate}
                 className="mt-4 py-2 items-center"
               >
-                <Text className="text-[11px] font-bold text-ink-faint">
+                <Text className="text-micro font-bold text-ink-faint">
                   {rotating
                     ? 'Generando…'
                     : confirmRotate
@@ -496,7 +496,7 @@ export default function SquadScreen() {
               </TouchableOpacity>
 
               {rotateMsg ? (
-                <Text className="text-[11px] text-sage-deep text-center font-semibold mt-1">
+                <Text className="text-micro text-sage-deep text-center font-semibold mt-1">
                   {rotateMsg}
                 </Text>
               ) : null}

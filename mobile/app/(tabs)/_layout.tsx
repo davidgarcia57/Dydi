@@ -54,7 +54,11 @@ export default function TabLayout() {
           borderTopColor: '#E7DECD', // hairline
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          // 12px = el piso `micro` de la escala en tailwind.config.js. Va como
+          // número porque es un prop de React Navigation, no una clase de
+          // NativeWind: por eso se quedó en 10px cuando se subió el resto de la
+          // tipografía, siendo la UI que más se usa de la app.
+          fontSize: 12,
           fontWeight: '600',
           letterSpacing: 0.3,
         },

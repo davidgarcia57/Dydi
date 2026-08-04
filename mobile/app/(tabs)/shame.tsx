@@ -460,7 +460,7 @@ export default function ShameScreen() {
             {/* Ruletas abiertas: cualquiera del squad puede entrar a sugerir */}
             {openEntries.length > 0 && (
               <View className="mb-6">
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">RULETAS ABIERTAS</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">RULETAS ABIERTAS</Text>
                 <View className="gap-2.5">
                   {openEntries.map((e) => (
                     <View key={e.id} className="rounded-3xl bg-paper border border-hairline border-l-4 border-l-terracotta p-4 flex-row items-center gap-3 shadow-sm">
@@ -486,7 +486,7 @@ export default function ShameScreen() {
 
             {/* En el Bote Section */}
             <View className="mb-6">
-              <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">EN EL BOTE ESTA SEMANA</Text>
+              <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">EN EL BOTE ESTA SEMANA</Text>
 
               {eligibleWithoutEntry.length === 0 ? (
                 <View className="rounded-3xl border border-sage/30 bg-sage-soft/30 p-6 items-center justify-center shadow-sm">
@@ -540,7 +540,7 @@ export default function ShameScreen() {
 
             {/* Deudas Activas Section */}
             <View className="mb-10">
-              <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">DEUDAS ACTIVAS EN EL SQUAD</Text>
+              <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">DEUDAS ACTIVAS EN EL SQUAD</Text>
               
               {debts.length === 0 ? (
                 <View className="rounded-3xl bg-surface border border-hairline py-8 px-6 items-center justify-center">
@@ -562,11 +562,11 @@ export default function ShameScreen() {
                       <View className="flex-row items-center justify-between mb-2">
                         <View className="flex-row items-center gap-2 flex-wrap">
                           <View className={`w-6 h-6 rounded-full items-center justify-center ${getAvatarBg(getMemberName(debt.debtor_id))}`}>
-                            <Text className="text-paper text-[8px] font-bold">{getInitials(getMemberName(debt.debtor_id))}</Text>
+                            <Text className="text-paper text-micro font-bold">{getInitials(getMemberName(debt.debtor_id))}</Text>
                           </View>
                           <Text className="text-xs font-bold text-ink">{getMemberName(debt.debtor_id)}</Text>
                           <View className={`rounded-full px-2 py-0.5 ${debt.scope === 'collective' ? 'bg-coral/10' : 'bg-terracotta/10'}`}>
-                            <Text className={`text-[9px] font-bold ${debt.scope === 'collective' ? 'text-coral-deep' : 'text-terracotta'}`}>
+                            <Text className={`text-micro font-bold ${debt.scope === 'collective' ? 'text-coral-deep' : 'text-terracotta'}`}>
                               {debt.scope === 'collective' ? 'colectiva' : 'personal'}
                             </Text>
                           </View>
@@ -579,7 +579,7 @@ export default function ShameScreen() {
                           }`}
                         >
                           <Text
-                            className={`text-[9px] font-bold ${
+                            className={`text-micro font-bold ${
                               new Date(debt.expires_at).getTime() - Date.now() < 2 * 86400000
                                 ? 'text-coral-deep'
                                 : 'text-amber-deep'
@@ -589,7 +589,7 @@ export default function ShameScreen() {
                           </Text>
                         </View>
                       </View>
-                      <Text className="text-[9px] font-bold text-terracotta tracking-wider uppercase pl-1 mb-0.5">
+                      <Text className="text-micro font-bold text-terracotta tracking-wider uppercase pl-1 mb-0.5">
                         LA RULETA DICTÓ
                       </Text>
                       <Text className="font-serif text-base font-semibold text-ink pl-1 leading-snug">
@@ -651,8 +651,8 @@ export default function ShameScreen() {
             {/* Historial de deudas */}
             <View className="mb-10">
               <TouchableOpacity activeOpacity={0.7} onPress={toggleHistory} className="flex-row items-center gap-2 mb-3 px-1">
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">HISTORIAL</Text>
-                <Text className="text-[10px] text-ink-faint">{showHistory ? '▲' : '▼'}</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">HISTORIAL</Text>
+                <Text className="text-micro text-ink-faint">{showHistory ? '▲' : '▼'}</Text>
               </TouchableOpacity>
 
               {showHistory &&
@@ -675,12 +675,12 @@ export default function ShameScreen() {
                           <View className="flex-row items-center justify-between mb-2">
                             <View className="flex-row items-center gap-2">
                               <View className={`w-6 h-6 rounded-full items-center justify-center opacity-70 ${getAvatarBg(getMemberName(debt.debtor_id))}`}>
-                                <Text className="text-paper text-[8px] font-bold">{getInitials(getMemberName(debt.debtor_id))}</Text>
+                                <Text className="text-paper text-micro font-bold">{getInitials(getMemberName(debt.debtor_id))}</Text>
                               </View>
                               <Text className="text-xs font-bold text-ink">{getMemberName(debt.debtor_id)}</Text>
                             </View>
                             <View className={`rounded-full px-2.5 py-0.5 ${badge.bg}`}>
-                              <Text className={`text-[9px] font-bold ${badge.text}`}>{badge.label}</Text>
+                              <Text className={`text-micro font-bold ${badge.text}`}>{badge.label}</Text>
                             </View>
                           </View>
                           <Text className="text-sm text-ink-soft pl-1">
@@ -724,7 +724,7 @@ export default function ShameScreen() {
             {/* SPIN RESULT SPLASH CARD */}
             {spinResult ? (
               <View className="rounded-3xl bg-paper border border-hairline p-6 mb-5 items-center shadow-md">
-                <Text className="text-[10px] font-bold text-terracotta tracking-wider uppercase mb-3">
+                <Text className="text-micro font-bold text-terracotta tracking-wider uppercase mb-3">
                   {spinResult.scope === 'collective' ? 'DEUDA COLECTIVA' : 'PENITENCIA ASIGNADA'}
                 </Text>
                 
@@ -735,19 +735,19 @@ export default function ShameScreen() {
                 <Text className="font-serif text-2xl font-semibold text-ink mb-4">{getMemberName(spinResult.debtor_id)}</Text>
                 
                 <View className="w-full rounded-2xl bg-terracotta/5 border border-terracotta/20 p-4 mb-4 items-center">
-                  <Text className="text-[9px] font-bold text-terracotta tracking-wider uppercase mb-1.5">PENITENCIA</Text>
+                  <Text className="text-micro font-bold text-terracotta tracking-wider uppercase mb-1.5">PENITENCIA</Text>
                   <Text className="font-semibold text-sm text-ink text-center">
                     {spinResult.punishment_emoji ?? ''} {spinResult.punishment_text}
                   </Text>
                 </View>
 
                 {spinResult.scope === 'collective' && (
-                  <Text className="text-[11px] text-coral-deep font-semibold text-center mb-3 px-4">
+                  <Text className="text-micro text-coral-deep font-semibold text-center mb-3 px-4">
                     Nadie propuso penitencia a tiempo — el squad completo paga.
                   </Text>
                 )}
 
-                <Text className="text-[10px] text-ink-faint">
+                <Text className="text-micro text-ink-faint">
                   Expira el {getShortDate(spinResult.expires_at)}
                 </Text>
 
@@ -811,7 +811,7 @@ export default function ShameScreen() {
                 {/* Suggestions List */}
                 <View className="w-full mt-6 mb-6">
                   <View className="flex-row justify-between items-center mb-3">
-                    <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">PENITENCIAS EN JUEGO</Text>
+                    <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">PENITENCIAS EN JUEGO</Text>
                     <Text className="text-xs font-bold text-ink-soft">{suggestions.length}</Text>
                   </View>
 
@@ -820,7 +820,7 @@ export default function ShameScreen() {
                       <Text className="text-xs text-ink-soft text-center leading-normal">
                         Nadie ha propuesto una penitencia aún.
                       </Text>
-                      <Text className="text-[11px] text-ink-faint text-center leading-normal mt-1">
+                      <Text className="text-micro text-ink-faint text-center leading-normal mt-1">
                         Si nadie propone antes de que gire, el squad completo paga.
                       </Text>
                     </View>
@@ -852,7 +852,7 @@ export default function ShameScreen() {
                       </TouchableOpacity>
                     ) : (
                       <View className="rounded-3xl bg-surface border border-hairline p-4 mb-4">
-                        <Text className="text-[9px] font-bold text-ink-soft tracking-wider uppercase mb-3">TU PROPUESTA</Text>
+                        <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3">TU PROPUESTA</Text>
                         
                         <View className="flex-row gap-2 mb-3">
                           <TextInput
@@ -931,7 +931,7 @@ export default function ShameScreen() {
                   (deadlinePassed && !isDebtor && !activeEntry.spun_at) && (
                     <View className="w-full rounded-3xl bg-amber-soft/40 border border-amber/30 p-4 items-center mb-10">
                       <Text className="text-sm font-semibold text-amber-deep">Esperando que {debtorName} gire</Text>
-                      <Text className="text-[11px] text-ink-soft mt-1 text-center">
+                      <Text className="text-micro text-ink-soft mt-1 text-center">
                         Si no gira en 24h, cualquiera del squad podrá girar por él.
                       </Text>
                     </View>

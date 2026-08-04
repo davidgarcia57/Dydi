@@ -1,10 +1,10 @@
 [
-  { "id": 1, "text": "Buy the group breakfast", "emoji": "🥐", "category": "food" },
-  { "id": 2, "text": "Karaoke solo on group call", "emoji": "🎤", "category": "performance" },
-  { "id": 3, "text": "Post embarrassing throwback photo", "emoji": "📸", "category": "social" },
-  { "id": 4, "text": "Do 50 pushups on video call", "emoji": "💪", "category": "exercise" },
-  { "id": 5, "text": "Write a poem about your failure", "emoji": "📝", "category": "creative" },
-  { "id": 6, "text": "Change your profile pic for a week", "emoji": "🤡", "category": "social" },
-  { "id": 7, "text": "Cook dinner for the group", "emoji": "🍳", "category": "food" },
-  { "id": 8, "text": "Send a voice note singing a song", "emoji": "🎵", "category": "performance" }
+  { "id": 1, "text": "Pagar el desayuno del squad", "emoji": "🥐", "category": "food" },
+  { "id": 2, "text": "Karaoke en solitario en la llamada del grupo", "emoji": "🎤", "category": "performance" },
+  { "id": 3, "text": "Subir una foto vergonzosa de hace años", "emoji": "📸", "category": "social" },
+  { "id": 4, "text": "50 lagartijas en videollamada", "emoji": "💪", "category": "exercise" },
+  { "id": 5, "text": "Escribir un poema sobre tu fracaso", "emoji": "📝", "category": "creative" },
+  { "id": 6, "text": "Cambiar tu foto de perfil una semana", "emoji": "🤡", "category": "social" },
+  { "id": 7, "text": "Cocinarle la cena al squad", "emoji": "🍳", "category": "food" },
+  { "id": 8, "text": "Mandar una nota de voz cantando", "emoji": "🎵", "category": "performance" }
 ]

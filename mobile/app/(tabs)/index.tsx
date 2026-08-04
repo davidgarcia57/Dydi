@@ -399,13 +399,13 @@ export default function TodayScreen() {
             (paper + border + shadow-sm) y por eso nada destacaba. */}
         <View className="rounded-3xl bg-surface border border-hairline/60 p-4 mb-4">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
               EL SQUAD HOY
             </Text>
             {onlineAvatars.length > 0 && (
               <View className="flex-row items-center gap-1">
                 <View className="w-2 h-2 rounded-full bg-sage-deep" />
-                <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase">
+                <Text className="text-micro font-bold text-sage-deep tracking-wider uppercase">
                   {onlineAvatars.length} EN VIVO
                 </Text>
               </View>
@@ -438,7 +438,7 @@ export default function TodayScreen() {
         {/* Countdown Card */}
         <View className="rounded-3xl bg-paper border border-hairline p-5 mb-4 shadow-sm">
           <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
               {isRouletteWeekend ? 'LA RULETA ESTÁ DESPIERTA' : 'LA RULETA GIRA EN'}
             </Text>
             {!isRouletteWeekend && (
@@ -469,17 +469,17 @@ export default function TodayScreen() {
           <View className="flex-row items-baseline gap-2 mb-4">
             <View className="items-center">
               <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.days}</Text>
-              <Text className="text-[10px] text-ink-faint mt-1">días</Text>
+              <Text className="text-micro text-ink-faint mt-1">días</Text>
             </View>
             <Text className="font-serif text-3xl text-hairline mb-1">:</Text>
             <View className="items-center">
               <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.hours}</Text>
-              <Text className="text-[10px] text-ink-faint mt-1">hrs</Text>
+              <Text className="text-micro text-ink-faint mt-1">hrs</Text>
             </View>
             <Text className="font-serif text-3xl text-hairline mb-1">:</Text>
             <View className="items-center">
               <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.mins}</Text>
-              <Text className="text-[10px] text-ink-faint mt-1">min</Text>
+              <Text className="text-micro text-ink-faint mt-1">min</Text>
             </View>
           </View>
           )}
@@ -538,10 +538,10 @@ export default function TodayScreen() {
             secundario, no rompiendo el countdown, que ya funciona. */}
         <View className="rounded-3xl bg-paper p-6 mb-5 shadow-lg">
           <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mt-1">TU TURNO</Text>
+            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mt-1">TU TURNO</Text>
             <View className="items-end">
               <Text className="font-serif text-2xl font-semibold leading-none text-terracotta">{myStreak}</Text>
-              <Text className="text-[9px] font-bold text-terracotta tracking-wider uppercase mt-0.5">RACHA</Text>
+              <Text className="text-micro font-bold text-terracotta tracking-wider uppercase mt-0.5">RACHA</Text>
             </View>
           </View>
 
@@ -558,11 +558,11 @@ export default function TodayScreen() {
                     <Text className="text-sm font-semibold text-ink">{c.habit_name}</Text>
                     {c.scheduled_time && (
                       <View className="rounded-full bg-hairline px-2 py-0.5">
-                        <Text className="text-[10px] text-ink-soft font-medium">{c.scheduled_time}</Text>
+                        <Text className="text-micro text-ink-soft font-medium">{c.scheduled_time}</Text>
                       </View>
                     )}
                     <View className={`rounded-full px-2 py-0.5 ${STATUS_PILL[c.status]?.cls || 'bg-hairline'}`}>
-                      <Text className="text-[10px] font-bold">{STATUS_PILL[c.status]?.label || c.status}</Text>
+                      <Text className="text-micro font-bold">{STATUS_PILL[c.status]?.label || c.status}</Text>
                     </View>
                   </View>
                   {c.note ? (
@@ -602,21 +602,21 @@ export default function TodayScreen() {
         <View className="rounded-3xl bg-surface border border-hairline/60 flex-row text-center mb-6 overflow-hidden">
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-sage-deep">{stats.done}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">
+            <Text className="text-micro text-ink-soft mt-0.5">
               {stats.done === 1 ? 'cumplió' : 'cumplieron'}
             </Text>
           </View>
           <View className="w-[1px] bg-hairline" />
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-amber-deep">{stats.pending}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">
+            <Text className="text-micro text-ink-soft mt-0.5">
               {stats.pending === 1 ? 'pendiente' : 'pendientes'}
             </Text>
           </View>
           <View className="w-[1px] bg-hairline" />
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-coral-deep">{stats.missed}</Text>
-            <Text className="text-[10px] text-ink-soft mt-0.5">
+            <Text className="text-micro text-ink-soft mt-0.5">
               {stats.missed === 1 ? 'falló' : 'fallaron'}
             </Text>
           </View>
@@ -672,7 +672,7 @@ export default function TodayScreen() {
                       </View>
                       {STATUS_PILL[memberStatus(member.habits)] && (
                         <View className={`rounded-full px-2 py-0.5 ${STATUS_PILL[memberStatus(member.habits)].cls}`}>
-                          <Text className="text-[9px] font-bold">{STATUS_PILL[memberStatus(member.habits)].label}</Text>
+                          <Text className="text-micro font-bold">{STATUS_PILL[memberStatus(member.habits)].label}</Text>
                         </View>
                       )}
                     </View>
@@ -699,7 +699,7 @@ export default function TodayScreen() {
                             </Text>
                             {STATUS_PILL[row.status] && (
                               <View className={`rounded-full px-2 py-0.5 ml-2 ${STATUS_PILL[row.status].cls}`}>
-                                <Text className="text-[9px] font-bold">{STATUS_PILL[row.status].label}</Text>
+                                <Text className="text-micro font-bold">{STATUS_PILL[row.status].label}</Text>
                               </View>
                             )}
                           </View>
@@ -737,7 +737,7 @@ export default function TodayScreen() {
                                       ) : null}
                                     </View>
                                   </TouchableOpacity>
-                                  <Text className="text-[9px] text-ink-faint font-medium">{day.label}</Text>
+                                  <Text className="text-micro text-ink-faint font-medium">{day.label}</Text>
                                 </View>
                               );
                             })}

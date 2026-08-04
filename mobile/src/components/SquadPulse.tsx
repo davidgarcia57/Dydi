@@ -99,7 +99,7 @@ export default function SquadPulse() {
               </View>
             )}
           </View>
-          <Text className="text-[10px] font-semibold text-ink-soft mt-1" numberOfLines={1}>
+          <Text className="text-micro font-semibold text-ink-soft mt-1" numberOfLines={1}>
             {m.isMe ? 'Tú' : m.display_name.split(' ')[0]}
           </Text>
         </View>
@@ -118,7 +118,7 @@ export default function SquadPulse() {
                 <Text className="text-ink-faint text-base font-bold leading-none">+</Text>
               </View>
             </View>
-            <Text className="text-[10px] font-semibold text-ink-faint mt-1" numberOfLines={1}>
+            <Text className="text-micro font-semibold text-ink-faint mt-1" numberOfLines={1}>
               Invitar
             </Text>
           </TouchableOpacity>
@@ -133,7 +133,7 @@ export default function SquadPulse() {
     </View>
 
     {freeSeats > 0 && (
-      <Text className="text-[10px] text-ink-faint mt-3">
+      <Text className="text-micro text-ink-faint mt-3">
         {pulse.length} de {SQUAD_CAPACITY} lugares · quedan {freeSeats}
       </Text>
     )}

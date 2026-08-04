@@ -44,6 +44,21 @@ module.exports = {
         serif: ['Newsreader', 'serif'],
         sans: ['HankenGrotesk', 'sans-serif'],
       },
+      // Escala tipográfica. Antes no existía ninguna: se usaba la default de
+      // Tailwind más 77 tamaños ad-hoc en píxeles (de 8 a 15px), así que cada
+      // pantalla acabó inventando la suya y el grueso del texto vivía entre 8 y
+      // 14px — ilegible en un teléfono de verdad.
+      //
+      // El piso son 12px (`micro`): todos los 8/9/10/11px se subieron ahí. Y `xs`
+      // y `sm` se redefinen hacia arriba a propósito, porque entre las dos cargan
+      // ~190 usos: moverlas aquí levanta la legibilidad de toda la app sin tener
+      // que editar cada pantalla.
+      fontSize: {
+        micro: ['12px', { lineHeight: '16px' }], // badges, pills, etiquetas
+        xs: ['13px', { lineHeight: '18px' }], // era 12px
+        sm: ['15px', { lineHeight: '21px' }], // era 14px
+        base: ['16px', { lineHeight: '24px' }],
+      },
     },
   },
   plugins: [],

@@ -143,7 +143,7 @@ export default function CheckinModal() {
           {/* ── ERROR ──────────────────────────────────────────────────────── */}
           {step === 'error' && (
             <View className="flex-1 items-center justify-center px-8 text-center">
-              <Text className="text-[10px] font-bold text-coral-deep tracking-wider uppercase mb-2">ALGO FALLÓ</Text>
+              <Text className="text-micro font-bold text-coral-deep tracking-wider uppercase mb-2">ALGO FALLÓ</Text>
               <Text className="font-serif text-2xl font-semibold text-ink text-center mb-2">
                 No pudimos cargar tus hábitos
               </Text>
@@ -164,7 +164,7 @@ export default function CheckinModal() {
               <View className="w-16 h-16 rounded-full bg-amber-soft flex items-center justify-center mb-6">
                 <Text className="text-2xl font-bold text-amber-deep">!</Text>
               </View>
-              <Text className="text-[10px] font-bold text-amber-deep tracking-wider uppercase mb-2">SIN HÁBITO</Text>
+              <Text className="text-micro font-bold text-amber-deep tracking-wider uppercase mb-2">SIN HÁBITO</Text>
               <Text className="font-serif text-2xl font-semibold text-ink text-center mb-2">
                 No tienes un hábito asignado
               </Text>
@@ -191,7 +191,7 @@ export default function CheckinModal() {
                   size={120}
                 />
               </View>
-              <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase mb-2">HOY YA CUMPLISTE</Text>
+              <Text className="text-micro font-bold text-sage-deep tracking-wider uppercase mb-2">HOY YA CUMPLISTE</Text>
               <Text className="font-serif text-3xl font-semibold text-ink text-center mb-1">
                 {myHabits[0]?.habit_name ?? 'Tu hábito'}
               </Text>
@@ -218,7 +218,7 @@ export default function CheckinModal() {
                 <Text className="font-bold text-ink">×</Text>
               </TouchableOpacity>
               
-              <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-2">ELIGE TU HÁBITO DE HOY</Text>
+              <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-2">ELIGE TU HÁBITO DE HOY</Text>
               <Text className="font-serif text-3xl font-semibold text-ink mb-6">¿Cuál cumpliste?</Text>
 
               <View className="gap-3">
@@ -268,7 +268,7 @@ export default function CheckinModal() {
                 </View>
 
                 {/* Habit title */}
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-2">TU HÁBITO DE HOY</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-2">TU HÁBITO DE HOY</Text>
                 <Text className="font-serif text-3xl font-semibold text-ink leading-tight mb-5">
                   {selectedHabit.habit_name}
                 </Text>
@@ -300,7 +300,7 @@ export default function CheckinModal() {
 
                 {/* Note Area */}
                 <View className="w-full mt-4">
-                  <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-2">NOTA OPCIONAL</Text>
+                  <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-2">NOTA OPCIONAL</Text>
                   <TextInput
                     placeholder="¿Algo que quieras contarle al squad?"
                     placeholderTextColor="#A89C89"
@@ -335,7 +335,7 @@ export default function CheckinModal() {
                 <Text className="text-sm font-semibold text-ink-soft mt-3 mb-1">
                   {submitting ? 'Registrando…' : 'Toca para registrar'}
                 </Text>
-                <Text className="text-[10px] text-ink-faint">El squad verá tu check-in al instante</Text>
+                <Text className="text-micro text-ink-faint">El squad verá tu check-in al instante</Text>
               </View>
             </View>
           )}
@@ -352,7 +352,7 @@ export default function CheckinModal() {
                 />
               </View>
 
-              <Text className="text-[10px] font-bold text-sage-deep tracking-wider uppercase mb-2">¡LO LOGRASTE!</Text>
+              <Text className="text-micro font-bold text-sage-deep tracking-wider uppercase mb-2">¡LO LOGRASTE!</Text>
               <Text className="font-serif text-3xl font-semibold text-ink text-center mb-1">
                 {selectedHabit.habit_name}
               </Text>
@@ -362,11 +362,11 @@ export default function CheckinModal() {
               <View className="rounded-3xl bg-paper border border-hairline px-8 py-6 mb-10 w-full max-w-xs items-center relative shadow-sm">
                 {showPlus && (
                   <View className="absolute -top-3 -right-2 rounded-full bg-terracotta px-3 py-1 shadow-sm">
-                    <Text className="text-paper text-[10px] font-bold">+1 a tu racha</Text>
+                    <Text className="text-paper text-micro font-bold">+1 a tu racha</Text>
                   </View>
                 )}
 
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-2">TU RACHA</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-2">TU RACHA</Text>
                 <Text className="font-serif text-5xl font-semibold text-terracotta leading-none mb-1">{newStreak}</Text>
                 <Text className="text-xs text-ink-soft text-center mt-1">
                   {newStreak === 1 ? 'día — ¡arrancaste!' : 'días seguidos'}

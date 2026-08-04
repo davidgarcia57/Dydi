@@ -236,7 +236,7 @@ export default function ProposalsScreen() {
             </Text>
             {proposals.length > 0 && (
               <View className="absolute top-1 right-3 w-4 h-4 rounded-full bg-terracotta items-center justify-center">
-                <Text className="text-paper text-[8px] font-bold">{proposals.length}</Text>
+                <Text className="text-paper text-micro font-bold">{proposals.length}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -266,7 +266,7 @@ export default function ProposalsScreen() {
             {/* Available to Add */}
             {availableHabits.length > 0 && (
               <View>
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">DISPONIBLES PARA AÑADIR</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">DISPONIBLES PARA AÑADIR</Text>
                 <View className="gap-2">
                   {availableHabits.map((habit) => (
                     <View key={habit.id} className="rounded-3xl bg-paper border border-hairline p-4 flex-row items-center gap-3 shadow-sm">
@@ -286,7 +286,7 @@ export default function ProposalsScreen() {
 
                       {isProposedToAdd(habit.id) ? (
                         <View className="bg-sage-soft rounded-full px-3 py-1.5">
-                          <Text className="text-[10px] font-bold text-sage-deep">✓ Propuesto</Text>
+                          <Text className="text-micro font-bold text-sage-deep">✓ Propuesto</Text>
                         </View>
                       ) : (
                         <TouchableOpacity
@@ -311,7 +311,7 @@ export default function ProposalsScreen() {
             {/* Active Habits */}
             {activeHabits.length > 0 && (
               <View className="mb-6">
-                <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">ACTIVOS EN EL SQUAD</Text>
+                <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">ACTIVOS EN EL SQUAD</Text>
                 <View className="gap-2">
                   {activeHabits.map((habit) => (
                     <View key={habit.id} className="rounded-3xl bg-surface border border-hairline p-4 flex-row items-center gap-3">
@@ -325,13 +325,13 @@ export default function ProposalsScreen() {
                       <View className="flex-1 min-w-0">
                         <Text className="font-semibold text-sm text-ink truncate">{habit.name}</Text>
                         <View className="bg-sage-soft rounded-full px-2 py-0.5 self-start mt-1">
-                          <Text className="text-[9px] font-semibold text-sage-deep">Ya en el grupo</Text>
+                          <Text className="text-micro font-semibold text-sage-deep">Ya en el grupo</Text>
                         </View>
                       </View>
 
                       {isProposedToRemove(habit.id) ? (
                         <View className="bg-sage-soft rounded-full px-3 py-1.5">
-                          <Text className="text-[10px] font-bold text-sage-deep">✓ Propuesto</Text>
+                          <Text className="text-micro font-bold text-sage-deep">✓ Propuesto</Text>
                         </View>
                       ) : (
                         <TouchableOpacity
@@ -360,7 +360,7 @@ export default function ProposalsScreen() {
           <View className="mb-8">
             {proposals.length === 0 ? (
               <View className="rounded-3xl bg-paper border border-hairline py-12 items-center justify-center shadow-sm">
-                <Text className="text-[10px] font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS</Text>
+                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS</Text>
                 <Text className="font-serif text-xl font-semibold text-ink mb-1">Todo tranquilo</Text>
                 <Text className="text-xs text-ink-soft text-center mt-1">Propón un hábito desde el catálogo.</Text>
               </View>
@@ -378,7 +378,7 @@ export default function ProposalsScreen() {
                     <View key={p.id} className="rounded-3xl bg-paper border border-hairline p-5 shadow-sm">
                       <View className="flex-row items-start justify-between gap-2 mb-3">
                         <View className="flex-1">
-                          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+                          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
                             {PROPOSAL_LABEL[p.type] ?? p.type}
                           </Text>
                           {p.habit_id ? (
@@ -392,7 +392,7 @@ export default function ProposalsScreen() {
                           ) : null}
                         </View>
                         <View className="rounded-full bg-amber-soft px-2.5 py-0.5">
-                          <Text className="text-[9px] font-bold text-amber-deep">ABIERTA</Text>
+                          <Text className="text-micro font-bold text-amber-deep">ABIERTA</Text>
                         </View>
                       </View>
 
@@ -450,7 +450,7 @@ export default function ProposalsScreen() {
           <View className="mb-8">
             {resolvedProposals.length === 0 ? (
               <View className="rounded-3xl bg-paper border border-hairline py-12 items-center justify-center shadow-sm">
-                <Text className="text-[10px] font-bold text-ink-faint tracking-wider uppercase mb-2">SIN HISTORIAL</Text>
+                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN HISTORIAL</Text>
                 <Text className="font-serif text-xl font-semibold text-ink mb-1">Nada decidido aún</Text>
                 <Text className="text-xs text-ink-soft text-center mt-1">Las propuestas cerradas aparecerán aquí.</Text>
               </View>
@@ -466,7 +466,7 @@ export default function ProposalsScreen() {
                     <View key={p.id} className="rounded-3xl bg-surface border border-hairline p-5">
                       <View className="flex-row items-start justify-between gap-2 mb-2">
                         <View className="flex-1">
-                          <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
+                          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
                             {PROPOSAL_LABEL[p.type] ?? p.type}
                           </Text>
                           {p.habit_id ? (
@@ -480,7 +480,7 @@ export default function ProposalsScreen() {
                           ) : null}
                         </View>
                         <View className={`rounded-full px-2.5 py-0.5 ${badge.bg}`}>
-                          <Text className={`text-[9px] font-bold ${badge.text}`}>{badge.label}</Text>
+                          <Text className={`text-micro font-bold ${badge.text}`}>{badge.label}</Text>
                         </View>
                       </View>
                       <Text className="text-xs text-ink-soft">
