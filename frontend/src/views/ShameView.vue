@@ -25,6 +25,9 @@ const confirmDelete = ref(false)
 const deletingAccount = ref(false)
 const loadError = ref(false)
 const copiedInvite = ref(false)
+const confirmRotate = ref(false)
+const rotating = ref(false)
+const rotateMsg = ref('')
 const profileSaving = ref(false)
 const passwordSaving = ref(false)
 const feedback = ref({ type: '', message: '' })
@@ -124,6 +127,24 @@ async function copyInviteCode() {
   setTimeout(() => {
     copiedInvite.value = false
   }, 2000)
+}
+
+async function handleRotate() {
+  if (!confirmRotate.value) {
+    confirmRotate.value = true
+    rotateMsg.value = ''
+    return
+  }
+  rotating.value = true
+  try {
+    await group.rotateInviteCode()
+    rotateMsg.value = 'Código nuevo listo. El anterior ya no sirve.'
+  } catch (error) {
+    rotateMsg.value = error?.error ?? 'No se pudo generar un código nuevo.'
+  } finally {
+    rotating.value = false
+    confirmRotate.value = false
+  }
 }
 
 async function shareInvite() {
@@ -418,6 +439,21 @@ onMounted(load)
                 Compartir
               </button>
             </div>
+
+            <!-- Revocar el código. Pide confirmación porque invalida los enlaces
+                 y códigos ya enviados, que es justamente el punto. -->
+            <button
+              :disabled="rotating"
+              class="w-full py-2 text-xs font-bold text-ink-faint hover:text-ink-soft transition-colors disabled:opacity-50"
+              @click="handleRotate"
+            >
+              <span v-if="rotating">Generando…</span>
+              <span v-else-if="confirmRotate">¿Seguro? Los enlaces enviados dejarán de servir</span>
+              <span v-else>Generar código nuevo</span>
+            </button>
+            <p v-if="rotateMsg" class="text-xs text-sage-deep font-semibold text-center">
+              {{ rotateMsg }}
+            </p>
 
             <div v-if="!confirmLeave">
               <button

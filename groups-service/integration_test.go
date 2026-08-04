@@ -19,6 +19,7 @@ import (
 
 	"github.com/dydi/groups-service/internal/db"
 	"github.com/dydi/groups-service/internal/model"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -137,6 +138,63 @@ func TestSetProposalStatusPersists(t *testing.T) {
 	}
 	if resolvedBy == nil || *resolvedBy != f.OwnerID {
 		t.Errorf("resolved_by: se esperaba %q, quedó %v", f.OwnerID, resolvedBy)
+	}
+}
+
+// TestRotateInviteCodeRevokesTheOldOne es el test del mecanismo de revocación: lo
+// que importa no es que el código cambie, sino que el ANTERIOR deje de servir.
+// Sin esto, un código filtrado valía para siempre.
+func TestRotateInviteCodeRevokesTheOldOne(t *testing.T) {
+	pool := testPool(t)
+	resetDB(t, pool)
+	f := seedGroup(t, pool)
+	ctx := t.Context()
+
+	before, err := db.GetGroupByID(ctx, pool, f.GroupID)
+	if err != nil {
+		t.Fatalf("leer grupo: %v", err)
+	}
+
+	nuevo, err := db.GenerateInviteCode()
+	if err != nil {
+		t.Fatalf("GenerateInviteCode: %v", err)
+	}
+
+	after, err := db.RotateInviteCode(ctx, pool, f.GroupID, nuevo)
+	if err != nil {
+		t.Fatalf("RotateInviteCode: %v", err)
+	}
+
+	if after.InviteCode == before.InviteCode {
+		t.Error("el código no cambió")
+	}
+	if after.InviteCode != nuevo {
+		t.Errorf("se esperaba %q, quedó %q", nuevo, after.InviteCode)
+	}
+	// Lo importante: el viejo ya no resuelve a ningún grupo.
+	if _, err := db.GetGroupByInviteCode(ctx, pool, before.InviteCode); !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("el código viejo sigue sirviendo: err=%v", err)
+	}
+	// Y el nuevo sí, que es lo que usa /groups/join-by-code.
+	got, err := db.GetGroupByInviteCode(ctx, pool, nuevo)
+	if err != nil {
+		t.Fatalf("el código nuevo no resuelve: %v", err)
+	}
+	if got.ID != f.GroupID {
+		t.Errorf("resolvió al grupo %q en vez de %q", got.ID, f.GroupID)
+	}
+}
+
+// TestRotateInviteCodeOnMissingGroup: el UPDATE ... RETURNING de un grupo que no
+// existe devuelve ErrNoRows, que es lo que el handler traduce a 404.
+func TestRotateInviteCodeOnMissingGroup(t *testing.T) {
+	pool := testPool(t)
+	resetDB(t, pool)
+	ctx := t.Context()
+
+	const ausente = "3f2504e0-4f89-11d3-9a0c-0305e82c3302"
+	if _, err := db.RotateInviteCode(ctx, pool, ausente, "ABCD2345"); !errors.Is(err, pgx.ErrNoRows) {
+		t.Errorf("se esperaba ErrNoRows, salió: %v", err)
 	}
 }
 

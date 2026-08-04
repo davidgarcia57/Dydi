@@ -75,6 +75,23 @@ func GetGroupByInviteCode(ctx context.Context, pool *pgxpool.Pool, code string) 
 	return g, err
 }
 
+// RotateInviteCode reemplaza el código de invitación del grupo. Es el mecanismo
+// de revocación: un código filtrado (una captura que acabó en un chat público)
+// valía para siempre porque no había forma de invalidarlo. Rotarlo no necesita
+// columna nueva — el código viejo deja de existir en cuanto se sobrescribe.
+//
+// Devuelve el grupo ya con el código nuevo para que el cliente lo pinte sin otra
+// vuelta al servidor.
+func RotateInviteCode(ctx context.Context, pool *pgxpool.Pool, groupID, newCode string) (*model.Group, error) {
+	g := &model.Group{}
+	err := pool.QueryRow(ctx,
+		`UPDATE groups SET invite_code = $2 WHERE id = $1
+		 RETURNING id, name, invite_code, created_at`,
+		groupID, newCode,
+	).Scan(&g.ID, &g.Name, &g.InviteCode, &g.CreatedAt)
+	return g, err
+}
+
 func GetMembers(ctx context.Context, pool *pgxpool.Pool, groupID string) ([]model.Member, error) {
 	rows, err := pool.Query(ctx,
 		`SELECT u.id, u.display_name, u.avatar_url, gm.joined_at

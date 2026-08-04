@@ -121,6 +121,7 @@ interface AppContextType {
   createGroup: (name: string) => Promise<Group>;
   joinGroup: (groupID: string, inviteCode: string) => Promise<void>;
   joinByCode: (inviteCode: string) => Promise<any>;
+  rotateInviteCode: () => Promise<any>;
   leaveGroup: () => Promise<void>;
   resetGroup: () => void;
 
@@ -280,6 +281,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     await loadGroup(g.id);
     loadMyGroups().catch(() => {});
+    return g;
+  }
+
+  // Revocar el codigo actual. El grupo que devuelve el servidor ya trae el nuevo,
+  // asi que se refresca el estado sin otra vuelta.
+  async function rotateInviteCode() {
+    if (!group?.id) return;
+    const g = await api(`/api/groups/${group.id}/rotate-invite`, { method: 'POST' });
+    setGroup((prev) => (prev ? { ...prev, invite_code: g.invite_code } : prev));
     return g;
   }
 
@@ -796,6 +806,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createGroup,
         joinGroup,
         joinByCode,
+        rotateInviteCode,
         leaveGroup,
         resetGroup,
 

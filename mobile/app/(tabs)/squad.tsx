@@ -113,9 +113,21 @@ function isPerfectWeek(cells: CellStatus[]): boolean {
 export default function SquadScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { group, members, onlineMembers, todayCheckins, weekHistory, streaks, propose } = useApp();
+  const {
+    group,
+    members,
+    onlineMembers,
+    todayCheckins,
+    weekHistory,
+    streaks,
+    propose,
+    rotateInviteCode,
+  } = useApp();
 
   const [copied, setCopied] = useState(false);
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [rotateMsg, setRotateMsg] = useState('');
   const [confirmKick, setConfirmKick] = useState<string | null>(null);
   const [kicking, setKicking] = useState<string | null>(null);
   const [kickMsg, setKickMsg] = useState('');
@@ -151,6 +163,24 @@ export default function SquadScreen() {
     } finally {
       setKicking(null);
       setConfirmKick(null);
+    }
+  }
+
+  async function handleRotate() {
+    if (!confirmRotate) {
+      setConfirmRotate(true);
+      setRotateMsg('');
+      return;
+    }
+    setRotating(true);
+    try {
+      await rotateInviteCode();
+      setRotateMsg('Código nuevo listo. El anterior ya no sirve.');
+    } catch (e: any) {
+      setRotateMsg(e?.error ?? 'No se pudo generar un código nuevo.');
+    } finally {
+      setRotating(false);
+      setConfirmRotate(false);
     }
   }
 
@@ -447,6 +477,29 @@ export default function SquadScreen() {
                   <Text className="text-paper font-bold text-xs">Compartir</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Revocar el código. Pide confirmación porque invalida los enlaces
+                  y códigos ya enviados, que es justamente el punto. */}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={rotating}
+                onPress={handleRotate}
+                className="mt-4 py-2 items-center"
+              >
+                <Text className="text-[11px] font-bold text-ink-faint">
+                  {rotating
+                    ? 'Generando…'
+                    : confirmRotate
+                      ? '¿Seguro? Los enlaces enviados dejarán de servir'
+                      : 'Generar código nuevo'}
+                </Text>
+              </TouchableOpacity>
+
+              {rotateMsg ? (
+                <Text className="text-[11px] text-sage-deep text-center font-semibold mt-1">
+                  {rotateMsg}
+                </Text>
+              ) : null}
             </View>
           </>
         )}

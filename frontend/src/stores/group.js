@@ -71,6 +71,15 @@ export const useGroupStore = defineStore('group', () => {
     return g
   }
 
+  // Revocar el código actual. El servidor devuelve el grupo ya con el nuevo, así
+  // que se refresca el estado sin otra vuelta.
+  async function rotateInviteCode() {
+    if (!group.value?.id) return
+    const g = await api(`/api/groups/${group.value.id}/rotate-invite`, { method: 'POST' })
+    group.value = { ...group.value, invite_code: g.invite_code }
+    return g
+  }
+
   async function joinGroup(groupID, inviteCode) {
     await api(`/api/groups/${groupID}/join`, {
       method: 'POST',
@@ -129,6 +138,7 @@ export const useGroupStore = defineStore('group', () => {
     createGroup,
     joinGroup,
     joinByCode,
+    rotateInviteCode,
     leaveGroup,
     reset,
     setMemberOnline,

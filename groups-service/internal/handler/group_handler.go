@@ -11,6 +11,7 @@ import (
 	"github.com/dydi/groups-service/internal/model"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -163,6 +164,64 @@ func (h *GroupHandler) JoinByCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.addMemberToGroup(w, r, group, userID)
+}
+
+// RotateInviteCode regenera el código de invitación del grupo. Es el mecanismo de
+// revocación: sin esto, un código filtrado seguía sirviendo para siempre.
+//
+// Lo puede hacer cualquier miembro activo, no solo quien creó el grupo, y no se
+// vota. Es una acción de seguridad: si alguien nota que el código se filtró, hacer
+// que espere una votación de 24 h deja la puerta abierta justo cuando urge
+// cerrarla. El costo de un abuso es bajo — se vuelve a rotar y se comparte el
+// nuevo.
+func (h *GroupHandler) RotateInviteCode(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-ID")
+	if userID == "" {
+		writeError(w, http.StatusBadRequest, "missing X-User-ID")
+		return
+	}
+
+	groupID := chi.URLParam(r, "id")
+
+	member, err := db.IsMember(r.Context(), h.pool, groupID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+	// 404 y no 403, igual que en JoinGroup: no se filtra si el grupo existe.
+	if !member {
+		writeError(w, http.StatusNotFound, "group not found")
+		return
+	}
+
+	// invite_code es UNIQUE. Con 32^8 combinaciones una colisión es casi
+	// imposible, pero reintentar sale gratis y evita un 500 absurdo.
+	var group *model.Group
+	for attempt := 0; attempt < 3; attempt++ {
+		code, genErr := db.GenerateInviteCode()
+		if genErr != nil {
+			writeError(w, http.StatusInternalServerError, "could not generate invite code")
+			return
+		}
+
+		group, err = db.RotateInviteCode(r.Context(), h.pool, groupID, code)
+		if err == nil {
+			writeJSON(w, http.StatusOK, group)
+			return
+		}
+
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			continue // colisión de código: otro intento con uno nuevo
+		}
+		break
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "group not found")
+		return
+	}
+	writeError(w, http.StatusInternalServerError, "could not rotate invite code")
 }
 
 // addMemberToGroup es la cola compartida de JoinGroup y JoinByCode: valida que no

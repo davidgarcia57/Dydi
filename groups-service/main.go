@@ -117,6 +117,7 @@ func setupRouter(pool *pgxpool.Pool) *chi.Mux {
 		// que es lo único que la UI muestra.
 		r.Post("/groups/join-by-code", h.JoinByCode)
 		r.Get("/groups/{id}/members", h.ListMembers)
+		r.Post("/groups/{id}/rotate-invite", h.RotateInviteCode)
 		r.Delete("/groups/{id}/leave", h.LeaveGroup)
 
 		p := handler.NewProposalHandler(pool, os.Getenv("HABITS_SERVICE_URL"))
