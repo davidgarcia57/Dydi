@@ -409,12 +409,17 @@ export default function SquadScreen() {
                 </View>
               )}
 
-              <View className="rounded-2xl bg-cream-2 border border-hairline/60 p-4 mb-4">
+              {/* Solo la parte humana. El string completo es `uuid:CODIGO` porque
+                  unirse necesita el id del grupo en la ruta (POST
+                  /groups/{id}/join) — pero eso es plomería, nadie lo lee ni lo
+                  teclea. El payload completo sigue viajando en Copiar y
+                  Compartir. */}
+              <View className="rounded-2xl bg-cream-2 border border-hairline/60 px-4 py-3 mb-4 items-center">
                 <Text className="text-[9px] font-bold text-ink-soft tracking-wider uppercase mb-1">
-                  CÓDIGO DE INVITACIÓN
+                  CÓDIGO DEL SQUAD
                 </Text>
-                <Text className="font-mono text-xs text-ink leading-normal">
-                  {group.id}:{group.invite_code}
+                <Text className="font-mono text-xl font-bold text-ink tracking-[0.2em]">
+                  {group.invite_code}
                 </Text>
               </View>
 

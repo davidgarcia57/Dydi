@@ -7,7 +7,7 @@ import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { useGroupSocket } from '@/composables/useGroupSocket'
 import { showToast } from '@/composables/useToast'
-import { missedThisWeek } from '@/composables/useWeekStatus'
+import { missedThisWeek, mondayIndex } from '@/composables/useWeekStatus'
 import PageContainer from '@/components/ui/PageContainer.vue'
 import BaseAvatar from '@/components/ui/BaseAvatar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -127,6 +127,55 @@ const progressPct = computed(() => {
   const total = group.members.length
   return total ? Math.round((stats.value.done / total) * 100) : 0
 })
+
+// ── Semana personal ──────────────────────────────────────────────────────────
+// Con un solo miembro, "0 de 1 al corriente" es una métrica de grupo sin grupo.
+// La solución documentada al cold start problem es dar utilidad de un solo
+// usuario, así que ahí se muestra SU semana L–V con el estado real de cada día.
+// Espejo del myWeek del móvil.
+const isSolo = computed(() => group.members.length <= 1)
+
+const MY_WEEK_SEGMENT = {
+  done: 'bg-sage',
+  partial: 'bg-sage/50',
+  pending: 'bg-amber',
+  missed: 'bg-coral',
+  untracked: 'bg-hairline/40',
+  future: 'border border-hairline',
+}
+
+const myWeek = computed(() => {
+  const me = auth.user?.id
+  const mine = habits.todayCheckins.filter((c) => c.user_id === me)
+  const todayIdx = mondayIndex()
+
+  return [0, 1, 2, 3, 4].map((i) => {
+    if (i > todayIdx) return 'future'
+    const d = new Date()
+    d.setDate(d.getDate() - (todayIdx - i))
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+    // Los días previos a que el hábito se asignara no se juzgan.
+    const tracked = mine.filter((c) => !c.tracked_since || date >= c.tracked_since)
+    if (!tracked.length) return 'untracked'
+
+    if (i === todayIdx) {
+      if (tracked.every((c) => c.status === 'done')) return 'done'
+      return tracked.some((c) => c.status === 'pending') ? 'pending' : 'missed'
+    }
+
+    const hit = tracked.filter((c) =>
+      habits.weekHistory[`${c.user_id}:${c.habit_id}`]?.has(date)
+    ).length
+    if (hit === tracked.length) return 'done'
+    return hit > 0 ? 'partial' : 'missed'
+  })
+})
+
+const myWeekDone = computed(() => myWeek.value.filter((s) => s === 'done').length)
+const myWeekJudged = computed(
+  () => myWeek.value.filter((s) => s !== 'future' && s !== 'untracked').length
+)
 
 // ── Online members ────────────────────────────────────────────────────────────
 const onlineCount = computed(
@@ -317,11 +366,33 @@ onUnmounted(() => {
             <span class="text-ink-faint">Semana {{ weekNumber }}</span>
             <!-- Sin miembros cargados todavía no se anuncia un conteo: "0 de —"
                  filtraba el placeholder a la pantalla. -->
-            <span v-if="group.members.length" class="text-terracotta font-semibold">
+            <span v-if="isSolo && myWeekJudged" class="text-terracotta font-semibold">
+              Tu semana · {{ myWeekDone }} de {{ myWeekJudged }}
+            </span>
+            <span v-else-if="!isSolo" class="text-terracotta font-semibold">
               {{ stats.done }} de {{ group.members.length }} al corriente
             </span>
           </div>
-          <div class="h-1.5 rounded-full bg-hairline">
+
+          <!-- Solo: tracker personal L–V. En grupo: un segmento por miembro, que
+               con pocos miembros se lee mejor que una barra plana casi vacía. -->
+          <div v-if="isSolo" class="flex gap-1">
+            <div
+              v-for="(status, i) in myWeek"
+              :key="i"
+              class="flex-1 h-1.5 rounded-full"
+              :class="MY_WEEK_SEGMENT[status]"
+            />
+          </div>
+          <div v-else-if="group.members.length <= 8" class="flex gap-1">
+            <div
+              v-for="i in group.members.length"
+              :key="i"
+              class="flex-1 h-1.5 rounded-full"
+              :class="i <= stats.done ? 'bg-terracotta' : 'border border-hairline'"
+            />
+          </div>
+          <div v-else class="h-1.5 rounded-full bg-hairline">
             <div
               class="h-full rounded-full bg-terracotta transition-all duration-500"
               :style="{ width: progressPct + '%' }"
@@ -426,13 +497,17 @@ onUnmounted(() => {
               <p class="font-serif text-2xl font-semibold text-amber-deep leading-none">
                 {{ stats.pending }}
               </p>
-              <p class="text-[10px] text-ink-soft mt-1">pendientes</p>
+              <p class="text-[10px] text-ink-soft mt-1">
+                {{ stats.pending === 1 ? 'pendiente' : 'pendientes' }}
+              </p>
             </div>
             <div class="py-3">
               <p class="font-serif text-2xl font-semibold text-coral-deep leading-none">
                 {{ stats.missed }}
               </p>
-              <p class="text-[10px] text-ink-soft mt-1">fallaron</p>
+              <p class="text-[10px] text-ink-soft mt-1">
+                {{ stats.missed === 1 ? 'falló' : 'fallaron' }}
+              </p>
             </div>
           </div>
 

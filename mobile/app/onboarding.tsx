@@ -190,13 +190,14 @@ export default function OnboardingScreen() {
                 Comparte este código con tu squad para que se unan.
               </Text>
 
-              {/* Invite code box */}
-              <View className="w-full rounded-3xl bg-paper border border-hairline p-5 mb-3">
+              {/* Solo la parte humana: el `uuid:` de adelante es plomería para
+                  armar POST /groups/{id}/join y viaja dentro de Copiar. */}
+              <View className="w-full rounded-3xl bg-paper border border-hairline p-5 mb-3 items-center">
                 <Text className="text-xs font-bold text-ink-soft tracking-wider uppercase mb-2">
-                  CÓDIGO DE INVITACIÓN
+                  CÓDIGO DEL SQUAD
                 </Text>
-                <Text className="font-mono text-xs text-ink break-all leading-relaxed select-all">
-                  {createdGroup?.id}:{createdGroup?.invite_code}
+                <Text className="font-mono text-2xl font-bold text-ink tracking-[0.2em]">
+                  {createdGroup?.invite_code}
                 </Text>
               </View>
 

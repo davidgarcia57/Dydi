@@ -50,6 +50,13 @@ function hint(m) {
   if (m.online) parts.push('en línea')
   return `${m.display_name}: ${parts.join(' · ')}`
 }
+
+// Tope de miembros por grupo (lo impone un trigger en la BD). Los lugares libres
+// se dibujan como anillos punteados: con un squad chico esta tarjeta era un avatar
+// y un mar de espacio muerto, y así el vacío pasa de defecto a información —
+// "1 de 8" — que es la tercera guía de NN/g para estados vacíos.
+const SQUAD_CAPACITY = 8
+const freeSeats = computed(() => Math.max(0, SQUAD_CAPACITY - pulse.value.length))
 </script>
 
 <template>
@@ -82,5 +89,24 @@ function hint(m) {
         {{ m.isMe ? 'Tú' : m.display_name.split(' ')[0] }}
       </span>
     </div>
+
+    <div
+      v-for="i in freeSeats"
+      :key="`seat-${i}`"
+      class="flex flex-col items-center gap-1.5 w-14"
+      :title="`Lugar libre (${pulse.length} de ${SQUAD_CAPACITY} ocupados)`"
+    >
+      <!-- w-12 y no w-10: el avatar md mide 40px pero lleva ring-2 con
+           ring-offset-2, así que su huella visual es de 48px. -->
+      <div
+        class="w-12 h-12 rounded-full border-2 border-dashed"
+        :class="i === 1 ? 'border-hairline' : 'border-hairline/60'"
+      />
+      <span v-if="i === 1" class="text-[10px] font-semibold text-ink-faint">libre</span>
+    </div>
   </div>
+
+  <p v-if="pulse.length && freeSeats" class="text-[10px] text-ink-faint mt-3">
+    {{ pulse.length }} de {{ SQUAD_CAPACITY }} lugares · quedan {{ freeSeats }}
+  </p>
 </template>

@@ -162,11 +162,12 @@ const copied = ref(false)
           Comparte este código con tu squad para que se unan.
         </p>
 
-        <!-- Invite code box -->
-        <div class="rounded-card bg-paper shadow-card px-5 py-4 mb-3 text-left">
-          <p class="text-eyebrow mb-1">CÓDIGO DE INVITACIÓN</p>
-          <p class="font-mono text-xs text-ink break-all leading-relaxed">
-            {{ createdGroup?.id }}:{{ createdGroup?.invite_code }}
+        <!-- Solo la parte humana: el `uuid:` de adelante es plomería para armar
+             POST /groups/{id}/join y viaja dentro de Copiar. -->
+        <div class="rounded-card bg-paper shadow-card px-5 py-4 mb-3 text-center">
+          <p class="text-eyebrow mb-1">CÓDIGO DEL SQUAD</p>
+          <p class="font-mono text-2xl font-bold text-ink tracking-[0.2em]">
+            {{ createdGroup?.invite_code }}
           </p>
         </div>
 
