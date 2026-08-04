@@ -120,6 +120,9 @@ export default function ShameScreen() {
   const [view, setView] = useState<'list' | 'entry'>('list');
   const [loading, setLoading] = useState(false);
   const [spinning, setSpinning] = useState(false);
+  // Confirmación del giro. Vive aquí y no como segundo toque del mismo botón
+  // porque girar es irreversible — ver el comentario del SPIN BUTTON.
+  const [confirmSpin, setConfirmSpin] = useState(false);
   const [spinResult, setSpinResult] = useState<any>(null);
   const [error, setError] = useState('');
   
@@ -358,6 +361,9 @@ export default function ShameScreen() {
     } catch (e: any) {
       setError(errorMessage(e, 'No se pudo girar la ruleta. Intenta de nuevo.'));
       setSpinning(false);
+      // Se cierra la confirmación: si falló, que el siguiente intento vuelva a ser
+      // deliberado en vez de quedar a un toque de distancia.
+      setConfirmSpin(false);
       return;
     }
 
@@ -935,24 +941,65 @@ export default function ShameScreen() {
                   )}
                 </View>
 
-                {/* SPIN BUTTON */}
-                {canSpin ? (
+                {/* SPIN BUTTON.
+                    Girar es la ÚNICA acción irreversible de Dydi: crea una `debt`,
+                    la difunde a todo el squad por realtime, y el `SELECT ... FOR
+                    UPDATE` del backend garantiza que no haya segundo giro — o sea
+                    que tampoco hay marcha atrás. Aun así era el único botón que se
+                    ejecutaba de un toque, mientras completar y perdonar una deuda
+                    —ambas reversibles— sí confirmaban. Estaba al revés.
+
+                    NN/g pide confirmación justo para lo que no se puede deshacer,
+                    con texto que nombre la consecuencia concreta y botones que
+                    nombren la acción ("Do not use confirmation dialogs for routine
+                    actions"; y nunca "¿Estás seguro?" ni OK/Cancelar). De ahí que
+                    esto sea un panel con las dos salidas nombradas y no un segundo
+                    toque sobre el mismo botón. */}
+                {canSpin && confirmSpin ? (
+                  <View className="w-full rounded-3xl bg-paper border border-terracotta/40 p-5 mb-10 shadow-sm">
+                    <Text accessibilityRole="header" className="font-serif text-xl font-semibold text-ink mb-2">
+                      {isDebtor ? '¿Giras tu ruleta?' : `¿Giras por ${debtorName}?`}
+                    </Text>
+                    <Text className="text-xs text-ink-soft leading-relaxed mb-4">
+                      {isDebtor
+                        ? 'Se te asigna una penitencia al azar de las que propuso el squad. Esto no se puede deshacer.'
+                        : `Se le asigna a ${debtorName} una penitencia al azar de las que propuso el squad, y todo el squad la verá. Esto no se puede deshacer.`}
+                    </Text>
+                    <TouchableOpacity
+                      disabled={spinning}
+                      activeOpacity={0.8}
+                      onPress={handleSpin}
+                      className={`w-full rounded-full bg-terracotta min-h-[48px] items-center justify-center ${spinning ? 'opacity-60' : ''}`}
+                    >
+                      {spinning ? (
+                        <View className="flex-row items-center gap-2">
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          <Text className="text-paper font-bold text-sm">Girando…</Text>
+                        </View>
+                      ) : (
+                        <Text className="text-paper font-bold text-sm">
+                          {isDebtor ? 'Girar mi ruleta' : `Girar por ${debtorName}`}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      disabled={spinning}
+                      activeOpacity={0.8}
+                      onPress={() => setConfirmSpin(false)}
+                      className="w-full rounded-full min-h-[48px] items-center justify-center mt-1"
+                    >
+                      <Text className="text-ink-soft font-bold text-sm">No girar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : canSpin ? (
                   <TouchableOpacity
-                    disabled={spinning}
                     activeOpacity={0.8}
-                    onPress={handleSpin}
-                    className={`w-full rounded-full bg-terracotta py-4 items-center justify-center mb-10 shadow-sm ${spinning ? 'opacity-60' : ''}`}
+                    onPress={() => setConfirmSpin(true)}
+                    className="w-full rounded-full bg-terracotta py-4 items-center justify-center mb-10 shadow-sm"
                   >
-                    {spinning ? (
-                      <View className="flex-row items-center gap-2">
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                        <Text className="text-paper font-bold text-sm">Girando…</Text>
-                      </View>
-                    ) : (
-                      <Text className="text-paper font-bold text-sm">
-                        {isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}`}
-                      </Text>
-                    )}
+                    <Text className="text-paper font-bold text-sm">
+                      {isDebtor ? '⊕ Girar la ruleta' : `⊕ Girar por ${debtorName}`}
+                    </Text>
                   </TouchableOpacity>
                 ) : (
                   (deadlinePassed && !isDebtor && !activeEntry.spun_at) && (
