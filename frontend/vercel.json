@@ -1,3 +1,10 @@
 {
+  "redirects": [
+    {
+      "source": "/descargar",
+      "destination": "https://github.com/davidgarcia57/Dydi/releases/latest/download/app-release.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { APK_URL } from '@/apkDownload'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BrandWordmark from '@/components/ui/BrandWordmark.vue'
 
@@ -158,6 +159,30 @@ const fieldInput =
             <p class="font-serif text-3xl font-semibold leading-none text-amber-deep">1</p>
             <p class="text-xs text-ink-soft mt-1.5">ruleta semanal</p>
           </div>
+        </div>
+
+        <!-- Descarga del APK. El enlace es el permalink de GitHub a la ÚLTIMA
+             release: no hay que tocarlo al sacar versión nueva, y el archivo no
+             pesa en el despliegue de la web. -->
+        <div class="mt-10 animate-fade-up [animation-delay:350ms]">
+          <a
+            :href="APK_URL"
+            class="inline-flex items-center gap-2 rounded-pill bg-ink text-paper px-6 py-3 text-sm font-bold hover:opacity-90 transition-opacity"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"
+              />
+            </svg>
+            Descargar para Android
+          </a>
+          <p class="text-[0.7rem] text-ink-faint mt-2 max-w-[34ch] leading-relaxed">
+            Android te va a preguntar si permites instalar desde el navegador. Es normal: la app no
+            está en Play Store.
+          </p>
         </div>
       </div>
 
