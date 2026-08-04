@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useApp } from '../src/contexts/AppContext';
 import BrandWordmark from '../src/components/ui/BrandWordmark';
 import { inviteMessage } from '../src/inviteLink';
+import { errorMessage } from '../lib/errorMessage';
 
 export default function OnboardingScreen() {
   const router = useRouter();
@@ -45,7 +46,7 @@ export default function OnboardingScreen() {
       setCreatedGroup(g);
       setStep('created');
     } catch (e: any) {
-      setErrMsg(e?.error ?? e?.message ?? 'No se pudo crear el grupo.');
+      setErrMsg(errorMessage(e, 'No se pudo crear el grupo. Intenta de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +71,7 @@ export default function OnboardingScreen() {
       }
       router.replace('/(tabs)');
     } catch (e: any) {
-      setErrMsg(e?.error ?? e?.message ?? 'Código inválido o grupo no encontrado.');
+      setErrMsg(errorMessage(e, 'Ese código no corresponde a ningún grupo. Revísalo con quien te invitó.'));
     } finally {
       setLoading(false);
     }

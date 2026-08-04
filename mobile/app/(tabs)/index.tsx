@@ -393,25 +393,124 @@ export default function TodayScreen() {
         contentContainerStyle={{ paddingVertical: 16 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Pulso del squad */}
-        {/* Nivel 3 (ambiente): sin sombra y sobre `surface`, se recuesta en la
-            pagina. Antes las cuatro tarjetas de esta pantalla eran identicas
-            (paper + border + shadow-sm) y por eso nada destacaba. */}
-        <View className="rounded-3xl bg-surface border border-hairline/60 p-4 mb-4">
-          <View className="flex-row justify-between items-center mb-3">
-            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
-              EL SQUAD HOY
+        {/* ORDEN DE ESTA PANTALLA — es deliberado, no lo reacomodes sin motivo.
+            Antes iba: presencia → countdown → tus hábitos, o sea que la única
+            cosa accionable del día quedaba en sexto lugar y bajo el pliegue.
+            Apple HIG (Layout) pide colocar lo importante arriba "to convey their
+            relative importance"; la W3C Mobile Accessibility Note 4.3 pide que la
+            acción principal no quede tras el scroll; y NN/g midió que lo que está
+            justo arriba del pliegue se ve 102% más que lo que está justo abajo.
+            Ahora va: tu turno (acción) → tu riesgo → el squad → countdown. */}
+
+        {/* Nivel 1 (heroe): esta es la accion por la que se abre la app cada
+            mañana, asi que es la unica tarjeta elevada — sin borde, mas padding y
+            la pregunta un grado mas grande. */}
+        <View className="rounded-3xl bg-paper p-6 mb-5 shadow-lg">
+          <View className="flex-row justify-between items-start mb-1">
+            <Text
+              accessibilityRole="header"
+              className="text-micro font-bold text-ink-soft tracking-wider uppercase mt-1"
+            >
+              TU TURNO
             </Text>
-            {onlineAvatars.length > 0 && (
-              <View className="flex-row items-center gap-1">
-                <View className="w-2 h-2 rounded-full bg-sage-deep" />
-                <Text className="text-micro font-bold text-sage-deep tracking-wider uppercase">
-                  {onlineAvatars.length} EN VIVO
-                </Text>
-              </View>
-            )}
+            <View className="items-end">
+              <Text className="font-serif text-2xl font-semibold leading-none text-terracotta">{myStreak}</Text>
+              <Text className="text-micro font-bold text-terracotta tracking-wider uppercase mt-0.5">RACHA</Text>
+            </View>
           </View>
-          <SquadPulse />
+
+          <Text className="font-serif text-3xl font-semibold text-ink mb-2 leading-tight">
+            ¿Ya hiciste el tuyo?
+          </Text>
+
+          {/* Qué es un check-in, dicho donde importa. Antes la app nunca lo
+              explicaba: ni el onboarding ni ninguna pantalla decían qué es ni por
+              qué conviene marcarlo. Apple HIG prefiere "context-specific tips"
+              sobre un flujo de onboarding, y NN/g midió que los tutoriales no
+              mejoran el desempeño ("Tutorials didn't improve task performance"). */}
+          <Text className="text-xs text-ink-soft mb-4 leading-relaxed">
+            Marcar un hábito es tu check-in del día. Si dejas pendientes de lunes a
+            viernes, entras a la ruleta el sábado.
+          </Text>
+
+          {/* Habit list */}
+          {myCheckins.length > 0 ? (
+            <View className="gap-2 mb-4">
+              {myCheckins.map((c) => {
+                const pill = STATUS_PILL[c.status] || { cls: 'bg-hairline', label: c.status };
+                // Una fila pendiente ES accionable, así que se toca completa: la
+                // W3C Mobile Accessibility Note 4.4 pide agrupar en un solo
+                // elemento lo que dispara la misma acción, y así el objetivo pasa
+                // de un pill diminuto a una fila de 48dp. Las filas ya resueltas
+                // NO son tocables, que es lo que la nota 4.5 pide para distinguir
+                // lo accionable de lo informativo.
+                const row = (
+                  <>
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-2 flex-wrap">
+                        <Text className="text-sm font-semibold text-ink">{c.habit_name}</Text>
+                        {c.scheduled_time && (
+                          <View className="rounded-full bg-hairline px-2 py-0.5">
+                            <Text className="text-micro text-ink-soft font-medium">{c.scheduled_time}</Text>
+                          </View>
+                        )}
+                        <View className={`rounded-full px-2 py-0.5 ${pill.cls}`}>
+                          <Text className="text-micro font-bold">{pill.label}</Text>
+                        </View>
+                      </View>
+                      {c.note ? (
+                        <Text className="text-xs text-ink-soft italic mt-0.5">“{c.note}”</Text>
+                      ) : null}
+                    </View>
+                    {c.status === 'pending' && (
+                      <Text className="text-ink-faint text-base ml-2">›</Text>
+                    )}
+                  </>
+                );
+
+                return c.status === 'pending' ? (
+                  <TouchableOpacity
+                    key={c.habit_id}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/(modals)/checkin')}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Marcar ${c.habit_name}`}
+                    className="flex-row items-center min-h-[48px]"
+                  >
+                    {row}
+                  </TouchableOpacity>
+                ) : (
+                  <View key={c.habit_id} className="flex-row items-center min-h-[48px]">
+                    {row}
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Text className="text-sm text-ink-soft mb-4">
+              No tienes un hábito registrado en este grupo todavía. El squad propone
+              y vota los hábitos; cuando gana uno, se asigna a todos.
+            </Text>
+          )}
+
+          {/* Action button */}
+          {(hasPending || myCheckins.length === 0) ? (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/(modals)/checkin')}
+              className="w-full rounded-full bg-sage-deep py-3.5 items-center shadow-sm min-h-[48px] justify-center"
+            >
+              <Text className="text-paper font-bold text-sm">Hacer mi check-in →</Text>
+            </TouchableOpacity>
+          ) : allDone ? (
+            <View className="w-full rounded-full bg-sage-soft py-3.5 items-center">
+              <Text className="text-sage-deep font-bold text-sm">✓ Ya cumpliste hoy</Text>
+            </View>
+          ) : anyMissed ? (
+            <View className="w-full rounded-full bg-coral-soft py-3.5 items-center">
+              <Text className="text-coral-deep font-bold text-sm">Se te fue el día</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* En riesgo de ruleta */}
@@ -435,7 +534,37 @@ export default function TodayScreen() {
           </View>
         )}
 
-        {/* Countdown Card */}
+        {/* Pulso del squad */}
+        {/* Nivel 3 (ambiente): sin sombra y sobre `surface`, se recuesta en la
+            pagina. Antes las cuatro tarjetas de esta pantalla eran identicas
+            (paper + border + shadow-sm) y por eso nada destacaba. */}
+        <View className="rounded-3xl bg-surface border border-hairline/60 p-4 mb-4">
+          <View className="flex-row justify-between items-center mb-3">
+            <Text
+              accessibilityRole="header"
+              className="text-micro font-bold text-ink-soft tracking-wider uppercase"
+            >
+              EL SQUAD HOY
+            </Text>
+            {onlineAvatars.length > 0 && (
+              <View className="flex-row items-center gap-1">
+                <View className="w-2 h-2 rounded-full bg-sage-deep" />
+                <Text className="text-micro font-bold text-sage-deep tracking-wider uppercase">
+                  {onlineAvatars.length} EN VIVO
+                </Text>
+              </View>
+            )}
+          </View>
+          <SquadPulse />
+        </View>
+
+        {/* Countdown Card. Los números bajaron de text-4xl a text-2xl a
+            propósito: NN/g fija un techo de 2 elementos grandes y 3 tamaños por
+            pantalla ("If everything is contrasted, then nothing stands out"), y
+            con el countdown gritando más que la pregunta del héroe la pantalla no
+            tenía un solo foco. Además un bloque grande con divisor de ancho
+            completo produce el "illusion of completeness" que NN/g describe: la
+            gente cree que el contenido terminó ahí y no scrollea. */}
         <View className="rounded-3xl bg-paper border border-hairline p-5 mb-4 shadow-sm">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
@@ -468,17 +597,17 @@ export default function TodayScreen() {
           ) : (
           <View className="flex-row items-baseline gap-2 mb-4">
             <View className="items-center">
-              <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.days}</Text>
+              <Text className="font-serif text-2xl font-semibold text-terracotta leading-none">{countdown.days}</Text>
               <Text className="text-micro text-ink-faint mt-1">días</Text>
             </View>
-            <Text className="font-serif text-3xl text-hairline mb-1">:</Text>
+            <Text className="font-serif text-xl text-hairline mb-1">:</Text>
             <View className="items-center">
-              <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.hours}</Text>
+              <Text className="font-serif text-2xl font-semibold text-terracotta leading-none">{countdown.hours}</Text>
               <Text className="text-micro text-ink-faint mt-1">hrs</Text>
             </View>
-            <Text className="font-serif text-3xl text-hairline mb-1">:</Text>
+            <Text className="font-serif text-xl text-hairline mb-1">:</Text>
             <View className="items-center">
-              <Text className="font-serif text-4xl font-semibold text-terracotta leading-none">{countdown.mins}</Text>
+              <Text className="font-serif text-2xl font-semibold text-terracotta leading-none">{countdown.mins}</Text>
               <Text className="text-micro text-ink-faint mt-1">min</Text>
             </View>
           </View>
@@ -530,71 +659,6 @@ export default function TodayScreen() {
               />
             </View>
           )}
-        </View>
-
-        {/* Nivel 1 (heroe): esta es la accion por la que se abre la app cada
-            mañana, asi que es la unica tarjeta elevada — sin borde, mas padding y
-            la pregunta un grado mas grande. La jerarquia se logra demoviendo lo
-            secundario, no rompiendo el countdown, que ya funciona. */}
-        <View className="rounded-3xl bg-paper p-6 mb-5 shadow-lg">
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase mt-1">TU TURNO</Text>
-            <View className="items-end">
-              <Text className="font-serif text-2xl font-semibold leading-none text-terracotta">{myStreak}</Text>
-              <Text className="text-micro font-bold text-terracotta tracking-wider uppercase mt-0.5">RACHA</Text>
-            </View>
-          </View>
-
-          <Text className="font-serif text-3xl font-semibold text-ink mb-4 leading-tight">
-            ¿Ya hiciste el tuyo?
-          </Text>
-
-          {/* Habit list */}
-          {myCheckins.length > 0 ? (
-            <View className="gap-2.5 mb-4">
-              {myCheckins.map((c) => (
-                <View key={c.habit_id}>
-                  <View className="flex-row items-center gap-2 flex-wrap">
-                    <Text className="text-sm font-semibold text-ink">{c.habit_name}</Text>
-                    {c.scheduled_time && (
-                      <View className="rounded-full bg-hairline px-2 py-0.5">
-                        <Text className="text-micro text-ink-soft font-medium">{c.scheduled_time}</Text>
-                      </View>
-                    )}
-                    <View className={`rounded-full px-2 py-0.5 ${STATUS_PILL[c.status]?.cls || 'bg-hairline'}`}>
-                      <Text className="text-micro font-bold">{STATUS_PILL[c.status]?.label || c.status}</Text>
-                    </View>
-                  </View>
-                  {c.note ? (
-                    <Text className="text-xs text-ink-soft italic mt-0.5">“{c.note}”</Text>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text className="text-sm text-ink-soft mb-4">
-              No tienes un hábito registrado en este grupo todavía.
-            </Text>
-          )}
-
-          {/* Action button */}
-          {(hasPending || myCheckins.length === 0) ? (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => router.push('/(modals)/checkin')}
-              className="w-full rounded-full bg-sage-deep py-3.5 items-center shadow-sm"
-            >
-              <Text className="text-paper font-bold text-sm">Hacer mi check-in →</Text>
-            </TouchableOpacity>
-          ) : allDone ? (
-            <View className="w-full rounded-full bg-sage-soft py-3.5 items-center">
-              <Text className="text-sage-deep font-bold text-sm">✓ Ya cumpliste hoy</Text>
-            </View>
-          ) : anyMissed ? (
-            <View className="w-full rounded-full bg-coral-soft py-3.5 items-center">
-              <Text className="text-coral-deep font-bold text-sm">Se te fue el día</Text>
-            </View>
-          ) : null}
         </View>
 
         {/* Summary Numbers */}

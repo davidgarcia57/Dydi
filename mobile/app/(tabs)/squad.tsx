@@ -7,6 +7,7 @@ import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import { mondayIndex } from '../../src/weekStatus';
 import SoloSquadFigure from '../../src/components/ui/SoloSquadFigure';
 import { inviteMessage } from '../../src/inviteLink';
+import { errorMessage } from '../../lib/errorMessage';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -159,7 +160,7 @@ export default function SquadScreen() {
       await propose(group.id, 'kick_member', null, member.user_id);
       setKickMsg(`Propuesta creada: expulsar a ${member.display_name}. El squad vota en "Votar".`);
     } catch (e: any) {
-      setKickMsg(e?.error ?? 'No se pudo crear la propuesta');
+      setKickMsg(errorMessage(e, 'No se pudo crear la propuesta. Intenta de nuevo.'));
     } finally {
       setKicking(null);
       setConfirmKick(null);
@@ -177,7 +178,7 @@ export default function SquadScreen() {
       await rotateInviteCode();
       setRotateMsg('Código nuevo listo. El anterior ya no sirve.');
     } catch (e: any) {
-      setRotateMsg(e?.error ?? 'No se pudo generar un código nuevo.');
+      setRotateMsg(errorMessage(e, 'No se pudo generar un código nuevo. Intenta de nuevo.'));
     } finally {
       setRotating(false);
       setConfirmRotate(false);
@@ -256,6 +257,7 @@ export default function SquadScreen() {
                     mostrar.
                   </Text>
                   <TouchableOpacity
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     activeOpacity={0.8}
                     onPress={() => router.push('/proposals')}
                     className="rounded-full border border-hairline bg-surface px-5 py-2.5"
@@ -391,6 +393,7 @@ export default function SquadScreen() {
                     </View>
 
                     <TouchableOpacity
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                       activeOpacity={0.8}
                       disabled={kicking === member.user_id}
                       onPress={() => handleKick(member)}
@@ -481,6 +484,7 @@ export default function SquadScreen() {
               {/* Revocar el código. Pide confirmación porque invalida los enlaces
                   y códigos ya enviados, que es justamente el punto. */}
               <TouchableOpacity
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 activeOpacity={0.7}
                 disabled={rotating}
                 onPress={handleRotate}

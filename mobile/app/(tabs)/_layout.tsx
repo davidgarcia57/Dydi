@@ -81,7 +81,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="proposals"
         options={{
-          title: 'Votar',
+          // "Votar" era un verbo, y Apple HIG pide que una tab describa el
+          // CONTENIDO, no una acción ("Use a tab bar to support navigation, not to
+          // provide actions"). Encima la pantalla ya se titulaba "Propuestas", así
+          // que la barra y el encabezado se contradecían — eso es un fallo de
+          // WCAG 3.2.4 Consistent Identification (AA). Y "Votar" tampoco describía
+          // sus tres secciones: catálogo, propuestas abiertas e historial.
+          title: 'Propuestas',
           tabBarIcon: ({ color }) => <TabIcon d={ICONS.proposals} color={color} />,
         }}
       />

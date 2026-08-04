@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useApp } from '../../src/contexts/AppContext';
 import HabitIcon from '../../src/components/ui/HabitIcon';
+import { errorMessage } from '../../lib/errorMessage';
 
 const PROPOSAL_LABEL: Record<string, string> = {
   add_habit: 'Agregar hábito',
@@ -161,7 +162,7 @@ export default function ProposalsScreen() {
       await propose(group.id, type, habit.id);
       setTab('propuestas');
     } catch (e: any) {
-      setProposeErr(e?.error ?? e?.message ?? 'No se pudo crear la propuesta.');
+      setProposeErr(errorMessage(e, 'No se pudo crear la propuesta. Intenta de nuevo.'));
     } finally {
       setProposingID(null);
     }
@@ -173,7 +174,7 @@ export default function ProposalsScreen() {
     try {
       await vote(proposalID, approved);
     } catch (e: any) {
-      setVoteErr(e?.error ?? e?.message ?? 'No se pudo registrar el voto.');
+      setVoteErr(errorMessage(e, 'No se pudo registrar tu voto. Intenta de nuevo.'));
     } finally {
       setVotingID(null);
     }
@@ -192,6 +193,7 @@ export default function ProposalsScreen() {
       <SafeAreaView className="flex-1 bg-cream items-center justify-center px-6">
         <Text className="text-sm text-ink-soft mb-4">No estás asociado a ningún grupo.</Text>
         <TouchableOpacity
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.8}
           onPress={() => router.replace('/onboarding')}
           className="rounded-full bg-sage-deep px-6 py-2.5"
@@ -217,6 +219,7 @@ export default function ProposalsScreen() {
         {/* Tab switcher */}
         <View className="flex-row bg-cream-2 rounded-[14px] p-1 mb-5">
           <TouchableOpacity
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.8}
             onPress={() => setTab('catalogo')}
             className={`flex-1 py-2 rounded-[10px] items-center ${tab === 'catalogo' ? 'bg-paper shadow-sm' : ''}`}
@@ -227,6 +230,7 @@ export default function ProposalsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.8}
             onPress={() => setTab('propuestas')}
             className={`flex-1 py-2 rounded-[10px] items-center relative ${tab === 'propuestas' ? 'bg-paper shadow-sm' : ''}`}
@@ -242,6 +246,7 @@ export default function ProposalsScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.8}
             onPress={openHistory}
             className={`flex-1 py-2 rounded-[10px] items-center ${tab === 'historial' ? 'bg-paper shadow-sm' : ''}`}
@@ -290,6 +295,7 @@ export default function ProposalsScreen() {
                         </View>
                       ) : (
                         <TouchableOpacity
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           disabled={proposingID === habit.id}
                           activeOpacity={0.8}
                           onPress={() => handlePropose(habit, 'add_habit')}
@@ -335,6 +341,7 @@ export default function ProposalsScreen() {
                         </View>
                       ) : (
                         <TouchableOpacity
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           disabled={proposingID === habit.id}
                           activeOpacity={0.8}
                           onPress={() => handlePropose(habit, 'remove_habit')}
@@ -358,11 +365,26 @@ export default function ProposalsScreen() {
         {/* Proposals Tab */}
         {tab === 'propuestas' && (
           <View className="mb-8">
+            {/* El vacío enseña el mecanismo y ofrece la vía directa a la tarea que
+                lo llenaría — las dos guías de NN/g para estados vacíos. Antes decía
+                "Todo tranquilo · Propón un hábito desde el catálogo", que nombra el
+                catálogo sin llevar a él y sin explicar qué pasa tras proponer. */}
             {proposals.length === 0 ? (
-              <View className="rounded-3xl bg-paper border border-hairline py-12 items-center justify-center shadow-sm">
-                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS</Text>
-                <Text className="font-serif text-xl font-semibold text-ink mb-1">Todo tranquilo</Text>
-                <Text className="text-xs text-ink-soft text-center mt-1">Propón un hábito desde el catálogo.</Text>
+              <View className="rounded-3xl bg-paper border border-hairline py-10 px-6 items-center justify-center shadow-sm">
+                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS ABIERTAS</Text>
+                <Text className="font-serif text-xl font-semibold text-ink mb-2">Nadie ha propuesto nada</Text>
+                <Text className="text-xs text-ink-soft text-center leading-relaxed mb-4">
+                  Cualquiera del squad puede proponer un hábito. Si gana la mayoría de
+                  los votos se le asigna a todos y les aparece en su Hoy.
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setTab('catalogo')}
+                  accessibilityRole="button"
+                  className="rounded-full bg-sage-deep px-5 min-h-[48px] justify-center"
+                >
+                  <Text className="text-paper text-sm font-bold">Ver el catálogo</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <View className="gap-3">
@@ -411,6 +433,7 @@ export default function ProposalsScreen() {
                       {!hasUserVoted ? (
                         <View className="flex-row gap-2">
                           <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             disabled={votingID === p.id}
                             activeOpacity={0.8}
                             onPress={() => castVote(p.id, true)}
@@ -424,6 +447,7 @@ export default function ProposalsScreen() {
                           </TouchableOpacity>
 
                           <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             disabled={votingID === p.id}
                             activeOpacity={0.8}
                             onPress={() => castVote(p.id, false)}

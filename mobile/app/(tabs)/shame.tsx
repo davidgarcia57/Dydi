@@ -15,6 +15,7 @@ import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
 import CleanSlateFigure from '../../src/components/ui/CleanSlateFigure';
+import { errorMessage } from '../../lib/errorMessage';
 
 // Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
 // miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
@@ -275,7 +276,7 @@ export default function ShameScreen() {
       await loadSuggestions(entry.id);
       setView('entry');
     } catch (e: any) {
-      setError(e?.error ?? 'No se pudo abrir la ruleta');
+      setError(errorMessage(e, 'No se pudo abrir la ruleta. Intenta de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -291,7 +292,7 @@ export default function ShameScreen() {
       await loadSuggestions(entry.id);
       setView('entry');
     } catch (e: any) {
-      setError(e?.error ?? 'No se pudo abrir la ruleta');
+      setError(errorMessage(e, 'No se pudo abrir la ruleta. Intenta de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -307,7 +308,7 @@ export default function ShameScreen() {
     try {
       await completeDebt(debt.id);
     } catch (e: any) {
-      setError(e?.error ?? 'No se pudo marcar la deuda');
+      setError(errorMessage(e, 'No se pudo marcar la deuda. Intenta de nuevo.'));
     } finally {
       setCompleting(null);
       setConfirmComplete(null);
@@ -325,7 +326,7 @@ export default function ShameScreen() {
     try {
       await forgiveDebt(debt.id);
     } catch (e: any) {
-      setError(e?.error ?? 'No se pudo perdonar la deuda');
+      setError(errorMessage(e, 'No se pudo perdonar la deuda. Intenta de nuevo.'));
     } finally {
       setForgiving(null);
       setConfirmForgive(null);
@@ -342,7 +343,7 @@ export default function ShameScreen() {
       setSugEmoji('');
       setShowForm(false);
     } catch (e: any) {
-      setError(e?.error ?? 'No se pudo enviar la sugerencia');
+      setError(errorMessage(e, 'No se pudo enviar tu penitencia. Intenta de nuevo.'));
     }
   }
 
@@ -355,7 +356,7 @@ export default function ShameScreen() {
     try {
       result = await spin(activeEntry.id);
     } catch (e: any) {
-      setError(e?.error ?? 'Error al girar la ruleta');
+      setError(errorMessage(e, 'No se pudo girar la ruleta. Intenta de nuevo.'));
       setSpinning(false);
       return;
     }
@@ -426,6 +427,7 @@ export default function ShameScreen() {
       <SafeAreaView className="flex-1 bg-cream items-center justify-center px-6">
         <Text className="text-sm text-ink-soft mb-4">No estás asociado a ningún grupo.</Text>
         <TouchableOpacity
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.8}
           onPress={() => router.replace('/onboarding')}
           className="rounded-full bg-sage-deep px-6 py-2.5"
@@ -447,7 +449,18 @@ export default function ShameScreen() {
               <Text className="font-serif text-2xl font-semibold text-ink">Ruleta</Text>
               <Text className="text-xs font-bold text-ink-soft uppercase tracking-wider">{group.name}</Text>
             </View>
-            <Text className="text-xs text-ink-faint mt-0.5">Muro de consecuencias del ciclo actual</Text>
+            {/* La regla del juego, dicha aquí. Antes el subtítulo decía "Muro de
+                consecuencias del ciclo actual", que describe el tono pero no
+                explica qué hacer. NN/g H6 (reconocer antes que recordar): la razón
+                por la que entras a la ruleta vive en Hoy, pero la consecuencia se
+                ejecuta aquí, así que esta pantalla tenía que cargar con el
+                recuerdo en vez de que el usuario recordara su propia semana.
+                Máximo 3 líneas, como pide Material 3 para texto de apoyo. */}
+            <Text className="text-xs text-ink-soft mt-1 leading-relaxed">
+              Quien deja pendientes de lunes a viernes cae en el bote. El sábado
+              cualquiera del squad gira por esa persona y le toca una penitencia al
+              azar.
+            </Text>
           </View>
 
           <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
@@ -472,6 +485,7 @@ export default function ShameScreen() {
                         <Text className="text-xs text-ink-soft mt-0.5">{entryCountdown(e)}</Text>
                       </View>
                       <TouchableOpacity
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         activeOpacity={0.8}
                         onPress={() => handleEnterEntry(e)}
                         className="rounded-full bg-terracotta px-4 py-2"
@@ -509,8 +523,16 @@ export default function ShameScreen() {
                     </>
                   ) : (
                     <>
+                      {/* El vacío enseña, no solo informa: Apple HIG pide que una
+                          sección vacía "explain why its content is unavailable", y
+                          NN/g usa el estado vacío para educación contextual. Antes
+                          decía solo "Nadie falló ningún hábito esta semana", que no
+                          dice qué haría aparecer contenido aquí. */}
                       <Text className="text-sm font-bold text-sage-deep">La ruleta se queda con hambre</Text>
-                      <Text className="text-xs text-ink-soft mt-1">Nadie falló ningún hábito esta semana.</Text>
+                      <Text className="text-xs text-ink-soft mt-1 text-center leading-relaxed">
+                        Nadie falló esta semana. Aquí aparece quien deje un hábito
+                        pendiente de lunes a viernes, y se puede girar desde el sábado.
+                      </Text>
                     </>
                   )}
                 </View>
@@ -526,6 +548,7 @@ export default function ShameScreen() {
                         <Text className="text-xs text-ink-soft mt-0.5">Falló hábitos esta semana</Text>
                       </View>
                       <TouchableOpacity
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         activeOpacity={0.8}
                         onPress={() => handleOpenRoulette(m)}
                         className="rounded-full bg-terracotta px-4 py-2"
@@ -597,6 +620,7 @@ export default function ShameScreen() {
                       </Text>
                       {debt.debtor_id === user?.id ? (
                         <TouchableOpacity
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           activeOpacity={0.8}
                           disabled={completing === debt.id}
                           onPress={() => handleCompleteDebt(debt)}
@@ -620,6 +644,7 @@ export default function ShameScreen() {
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                           activeOpacity={0.8}
                           disabled={forgiving === debt.id}
                           onPress={() => handleForgiveDebt(debt)}
@@ -874,6 +899,7 @@ export default function ShameScreen() {
 
                         <View className="flex-row gap-2">
                           <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             activeOpacity={0.8}
                             onPress={handleSuggest}
                             className="flex-1 rounded-full bg-sage-deep py-2.5 items-center"
@@ -882,6 +908,7 @@ export default function ShameScreen() {
                           </TouchableOpacity>
                           
                           <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                             activeOpacity={0.8}
                             onPress={() => setShowForm(false)}
                             className="rounded-full border border-hairline bg-paper px-4 py-2.5 items-center"
