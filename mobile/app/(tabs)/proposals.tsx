@@ -37,7 +37,7 @@ export default function ProposalsScreen() {
     vote,
   } = useApp();
 
-  const [tab, setTab] = useState<'catalogo' | 'propuestas' | 'historial'>('catalogo');
+  const [showHistory, setShowHistory] = useState(false);
   const [loading, setLoading] = useState(true);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [proposingID, setProposingID] = useState<string | null>(null);
@@ -130,9 +130,10 @@ export default function ProposalsScreen() {
   };
 
   // Carga perezosa: el historial solo se pide al abrir su tab.
-  async function openHistory() {
-    setTab('historial');
-    if (historyLoaded || !group?.id) return;
+  async function toggleHistory() {
+    const next = !showHistory;
+    setShowHistory(next);
+    if (!next || historyLoaded || !group?.id) return;
     try {
       await loadResolvedProposals(group.id);
       setHistoryLoaded(true);
@@ -160,7 +161,6 @@ export default function ProposalsScreen() {
       // propose() mete la propuesta nueva en la lista, así que el badge aparece
       // de inmediato sin esperar un refetch.
       await propose(group.id, type, habit.id);
-      setTab('propuestas');
     } catch (e: any) {
       setProposeErr(errorMessage(e, 'No se pudo crear la propuesta. Intenta de nuevo.'));
     } finally {
@@ -216,49 +216,109 @@ export default function ProposalsScreen() {
       </View>
 
       <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
-        {/* Tab switcher */}
-        <View className="flex-row bg-cream-2 rounded-[14px] p-1 mb-5">
-          <TouchableOpacity
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.8}
-            onPress={() => setTab('catalogo')}
-            className={`flex-1 py-2 rounded-[10px] items-center ${tab === 'catalogo' ? 'bg-paper shadow-sm' : ''}`}
-          >
-            <Text className={`text-sm font-semibold ${tab === 'catalogo' ? 'text-ink' : 'text-ink-soft'}`}>
-              Catálogo
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.8}
-            onPress={() => setTab('propuestas')}
-            className={`flex-1 py-2 rounded-[10px] items-center relative ${tab === 'propuestas' ? 'bg-paper shadow-sm' : ''}`}
-          >
-            <Text className={`text-sm font-semibold ${tab === 'propuestas' ? 'text-ink' : 'text-ink-soft'}`}>
-              Propuestas
-            </Text>
-            {proposals.length > 0 && (
-              <View className="absolute top-1 right-3 w-4 h-4 rounded-full bg-terracotta items-center justify-center">
-                <Text className="text-paper text-micro font-bold">{proposals.length}</Text>
+        {/* 1. Lo urgente primero: propuestas abiertas esperando tu voto */}
+        <View>
+          <View className="mb-8">
+            {/* El vacío enseña el mecanismo, que es lo que NN/g pide para un empty
+                state. Antes decía "Todo tranquilo · Propón un hábito desde el
+                catálogo": nombraba el catálogo sin explicar qué pasa tras proponer.
+                Ya no hace falta un botón que lleve allá — el catálogo quedó justo
+                debajo, en la misma columna. */}
+            {proposals.length === 0 ? (
+              <View className="rounded-3xl bg-paper border border-hairline py-10 px-6 items-center justify-center shadow-sm">
+                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS ABIERTAS</Text>
+                <Text className="font-serif text-xl font-semibold text-ink mb-2">Nadie ha propuesto nada</Text>
+                <Text className="text-xs text-ink-soft text-center leading-relaxed mb-4">
+                  Cualquiera del squad puede proponer un hábito. Si gana la mayoría de
+                  los votos se le asigna a todos y les aparece en su Hoy.
+                </Text>
+              </View>
+            ) : (
+              <View className="gap-3">
+                {voteErr ? (
+                  <Text className="text-sm text-coral-deep font-medium px-1">{voteErr}</Text>
+                ) : null}
+
+                {proposals.map((p) => {
+                  const hasUserVoted = voted.has(p.id);
+                  const progress = getVoteProgress(p);
+
+                  return (
+                    <View key={p.id} className="rounded-3xl bg-paper border border-hairline p-5 shadow-sm">
+                      <View className="flex-row items-start justify-between gap-2 mb-3">
+                        <View className="flex-1">
+                          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
+                            {PROPOSAL_LABEL[p.type] ?? p.type}
+                          </Text>
+                          {p.habit_id ? (
+                            <Text className="font-semibold text-sm text-ink mt-0.5">
+                              {getHabitName(p.habit_id)}
+                            </Text>
+                          ) : p.target_user_id ? (
+                            <Text className="font-semibold text-sm text-ink mt-0.5">
+                              {getMemberName(p.target_user_id)}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View className="rounded-full bg-amber-soft px-2.5 py-0.5">
+                          <Text className="text-micro font-bold text-amber-deep">ABIERTA</Text>
+                        </View>
+                      </View>
+
+                      {/* Progress Bar */}
+                      <View className="mb-4">
+                        <View className="flex-row justify-between text-xs text-ink-soft mb-1">
+                          <Text className="text-xs text-ink-soft">{getQuorumLabel(p)}</Text>
+                          <Text className="text-xs text-ink-soft font-bold">{progress}%</Text>
+                        </View>
+                        <View className="h-1.5 rounded-full bg-hairline overflow-hidden">
+                          <View className="h-full rounded-full bg-sage-deep" style={{ width: `${progress}%` }} />
+                        </View>
+                      </View>
+
+                      {/* Vote actions */}
+                      {!hasUserVoted ? (
+                        <View className="flex-row gap-2">
+                          <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            disabled={votingID === p.id}
+                            activeOpacity={0.8}
+                            onPress={() => castVote(p.id, true)}
+                            className="flex-1 rounded-full bg-sage-deep py-2.5 items-center justify-center"
+                          >
+                            {votingID === p.id ? (
+                              <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                              <Text className="text-paper font-bold text-xs">✓ Aprobar</Text>
+                            )}
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                            disabled={votingID === p.id}
+                            activeOpacity={0.8}
+                            onPress={() => castVote(p.id, false)}
+                            className="flex-1 rounded-full border border-hairline bg-paper py-2.5 items-center justify-center"
+                          >
+                            <Text className="text-ink-soft font-bold text-xs">✗ Rechazar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View className="rounded-full bg-sage-soft py-2.5 items-center justify-center">
+                          <Text className="text-sage-deep font-bold text-xs">✓ Ya votaste</Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            activeOpacity={0.8}
-            onPress={openHistory}
-            className={`flex-1 py-2 rounded-[10px] items-center ${tab === 'historial' ? 'bg-paper shadow-sm' : ''}`}
-          >
-            <Text className={`text-sm font-semibold ${tab === 'historial' ? 'text-ink' : 'text-ink-soft'}`}>
-              Historial
-            </Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Catalog Tab */}
-        {tab === 'catalogo' && (
+        {/* 2. Proponer: el catalogo va DEBAJO de lo urgente */}
+        <View>
           <View className="gap-5">
             <Text className="text-xs text-ink-soft px-1">
               Propón un hábito para todo el squad. Requiere votación mayoritaria.
@@ -360,117 +420,30 @@ export default function ProposalsScreen() {
               </View>
             )}
           </View>
-        )}
+        </View>
 
-        {/* Proposals Tab */}
-        {tab === 'propuestas' && (
-          <View className="mb-8">
-            {/* El vacío enseña el mecanismo y ofrece la vía directa a la tarea que
-                lo llenaría — las dos guías de NN/g para estados vacíos. Antes decía
-                "Todo tranquilo · Propón un hábito desde el catálogo", que nombra el
-                catálogo sin llevar a él y sin explicar qué pasa tras proponer. */}
-            {proposals.length === 0 ? (
-              <View className="rounded-3xl bg-paper border border-hairline py-10 px-6 items-center justify-center shadow-sm">
-                <Text className="text-micro font-bold text-ink-faint tracking-wider uppercase mb-2">SIN PROPUESTAS ABIERTAS</Text>
-                <Text className="font-serif text-xl font-semibold text-ink mb-2">Nadie ha propuesto nada</Text>
-                <Text className="text-xs text-ink-soft text-center leading-relaxed mb-4">
-                  Cualquiera del squad puede proponer un hábito. Si gana la mayoría de
-                  los votos se le asigna a todos y les aparece en su Hoy.
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setTab('catalogo')}
-                  accessibilityRole="button"
-                  className="rounded-full bg-sage-deep px-5 min-h-[48px] justify-center"
-                >
-                  <Text className="text-paper text-sm font-bold">Ver el catálogo</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="gap-3">
-                {voteErr ? (
-                  <Text className="text-sm text-coral-deep font-medium px-1">{voteErr}</Text>
-                ) : null}
 
-                {proposals.map((p) => {
-                  const hasUserVoted = voted.has(p.id);
-                  const progress = getVoteProgress(p);
+        {/* Material 3 prohibe modelar contenido secuencial como tabs ("Use tabs to
+            group related content, not sequential content"), y catalogo -> propuesta
+            -> historial es un ciclo de vida, no tres vistas hermanas. Ademas NN/g
+            pide no esconder lo que se usa seguido: una propuesta abierta dura 24h y
+            estaba detras de una pestaña. Ahora es una sola columna con lo urgente
+            arriba, y el historial —que se consulta rara vez— tras este boton. */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={toggleHistory}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showHistory }}
+          className="flex-row items-center justify-between rounded-3xl bg-surface border border-hairline/60 px-5 min-h-[48px] mt-2 mb-6"
+        >
+          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
+            HISTORIAL DE DECISIONES
+          </Text>
+          <Text className="text-ink-faint text-base">{showHistory ? '⌃' : '⌄'}</Text>
+        </TouchableOpacity>
 
-                  return (
-                    <View key={p.id} className="rounded-3xl bg-paper border border-hairline p-5 shadow-sm">
-                      <View className="flex-row items-start justify-between gap-2 mb-3">
-                        <View className="flex-1">
-                          <Text className="text-micro font-bold text-ink-soft tracking-wider uppercase">
-                            {PROPOSAL_LABEL[p.type] ?? p.type}
-                          </Text>
-                          {p.habit_id ? (
-                            <Text className="font-semibold text-sm text-ink mt-0.5">
-                              {getHabitName(p.habit_id)}
-                            </Text>
-                          ) : p.target_user_id ? (
-                            <Text className="font-semibold text-sm text-ink mt-0.5">
-                              {getMemberName(p.target_user_id)}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <View className="rounded-full bg-amber-soft px-2.5 py-0.5">
-                          <Text className="text-micro font-bold text-amber-deep">ABIERTA</Text>
-                        </View>
-                      </View>
-
-                      {/* Progress Bar */}
-                      <View className="mb-4">
-                        <View className="flex-row justify-between text-xs text-ink-soft mb-1">
-                          <Text className="text-xs text-ink-soft">{getQuorumLabel(p)}</Text>
-                          <Text className="text-xs text-ink-soft font-bold">{progress}%</Text>
-                        </View>
-                        <View className="h-1.5 rounded-full bg-hairline overflow-hidden">
-                          <View className="h-full rounded-full bg-sage-deep" style={{ width: `${progress}%` }} />
-                        </View>
-                      </View>
-
-                      {/* Vote actions */}
-                      {!hasUserVoted ? (
-                        <View className="flex-row gap-2">
-                          <TouchableOpacity
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            disabled={votingID === p.id}
-                            activeOpacity={0.8}
-                            onPress={() => castVote(p.id, true)}
-                            className="flex-1 rounded-full bg-sage-deep py-2.5 items-center justify-center"
-                          >
-                            {votingID === p.id ? (
-                              <ActivityIndicator size="small" color="#FFFFFF" />
-                            ) : (
-                              <Text className="text-paper font-bold text-xs">✓ Aprobar</Text>
-                            )}
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                            disabled={votingID === p.id}
-                            activeOpacity={0.8}
-                            onPress={() => castVote(p.id, false)}
-                            className="flex-1 rounded-full border border-hairline bg-paper py-2.5 items-center justify-center"
-                          >
-                            <Text className="text-ink-soft font-bold text-xs">✗ Rechazar</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <View className="rounded-full bg-sage-soft py-2.5 items-center justify-center">
-                          <Text className="text-sage-deep font-bold text-xs">✓ Ya votaste</Text>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Historial Tab */}
-        {tab === 'historial' && (
+        {/* 3. El historial se consulta rara vez -> disclosure progresivo */}
+        {showHistory && (
           <View className="mb-8">
             {resolvedProposals.length === 0 ? (
               <View className="rounded-3xl bg-paper border border-hairline py-12 items-center justify-center shadow-sm">
