@@ -393,7 +393,10 @@ export default function TodayScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Pulso del squad */}
-        <View className="rounded-3xl bg-paper border border-hairline p-4 mb-4 shadow-sm">
+        {/* Nivel 3 (ambiente): sin sombra y sobre `surface`, se recuesta en la
+            pagina. Antes las cuatro tarjetas de esta pantalla eran identicas
+            (paper + border + shadow-sm) y por eso nada destacaba. */}
+        <View className="rounded-3xl bg-surface border border-hairline/60 p-4 mb-4">
           <View className="flex-row justify-between items-center mb-3">
             <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase">
               EL SQUAD HOY
@@ -528,8 +531,11 @@ export default function TodayScreen() {
           )}
         </View>
 
-        {/* Tu Turno Card */}
-        <View className="rounded-3xl bg-paper border border-hairline p-5 mb-5 shadow-sm">
+        {/* Nivel 1 (heroe): esta es la accion por la que se abre la app cada
+            mañana, asi que es la unica tarjeta elevada — sin borde, mas padding y
+            la pregunta un grado mas grande. La jerarquia se logra demoviendo lo
+            secundario, no rompiendo el countdown, que ya funciona. */}
+        <View className="rounded-3xl bg-paper p-6 mb-5 shadow-lg">
           <View className="flex-row justify-between items-start mb-1">
             <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mt-1">TU TURNO</Text>
             <View className="items-end">
@@ -538,7 +544,7 @@ export default function TodayScreen() {
             </View>
           </View>
 
-          <Text className="font-serif text-2xl font-semibold text-ink mb-3 leading-tight">
+          <Text className="font-serif text-3xl font-semibold text-ink mb-4 leading-tight">
             ¿Ya hiciste el tuyo?
           </Text>
 
@@ -591,7 +597,8 @@ export default function TodayScreen() {
         </View>
 
         {/* Summary Numbers */}
-        <View className="rounded-3xl bg-paper border border-hairline flex-row text-center mb-6 overflow-hidden shadow-sm">
+        {/* Nivel 3 (ambiente). */}
+        <View className="rounded-3xl bg-surface border border-hairline/60 flex-row text-center mb-6 overflow-hidden">
           <View className="flex-1 py-4 items-center justify-center">
             <Text className="font-serif text-2xl font-semibold text-sage-deep">{stats.done}</Text>
             <Text className="text-[10px] text-ink-soft mt-0.5">

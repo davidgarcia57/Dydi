@@ -267,7 +267,11 @@ onUnmounted(() => {
     </header>
 
     <!-- ── Pulso del squad ────────────────────────────────────────────────── -->
-    <div v-if="group.members.length" class="rounded-card bg-paper shadow-flat p-4 mb-4">
+    <!-- Nivel 3 (ambiente): sin sombra y sobre `surface`, se recuesta en la página. -->
+    <div
+      v-if="group.members.length"
+      class="rounded-card bg-surface border border-hairline/60 p-4 mb-4"
+    >
       <div class="flex items-center justify-between mb-3">
         <span class="text-eyebrow">EL SQUAD HOY</span>
         <span v-if="onlineCount" class="inline-flex items-center gap-1 text-eyebrow text-sage-deep">
@@ -401,7 +405,10 @@ onUnmounted(() => {
         </div>
 
         <!-- ── My check-in card ───────────────────────────────────────────────── -->
-        <div class="rounded-card shadow-card bg-paper p-5 mb-5">
+        <!-- Nivel 1 (héroe): la acción por la que se abre la app. Es la única
+             tarjeta con sombra profunda y padding extra; el countdown se queda en
+             su nivel y el pulso baja a ambiente. -->
+        <div class="rounded-card shadow-lg bg-paper p-6 mb-5">
           <div class="flex justify-between items-start mb-1">
             <span class="text-eyebrow">TU TURNO</span>
             <div class="text-right">
@@ -412,7 +419,7 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <h2 class="font-serif text-2xl font-semibold text-ink mb-3 leading-snug">
+          <h2 class="font-serif text-3xl font-semibold text-ink mb-4 leading-snug">
             ¿Ya hiciste el tuyo?
           </h2>
 
