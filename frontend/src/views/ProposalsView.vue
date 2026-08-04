@@ -17,7 +17,6 @@ const loading = ref(true)
 const historyLoaded = ref(false)
 const proposing = ref(null) // habitID currently being proposed
 const proposeErr = ref('')
-const proposeOk = ref(null) // habitID of last successful proposal
 const votingID = ref(null) // proposalID being voted on
 const voteErr = ref('')
 
@@ -25,6 +24,28 @@ const voteErr = ref('')
 const assignedHabitIDs = computed(() => {
   return new Set(habits.todayCheckins.map((c) => c.habit_id))
 })
+
+// "Ya lo propusiste" se deriva de las propuestas abiertas del servidor
+// (GET /proposals ya devuelve solo las open), nunca de un ref local: un ref se
+// vacía al desmontar la vista, así que al volver a entrar el catálogo ofrecía
+// "+ Proponer" un hábito que ya tenía propuesta abierta — y el índice parcial
+// uq_proposals_one_open_habit rechaza la segunda, o sea que el botón mentía y
+// luego tronaba. Un ref tampoco alcanzaba para dos propuestas a la vez.
+const openProposalHabitIDs = computed(() => {
+  const byType = { add_habit: new Set(), remove_habit: new Set() }
+  for (const p of store.proposals) {
+    if (p.habit_id && byType[p.type]) byType[p.type].add(p.habit_id)
+  }
+  return byType
+})
+
+function isProposedToAdd(habitID) {
+  return openProposalHabitIDs.value.add_habit.has(habitID)
+}
+
+function isProposedToRemove(habitID) {
+  return openProposalHabitIDs.value.remove_habit.has(habitID)
+}
 
 const availableHabits = computed(() => {
   return store.catalog.filter((h) => !assignedHabitIDs.value.has(h.id))
@@ -78,12 +99,14 @@ function quorumLabel(p) {
 }
 
 async function propose(habit, type = 'add_habit') {
-  if (proposing.value || proposeOk.value === habit.id) return
+  const already = type === 'remove_habit' ? isProposedToRemove(habit.id) : isProposedToAdd(habit.id)
+  if (proposing.value || already) return
   proposing.value = habit.id
   proposeErr.value = ''
   try {
+    // store.propose() mete la propuesta nueva en la lista, así que el badge
+    // aparece de inmediato sin esperar un refetch.
     await store.propose(group.group.id, type, { habitID: habit.id })
-    proposeOk.value = habit.id
     tab.value = 'propuestas'
   } catch (e) {
     proposeErr.value = e?.error ?? e?.message ?? 'No se pudo crear la propuesta.'
@@ -112,10 +135,14 @@ onMounted(async () => {
       router.replace('/onboarding')
       return
     }
+    // loadToday se pide SIEMPRE, no solo cuando el array está vacío: de ahí sale
+    // "ya en el grupo", así que reusar la copia que dejó otra vista hacía que un
+    // hábito recién aprobado siguiera apareciendo como disponible hasta recargar
+    // la página entera (que es lo único que vaciaba el store).
     await Promise.all([
       store.loadCatalog(),
       store.loadProposals(group.group.id),
-      habits.todayCheckins.length === 0 ? habits.loadToday(group.group.id) : Promise.resolve(),
+      habits.loadToday(group.group.id),
     ])
   } catch (_) {
     // errors surfaced inline; page renders with whatever loaded
@@ -215,7 +242,7 @@ onMounted(async () => {
                 </div>
 
                 <button
-                  v-if="proposeOk === habit.id"
+                  v-if="isProposedToAdd(habit.id)"
                   class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft rounded-full px-3 py-1.5"
                 >
                   ✓ Propuesto
@@ -263,7 +290,7 @@ onMounted(async () => {
                 </div>
 
                 <button
-                  v-if="proposeOk === habit.id"
+                  v-if="isProposedToRemove(habit.id)"
                   class="flex-shrink-0 text-[10px] font-bold text-sage-deep bg-sage-soft rounded-full px-3 py-1.5"
                 >
                   ✓ Propuesto

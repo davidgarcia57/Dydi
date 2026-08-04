@@ -2,6 +2,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
 import { usePenaltiesStore } from '@/stores/penalties'
+import { useProposalsStore } from '@/stores/proposals'
 
 // Not a Vue composable — call from anywhere (including onMounted).
 // Returns { disconnect } to call in the parent's onUnmounted.
@@ -10,6 +11,7 @@ export function useGroupSocket(groupID) {
   const groupStore = useGroupStore()
   const habitsStore = useHabitsStore()
   const penaltiesStore = usePenaltiesStore()
+  const proposalsStore = useProposalsStore()
 
   // Each handler receives the full Event object (type, groupID, userID, payload).
   // member_online/offline carry userID at the top level; data events carry info in .payload.
@@ -23,6 +25,14 @@ export function useGroupSocket(groupID) {
     roulette_start: (msg) => penaltiesStore.addOpenEntry(msg.payload),
     roulette_result: (msg) => penaltiesStore.setRouletteResult(msg.payload),
     debt_updated: (msg) => penaltiesStore.updateDebt(msg.payload),
+    // Una propuesta aprobada no cambia nada hasta que habits-service asigna el
+    // hábito, y eso ocurre DESPUÉS de que el voto ya respondió 204 (groups lo
+    // aplica en una goroutine que reintenta hasta 120s). Este evento es la única
+    // señal fiable de que aterrizó — para el que votó y para los que no.
+    habits_changed: () => {
+      habitsStore.loadToday(groupID).catch(() => null)
+      proposalsStore.loadProposals(groupID).catch(() => null)
+    },
   }
 
   let ws = null

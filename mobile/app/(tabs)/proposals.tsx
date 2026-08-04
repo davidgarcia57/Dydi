@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useApp } from '../../src/contexts/AppContext';
 import HabitIcon from '../../src/components/ui/HabitIcon';
 
@@ -31,6 +31,7 @@ export default function ProposalsScreen() {
     loadCatalog,
     loadProposals,
     loadResolvedProposals,
+    loadToday,
     propose,
     vote,
   } = useApp();
@@ -40,7 +41,6 @@ export default function ProposalsScreen() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [proposingID, setProposingID] = useState<string | null>(null);
   const [proposeErr, setProposeErr] = useState('');
-  const [proposeOkID, setProposeOkID] = useState<string | null>(null);
   const [votingID, setVotingID] = useState<string | null>(null);
   const [voteErr, setVoteErr] = useState('');
 
@@ -53,7 +53,10 @@ export default function ProposalsScreen() {
       }
       setLoading(true);
       try {
-        await Promise.all([loadCatalog(), loadProposals(group.id)]);
+        // loadToday va aquí porque de sus filas sale "ya en el grupo": si el
+        // usuario entraba directo a Votar sin pasar por Hoy, el catálogo ofrecía
+        // como disponibles hábitos que el squad ya tenía.
+        await Promise.all([loadCatalog(), loadProposals(group.id), loadToday(group.id)]);
       } catch (err) {
         console.error(err);
       } finally {
@@ -62,6 +65,40 @@ export default function ProposalsScreen() {
     }
     loadData();
   }, [group?.id]);
+
+  // Las tabs de expo-router se quedan montadas, así que el efecto de arriba no
+  // vuelve a correr al volver a esta pantalla y se quedaba con el estado del
+  // primer montaje. Se salta el primer focus para no duplicar la carga inicial.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      if (!group?.id) return;
+      loadProposals(group.id).catch(() => null);
+      loadToday(group.id).catch(() => null);
+    }, [group?.id])
+  );
+
+  // "Ya lo propusiste" se deriva de las propuestas abiertas del servidor, nunca
+  // de un state local: el state moría al desmontar y solo aguantaba un hábito a
+  // la vez, así que el catálogo volvía a ofrecer "+ Proponer" algo que ya tenía
+  // propuesta abierta — y uq_proposals_one_open_habit rechaza la segunda.
+  const openProposalHabitIDs = useMemo(() => {
+    const byType: Record<string, Set<string>> = {
+      add_habit: new Set(),
+      remove_habit: new Set(),
+    };
+    for (const p of proposals) {
+      if (p.habit_id && byType[p.type]) byType[p.type].add(p.habit_id);
+    }
+    return byType;
+  }, [proposals]);
+
+  const isProposedToAdd = (habitID: string) => openProposalHabitIDs.add_habit.has(habitID);
+  const isProposedToRemove = (habitID: string) => openProposalHabitIDs.remove_habit.has(habitID);
 
   // Identify assigned habit IDs
   const assignedHabitIDs = useMemo(() => {
@@ -114,12 +151,14 @@ export default function ProposalsScreen() {
   }
 
   async function handlePropose(habit: any, type: 'add_habit' | 'remove_habit') {
-    if (!group?.id || proposingID || proposeOkID === habit.id) return;
+    const already = type === 'remove_habit' ? isProposedToRemove(habit.id) : isProposedToAdd(habit.id);
+    if (!group?.id || proposingID || already) return;
     setProposingID(habit.id);
     setProposeErr('');
     try {
+      // propose() mete la propuesta nueva en la lista, así que el badge aparece
+      // de inmediato sin esperar un refetch.
       await propose(group.id, type, habit.id);
-      setProposeOkID(habit.id);
       setTab('propuestas');
     } catch (e: any) {
       setProposeErr(e?.error ?? e?.message ?? 'No se pudo crear la propuesta.');
@@ -245,7 +284,7 @@ export default function ProposalsScreen() {
                         )}
                       </View>
 
-                      {proposeOkID === habit.id ? (
+                      {isProposedToAdd(habit.id) ? (
                         <View className="bg-sage-soft rounded-full px-3 py-1.5">
                           <Text className="text-[10px] font-bold text-sage-deep">✓ Propuesto</Text>
                         </View>
@@ -290,7 +329,7 @@ export default function ProposalsScreen() {
                         </View>
                       </View>
 
-                      {proposeOkID === habit.id ? (
+                      {isProposedToRemove(habit.id) ? (
                         <View className="bg-sage-soft rounded-full px-3 py-1.5">
                           <Text className="text-[10px] font-bold text-sage-deep">✓ Propuesto</Text>
                         </View>

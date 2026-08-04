@@ -626,7 +626,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // en "Sin conexion en vivo - reconectando..." para siempre. La web lo
     // reconstruye por este mismo motivo.
     async function connectWS() {
-      if (wsClosedRef.current) return;
+      // groupID ya pasó la guarda del effect; repetirlo aquí es lo que conserva el
+      // tipo estrecho dentro de las closures del socket (onmessage lo necesita).
+      if (wsClosedRef.current || !groupID) return;
 
       const { data } = await supabase.auth.getSession();
       const fresh = data.session?.access_token;
@@ -742,6 +744,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   ? prev.filter(d => d.id !== debtPayload.id)
                   : prev.map(d => (d.id === debtPayload.id ? debtPayload : d))
               );
+              break;
+            }
+            case 'habits_changed': {
+              // Una propuesta aprobada no cambia nada hasta que habits-service
+              // asigna el hábito, y eso pasa DESPUÉS de que el voto ya respondió
+              // 204 (groups lo aplica en una goroutine que reintenta hasta 120s).
+              // Este evento es la única señal fiable de que aterrizó — para el que
+              // votó y para los que no.
+              loadToday(groupID).catch(() => null);
+              loadProposals(groupID).catch(() => null);
               break;
             }
             default:

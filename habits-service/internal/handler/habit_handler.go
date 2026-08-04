@@ -341,5 +341,16 @@ func (h *HabitHandler) ApplyProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// La asignación ya es durable: avisa al grupo para que refresque sus hábitos.
+	// Sin este evento el cliente no tiene forma de saber cuándo aterrizó — el voto
+	// que alcanzó quórum responde 204 de inmediato y groups-service aplica la
+	// propuesta en una goroutine que reintenta hasta 120s para sobrevivir un cold
+	// start. El que votó veía la propuesta desaparecer y el hábito seguir
+	// "disponible", y los demás miembros no se enteraban nunca.
+	go h.notifyRealtime(body.GroupID, body.AddedBy, "habits_changed", map[string]string{
+		"habit_id": body.HabitID,
+		"action":   body.Action,
+	})
+
 	w.WriteHeader(http.StatusNoContent)
 }
