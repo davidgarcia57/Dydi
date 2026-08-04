@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp } from '../../src/contexts/AppContext';
+import CleanSlateFigure from '../../src/components/ui/CleanSlateFigure';
 
 // Espeja spinGraceHours del backend: pasado el deadline + gracia, cualquier
 // miembro puede girar por el deudor para que la ruleta nunca muera sin girar.
@@ -542,8 +543,14 @@ export default function ShameScreen() {
               <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3 px-1">DEUDAS ACTIVAS EN EL SQUAD</Text>
               
               {debts.length === 0 ? (
-                <View className="rounded-3xl bg-surface border border-hairline py-8 px-4 items-center justify-center">
-                  <Text className="text-sm text-ink-soft text-center">Sin deudas activas en el grupo.</Text>
+                <View className="rounded-3xl bg-surface border border-hairline py-8 px-6 items-center justify-center">
+                  <CleanSlateFigure size={96} />
+                  <Text className="text-sm font-bold text-sage-deep text-center mt-4">
+                    Sin deudas activas en el grupo.
+                  </Text>
+                  <Text className="text-xs text-ink-faint text-center leading-snug mt-1">
+                    Las penitencias que salgan de la ruleta aparecerán aquí hasta que se paguen.
+                  </Text>
                 </View>
               ) : (
                 <View className="gap-2.5">
@@ -812,6 +819,9 @@ export default function ShameScreen() {
                     <View className="rounded-3xl bg-surface border border-hairline py-6 px-4 items-center justify-center mb-4">
                       <Text className="text-xs text-ink-soft text-center leading-normal">
                         Nadie ha propuesto una penitencia aún.
+                      </Text>
+                      <Text className="text-[11px] text-ink-faint text-center leading-normal mt-1">
+                        Si nadie propone antes de que gire, el squad completo paga.
                       </Text>
                     </View>
                   ) : (

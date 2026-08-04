@@ -12,6 +12,8 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import BrandWordmark from '../../src/components/ui/BrandWordmark';
+import HoySkeleton from '../../src/components/ui/HoySkeleton';
+import SoloSquadFigure from '../../src/components/ui/SoloSquadFigure';
 import SquadPulse from '../../src/components/SquadPulse';
 import TargetGlyph from '../../src/components/ui/TargetGlyph';
 import { missedThisWeek } from '../../src/weekStatus';
@@ -41,6 +43,17 @@ function getAvatarBg(name = '') {
 }
 
 const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+
+// Segmentos de la semana personal. El color aqui SI es semantico (cumplio /
+// pendiente / fallo), asi que usar sage/amber/coral es correcto.
+const MY_WEEK_SEGMENT: Record<string, string> = {
+  done: 'bg-sage',
+  partial: 'bg-sage/50',
+  pending: 'bg-amber',
+  missed: 'bg-coral',
+  untracked: 'bg-hairline/40',
+  future: 'border border-hairline',
+};
 
 const STATUS_STYLE: Record<string, { strip: string; icon: string; iconColor: string }> = {
   done: { strip: 'bg-sage', icon: '✓', iconColor: 'text-sage-deep' },
@@ -196,6 +209,46 @@ export default function TodayScreen() {
     return total ? Math.round((stats.done / total) * 100) : 0;
   }, [members.length, stats.done]);
 
+  // Con un solo miembro, "0 de 1 al corriente" es una metrica de grupo sin grupo.
+  // La solucion documentada al cold start problem es dar utilidad de un solo
+  // usuario, asi que ahi la app se comporta como tracker personal: se muestra SU
+  // semana L-V, que es dato real y ya cargado, en vez de un hueco con forma de
+  // squad. Las funciones de grupo siguen ahi como upgrade evidente.
+  const isSolo = members.length <= 1;
+
+  const myWeek = useMemo(() => {
+    const mine = todayCheckins.filter((c) => c.user_id === user?.id);
+    const dow = new Date().getDay();
+    const todayIdx = dow === 0 ? 6 : dow - 1;
+
+    return [0, 1, 2, 3, 4].map((i) => {
+      if (i > todayIdx) return 'future';
+      const d = new Date();
+      d.setDate(d.getDate() - (todayIdx - i));
+      const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+        d.getDate()
+      ).padStart(2, '0')}`;
+
+      // Los dias previos a que el habito se asignara no se juzgan.
+      const tracked = mine.filter((c) => !c.tracked_since || date >= c.tracked_since);
+      if (!tracked.length) return 'untracked';
+
+      if (i === todayIdx) {
+        if (tracked.every((c) => c.status === 'done')) return 'done';
+        return tracked.some((c) => c.status === 'pending') ? 'pending' : 'missed';
+      }
+
+      const hit = tracked.filter((c) =>
+        weekHistory[`${c.user_id}:${c.habit_id}`]?.has(date)
+      ).length;
+      if (hit === tracked.length) return 'done';
+      return hit > 0 ? 'partial' : 'missed';
+    });
+  }, [todayCheckins, weekHistory, user?.id]);
+
+  const myWeekDone = myWeek.filter((s) => s === 'done').length;
+  const myWeekJudged = myWeek.filter((s) => s !== 'future' && s !== 'untracked').length;
+
   // Online members
   const onlineAvatars = useMemo(() => {
     const allSquad = [...members, { user_id: user?.id, display_name: user?.user_metadata?.display_name || 'Tú' }];
@@ -283,11 +336,7 @@ export default function TodayScreen() {
   }
 
   if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-cream">
-        <ActivityIndicator size="large" color="#7CA39D" />
-      </View>
-    );
+    return <HoySkeleton />;
   }
 
   if (loadError) {
@@ -435,15 +484,48 @@ export default function TodayScreen() {
               (o el viejo "0 de 1") era ruido antes de tener la data real. */}
           <View className="flex-row justify-between text-xs mb-1.5">
             <Text className="text-ink-faint">Semana {weekNumber}</Text>
-            {members.length > 0 && (
+            {isSolo ? (
+              myWeekJudged > 0 && (
+                <Text className="text-terracotta font-semibold">
+                  Tu semana · {myWeekDone} de {myWeekJudged}
+                </Text>
+              )
+            ) : (
               <Text className="text-terracotta font-semibold">
                 {stats.done} de {members.length} al corriente
               </Text>
             )}
           </View>
-          <View className="h-2 rounded-full bg-hairline overflow-hidden">
-            <View className="h-full rounded-full bg-terracotta" style={{ width: `${progressPct}%` }} />
-          </View>
+          {/* Un segmento por miembro en vez de una barra continua: con el squad
+              chico, "0 de 1" pintaba una barra plana vacía que se leía como algo
+              roto. Segmentado, cada hueco es un miembro identificable. Arriba de
+              8 miembros vuelve a barra, donde ya no se distinguirían. */}
+          {isSolo ? (
+            // Tracker personal: L-V con el estado real de cada dia.
+            <View className="flex-row gap-1">
+              {myWeek.map((status, i) => (
+                <View key={i} className={`flex-1 h-2 rounded-full ${MY_WEEK_SEGMENT[status]}`} />
+              ))}
+            </View>
+          ) : members.length > 0 && members.length <= 8 ? (
+            <View className="flex-row gap-1">
+              {Array.from({ length: members.length }).map((_, i) => (
+                <View
+                  key={i}
+                  className={`flex-1 h-2 rounded-full ${
+                    i < stats.done ? 'bg-terracotta' : 'border border-hairline'
+                  }`}
+                />
+              ))}
+            </View>
+          ) : (
+            <View className="h-2 rounded-full bg-hairline overflow-hidden">
+              <View
+                className="h-full rounded-full bg-terracotta"
+                style={{ width: `${progressPct}%` }}
+              />
+            </View>
+          )}
         </View>
 
         {/* Tu Turno Card */}
@@ -552,7 +634,8 @@ export default function TodayScreen() {
                 </Text>
               ) : (
                 <>
-                  <Text className="text-sm text-ink-soft text-center leading-snug mb-3">
+                  <SoloSquadFigure size={104} />
+                  <Text className="text-sm text-ink-soft text-center leading-snug mb-3 mt-4">
                     Por ahora el squad eres tú. Invita a alguien y compara semanas.
                   </Text>
                   <TouchableOpacity

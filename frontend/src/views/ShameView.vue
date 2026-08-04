@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { api } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
@@ -487,7 +487,16 @@ onMounted(load)
           </div>
 
           <div v-else class="rounded-card bg-surface p-4 text-sm text-ink-soft">
-            Todavía no tienes un grupo activo.
+            <p class="mb-1">Todavía no tienes un grupo activo.</p>
+            <p class="text-xs text-ink-faint mb-3">
+              Tus penitencias y tu racha viven dentro de un squad.
+            </p>
+            <RouterLink
+              to="/onboarding"
+              class="inline-block rounded-pill bg-terracotta px-5 py-2 text-xs font-bold text-paper hover:opacity-90 transition-opacity"
+            >
+              Crear o unirme a un squad
+            </RouterLink>
           </div>
         </section>
       </aside>

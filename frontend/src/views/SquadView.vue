@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useGroupStore } from '@/stores/group'
 import { useHabitsStore } from '@/stores/habits'
@@ -198,7 +199,18 @@ onUnmounted(() => socketDisconnect?.())
       class="rounded-card bg-surface border border-hairline py-10 text-center text-sm text-ink-soft"
     >
       <span v-if="!loaded">Cargando el squad…</span>
-      <span v-else>Ningún miembro tiene hábitos asignados todavía.</span>
+      <template v-else>
+        <p class="mb-1">Ningún miembro tiene hábitos asignados todavía.</p>
+        <p class="text-xs text-ink-faint mb-4">
+          La semana del squad aparece cuando el grupo aprueba su primer hábito.
+        </p>
+        <RouterLink
+          to="/propuestas"
+          class="inline-block rounded-pill border border-hairline bg-paper px-5 py-2 text-xs font-bold text-ink-soft hover:bg-cream-2 transition-colors"
+        >
+          Proponer un hábito
+        </RouterLink>
+      </template>
     </div>
 
     <template v-else>

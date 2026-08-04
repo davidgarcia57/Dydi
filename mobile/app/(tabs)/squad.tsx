@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Share, Clipboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useApp, type Checkin } from '../../src/contexts/AppContext';
 import { mondayIndex } from '../../src/weekStatus';
+import SoloSquadFigure from '../../src/components/ui/SoloSquadFigure';
 
 const AVATAR_COLORS = [
   'bg-sage-deep',
@@ -108,6 +110,7 @@ function isPerfectWeek(cells: CellStatus[]): boolean {
 }
 
 export default function SquadScreen() {
+  const router = useRouter();
   const { user } = useAuth();
   const { group, members, onlineMembers, todayCheckins, weekHistory, streaks, propose } = useApp();
 
@@ -189,8 +192,20 @@ export default function SquadScreen() {
 
       <ScrollView className="flex-1 px-6 py-4" showsVerticalScrollIndicator={false}>
         {!group ? (
-          <View className="rounded-3xl bg-paper border border-hairline py-10 items-center">
-            <Text className="text-sm text-ink-soft">Todavía no estás en un squad.</Text>
+          <View className="rounded-3xl bg-paper border border-hairline py-10 px-6 items-center">
+            <Text className="text-sm text-ink-soft text-center leading-snug mb-1">
+              Todavía no estás en un squad.
+            </Text>
+            <Text className="text-xs text-ink-faint text-center leading-snug mb-4">
+              Aquí verás la semana del equipo en cuanto entres a uno.
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => router.push('/onboarding')}
+              className="rounded-full bg-terracotta px-6 py-3"
+            >
+              <Text className="text-paper font-bold text-xs">Crear o unirme a un squad</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -204,9 +219,19 @@ export default function SquadScreen() {
               </View>
 
               {!squadRows.length ? (
-                <Text className="text-xs text-ink-soft py-4 text-center">
-                  Ningún miembro tiene hábitos asignados todavía.
-                </Text>
+                <View className="py-4 items-center">
+                  <Text className="text-xs text-ink-soft text-center leading-snug mb-3">
+                    Ningún miembro tiene hábitos asignados todavía, así que no hay semana que
+                    mostrar.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => router.push('/proposals')}
+                    className="rounded-full border border-hairline bg-surface px-5 py-2.5"
+                  >
+                    <Text className="text-ink-soft font-bold text-xs">Proponer un hábito</Text>
+                  </TouchableOpacity>
+                </View>
               ) : (
                 <>
                   {/* Encabezado de días */}
@@ -371,6 +396,18 @@ export default function SquadScreen() {
               <Text className="text-[10px] font-bold text-ink-soft tracking-wider uppercase mb-3">
                 INVITAR AL SQUAD
               </Text>
+
+              {/* Con un solo miembro esta pantalla queda hueca: la figura le da
+                  cuerpo justo donde la acción es crecer el squad. Con gente ya
+                  dentro no hace falta, seria decoración. */}
+              {members.length <= 1 && (
+                <View className="items-center pb-4">
+                  <SoloSquadFigure size={104} />
+                  <Text className="text-xs text-ink-soft text-center leading-snug mt-3">
+                    Un squad completo son 8. Comparte el código y empieza a comparar semanas.
+                  </Text>
+                </View>
+              )}
 
               <View className="rounded-2xl bg-cream-2 border border-hairline/60 p-4 mb-4">
                 <Text className="text-[9px] font-bold text-ink-soft tracking-wider uppercase mb-1">

@@ -752,7 +752,10 @@ onUnmounted(() => {
               v-if="!penalties.suggestions.length"
               class="rounded-card bg-surface border border-hairline px-4 py-5 text-center text-sm text-ink-soft mb-3"
             >
-              Nadie ha propuesto una penitencia aún.
+              <p>Nadie ha propuesto una penitencia aún.</p>
+              <p class="text-xs text-ink-faint mt-1">
+                Si nadie propone antes de que gire, el squad completo paga.
+              </p>
             </div>
 
             <div v-else class="flex flex-wrap gap-2 mb-3">

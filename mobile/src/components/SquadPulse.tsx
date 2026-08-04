@@ -1,9 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import TargetGlyph from './ui/TargetGlyph';
 import { missedThisWeek, todayStatus } from '../weekStatus';
+
+// Tope de miembros por grupo (lo impone un trigger en la BD).
+const SQUAD_CAPACITY = 8;
 
 // Pulso del squad: de un vistazo, quién ya cumplió hoy (anillo salvia), quién
 // va pendiente (ámbar), quién dejó ir el día (coral), quién está en riesgo de
@@ -40,6 +44,7 @@ function avatarBg(name = '') {
 }
 
 export default function SquadPulse() {
+  const router = useRouter();
   const { user } = useAuth();
   const { members, onlineMembers, todayCheckins, weekHistory } = useApp();
 
@@ -65,7 +70,15 @@ export default function SquadPulse() {
 
   if (!pulse.length) return null;
 
+  // Los lugares libres se dibujan como anillos punteados hasta el tope de 8. Con
+  // un solo miembro esta tarjeta era un avatar y 80% de espacio muerto; asi el
+  // vacio deja de ser un defecto y se vuelve informacion ("1 de 8"), que es la
+  // tercera guia de NN/g para estados vacios: bajo que circunstancias apareceran
+  // los datos. El primer lugar libre es tappable e invita.
+  const freeSeats = Math.max(0, SQUAD_CAPACITY - pulse.length);
+
   return (
+    <>
     <View className="flex-row flex-wrap" style={{ columnGap: 14, rowGap: 10 }}>
       {pulse.map((m) => (
         <View key={m.user_id} className="items-center w-14">
@@ -91,6 +104,39 @@ export default function SquadPulse() {
           </Text>
         </View>
       ))}
+
+      {Array.from({ length: freeSeats }).map((_, i) =>
+        i === 0 ? (
+          <TouchableOpacity
+            key="seat-invite"
+            activeOpacity={0.7}
+            onPress={() => router.push('/squad')}
+            className="items-center w-14"
+          >
+            <View className="rounded-full border-2 border-dashed border-hairline p-0.5">
+              <View className="w-9 h-9 rounded-full items-center justify-center">
+                <Text className="text-ink-faint text-base font-bold leading-none">+</Text>
+              </View>
+            </View>
+            <Text className="text-[10px] font-semibold text-ink-faint mt-1" numberOfLines={1}>
+              Invitar
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <View key={`seat-${i}`} className="items-center w-14">
+            <View className="rounded-full border-2 border-dashed border-hairline/60 p-0.5">
+              <View className="w-9 h-9 rounded-full" />
+            </View>
+          </View>
+        )
+      )}
     </View>
+
+    {freeSeats > 0 && (
+      <Text className="text-[10px] text-ink-faint mt-3">
+        {pulse.length} de {SQUAD_CAPACITY} lugares · quedan {freeSeats}
+      </Text>
+    )}
+    </>
   );
 }
